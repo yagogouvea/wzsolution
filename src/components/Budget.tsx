@@ -33,16 +33,31 @@ export default function Budget() {
   const onSubmit = async (data: BudgetFormData) => {
     setIsSubmitting(true);
     
-    // Simular envio do formulário
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    console.log('Dados do orçamento:', data);
-    setIsSubmitted(true);
-    setIsSubmitting(false);
-    reset();
-    
-    // Resetar mensagem de sucesso após 5 segundos
-    setTimeout(() => setIsSubmitted(false), 5000);
+    try {
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        setIsSubmitted(true);
+        reset();
+        // Resetar mensagem de sucesso após 5 segundos
+        setTimeout(() => setIsSubmitted(false), 5000);
+      } else {
+        const errorData = await response.json();
+        console.error('Erro ao enviar email:', errorData);
+        alert('Erro ao enviar solicitação. Tente novamente.');
+      }
+    } catch (error) {
+      console.error('Erro ao enviar email:', error);
+      alert('Erro ao enviar solicitação. Tente novamente.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const containerVariants = {

@@ -13,11 +13,13 @@
     "dev-clean": "npm run clean && npm run dev"
   },
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.914.0",
     "@hookform/resolvers": "^5.2.2",
     "autoprefixer": "^10.4.21",
     "framer-motion": "^12.23.24",
     "lucide-react": "^0.546.0",
     "next": "15.5.5",
+    "nodemailer": "^7.0.10",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-hook-form": "^7.65.0",
@@ -27,6 +29,7 @@
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4.1.14",
     "@types/node": "^20",
+    "@types/nodemailer": "^7.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
