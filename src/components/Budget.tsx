@@ -1,0 +1,278 @@
+'use client';
+
+import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Mail, Phone, Send, CheckCircle } from 'lucide-react';
+
+const budgetSchema = z.object({
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  email: z.string().email('E-mail inválido'),
+  whatsapp: z.string().min(10, 'WhatsApp deve ter pelo menos 10 caracteres'),
+  projectType: z.string().min(1, 'Selecione o tipo de projeto'),
+  description: z.string().min(10, 'Descrição deve ter pelo menos 10 caracteres')
+});
+
+type BudgetFormData = z.infer<typeof budgetSchema>;
+
+export default function Budget() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm<BudgetFormData>({
+    resolver: zodResolver(budgetSchema),
+  });
+
+  const onSubmit = async (data: BudgetFormData) => {
+    setIsSubmitting(true);
+    
+    // Simular envio do formulário
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    console.log('Dados do orçamento:', data);
+    setIsSubmitted(true);
+    setIsSubmitting(false);
+    reset();
+    
+    // Resetar mensagem de sucesso após 5 segundos
+    setTimeout(() => setIsSubmitted(false), 5000);
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.2,
+        delayChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { y: 30, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+    },
+  };
+
+  if (isSubmitted) {
+    return (
+      <section id="budget" className="py-20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="glass rounded-2xl p-12"
+          >
+            <CheckCircle className="w-20 h-20 text-green-400 mx-auto mb-6" />
+            <h2 className="text-3xl font-bold text-white mb-4">
+              Orçamento Enviado com Sucesso!
+            </h2>
+            <p className="text-slate-300 text-lg">
+              Recebemos sua solicitação e entraremos em contato em breve.
+            </p>
+          </motion.div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section id="budget" className="py-20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.3 }}
+          className="text-center mb-16"
+        >
+          <motion.h2
+            variants={itemVariants}
+            className="text-4xl sm:text-5xl font-bold text-white mb-6"
+          >
+            Solicite seu Orçamento
+          </motion.h2>
+          
+          <motion.p
+            variants={itemVariants}
+            className="text-xl text-slate-300 max-w-3xl mx-auto"
+          >
+            Conte-nos sobre seu projeto e receba uma proposta personalizada
+          </motion.p>
+        </motion.div>
+
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          className="grid lg:grid-cols-2 gap-12 max-w-6xl mx-auto"
+        >
+          {/* Form */}
+          <motion.div variants={itemVariants} className="glass rounded-2xl p-8">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              <div>
+                <label className="block text-white font-semibold mb-2">
+                  Nome completo
+                </label>
+                <input
+                  {...register('name')}
+                  className="form-input"
+                  placeholder="Seu nome completo"
+                />
+                {errors.name && (
+                  <p className="error-message">{errors.name.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-white font-semibold mb-2">
+                  E-mail
+                </label>
+                <input
+                  {...register('email')}
+                  type="email"
+                  className="form-input"
+                  placeholder="seu@email.com"
+                />
+                {errors.email && (
+                  <p className="error-message">{errors.email.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-white font-semibold mb-2">
+                  WhatsApp
+                </label>
+                <input
+                  {...register('whatsapp')}
+                  className="form-input"
+                  placeholder="(11) 99999-9999"
+                />
+                {errors.whatsapp && (
+                  <p className="error-message">{errors.whatsapp.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-white font-semibold mb-2">
+                  Tipo de projeto
+                </label>
+                <select {...register('projectType')} className="form-select">
+                  <option value="">Selecione o tipo de projeto</option>
+                  <option value="mobile">App Mobile</option>
+                  <option value="web">Web App</option>
+                  <option value="site">Site Institucional</option>
+                  <option value="custom">Solução Personalizada</option>
+                </select>
+                {errors.projectType && (
+                  <p className="error-message">{errors.projectType.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-white font-semibold mb-2">
+                  Descreva seu projeto
+                </label>
+                <textarea
+                  {...register('description')}
+                  rows={4}
+                  className="form-textarea"
+                  placeholder="Descreva seu projeto, objetivos e requisitos..."
+                />
+                {errors.description && (
+                  <p className="error-message">{errors.description.message}</p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full btn-primary inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="spinner mr-2" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-5 h-5 mr-2" />
+                    Enviar Solicitação
+                  </>
+                )}
+              </button>
+            </form>
+          </motion.div>
+
+          {/* Contact Info */}
+          <motion.div variants={itemVariants} className="space-y-8">
+            <div className="glass rounded-2xl p-8">
+              <h3 className="text-2xl font-bold text-white mb-6">
+                Entre em Contato
+              </h3>
+              
+              <div className="space-y-6">
+                <div className="flex items-start space-x-4">
+                  <div className="w-12 h-12 bg-cyan-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Mail className="w-6 h-6 text-cyan-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-semibold mb-1">E-mail</h4>
+                    <p className="text-slate-300">contato@wzsolution.com</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-4">
+                  <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Phone className="w-6 h-6 text-green-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-semibold mb-1">WhatsApp</h4>
+                    <p className="text-slate-300">+55 11 94729-3221</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Why Choose Us */}
+            <div className="glass rounded-2xl p-8">
+              <h3 className="text-xl font-bold text-white mb-4">
+                Por que escolher a WZ Solution?
+              </h3>
+              
+              <ul className="space-y-3 text-slate-300">
+                <li className="flex items-start space-x-3">
+                  <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2 flex-shrink-0" />
+                  <span>Desenvolvimento ágil e eficiente</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2 flex-shrink-0" />
+                  <span>Suporte técnico especializado</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2 flex-shrink-0" />
+                  <span>Preços competitivos e transparentes</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2 flex-shrink-0" />
+                  <span>Garantia de qualidade e entrega</span>
+                </li>
+              </ul>
+            </div>
+          </motion.div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
