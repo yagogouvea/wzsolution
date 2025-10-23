@@ -60,7 +60,7 @@ export default function Footer() {
             <div className="space-y-3">
               <div className="flex items-center space-x-3">
                 <Mail className="w-5 h-5 text-cyan-400" />
-                <span className="text-slate-300">contato@wzsolution.com</span>
+                <span className="text-slate-300">contact@wzsolutions.com.br</span>
               </div>
               <div className="flex items-center space-x-3">
                 <Phone className="w-5 h-5 text-cyan-400" />

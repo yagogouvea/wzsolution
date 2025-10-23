@@ -229,7 +229,7 @@ export default function Budget() {
                   </div>
                   <div>
                     <h4 className="text-white font-semibold mb-1">E-mail</h4>
-                    <p className="text-slate-300">contato@wzsolution.com</p>
+                    <p className="text-slate-300">contact@wzsolutions.com.br</p>
                   </div>
                 </div>
 
