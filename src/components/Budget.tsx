@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -19,6 +19,20 @@ const budgetSchema = z.object({
 });
 
 type BudgetFormData = z.infer<typeof budgetSchema>;
+
+// Componente wrapper para integrar IMaskInput com react-hook-form
+const MaskedInput = forwardRef<HTMLInputElement, any>((props, ref) => {
+  return (
+    <IMaskInput
+      {...props}
+      inputRef={ref}
+      mask="(00) 00000-0000"
+      placeholder="(11) 94729-3221"
+    />
+  );
+});
+
+MaskedInput.displayName = 'MaskedInput';
 
 export default function Budget() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -172,11 +186,9 @@ export default function Budget() {
                 <label className="block text-white font-semibold mb-2">
                   WhatsApp
                 </label>
-                <IMaskInput
-                  mask="(00) 00000-0000"
+                <MaskedInput
                   {...register('whatsapp')}
                   className="form-input"
-                  placeholder="(11) 94729-3221"
                 />
                 {errors.whatsapp && (
                   <p className="error-message">{errors.whatsapp.message}</p>
