@@ -15,6 +15,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Limpar máscara do WhatsApp (remover caracteres especiais)
+    const cleanWhatsapp = whatsapp.replace(/\D/g, '');
+
     // Mapear tipos de projeto
     const projectTypeMap: { [key: string]: string } = {
       mobile: 'App Mobile',
@@ -52,7 +55,7 @@ export async function POST(request: NextRequest) {
               </tr>
               <tr>
                 <td style="padding: 8px 0; font-weight: bold;">WhatsApp:</td>
-                <td style="padding: 8px 0;"><a href="https://wa.me/55${whatsapp.replace(/\D/g, '')}" style="color: #25d366;">${whatsapp}</a></td>
+                <td style="padding: 8px 0;"><a href="https://wa.me/55${cleanWhatsapp}" style="color: #25d366;">${whatsapp}</a></td>
               </tr>
               <tr>
                 <td style="padding: 8px 0; font-weight: bold;">Tipo de Projeto:</td>
@@ -87,7 +90,7 @@ Nova Solicitação de Orçamento - WZ Solutions
 INFORMAÇÕES DO CLIENTE:
 Nome: ${name}
 E-mail: ${email}
-WhatsApp: ${whatsapp}
+WhatsApp: ${whatsapp} (https://wa.me/55${cleanWhatsapp})
 Tipo de Projeto: ${projectTypeLabel}
 
 DESCRIÇÃO DO PROJETO:

@@ -6,11 +6,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Mail, Phone, Send, CheckCircle } from 'lucide-react';
+import InputMask from 'react-input-mask';
 
 const budgetSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   email: z.string().email('E-mail inválido'),
-  whatsapp: z.string().min(10, 'WhatsApp deve ter pelo menos 10 caracteres'),
+  whatsapp: z.string()
+    .min(14, 'WhatsApp deve ter o formato (11) 99999-9999')
+    .regex(/^\(\d{2}\) \d{5}-\d{4}$/, 'Formato inválido. Use (11) 99999-9999'),
   projectType: z.string().min(1, 'Selecione o tipo de projeto'),
   description: z.string().min(10, 'Descrição deve ter pelo menos 10 caracteres')
 });
@@ -169,10 +172,11 @@ export default function Budget() {
                 <label className="block text-white font-semibold mb-2">
                   WhatsApp
                 </label>
-                <input
+                <InputMask
+                  mask="(99) 99999-9999"
                   {...register('whatsapp')}
                   className="form-input"
-                  placeholder="(11) 99999-9999"
+                  placeholder="(11) 94729-3221"
                 />
                 {errors.whatsapp && (
                   <p className="error-message">{errors.whatsapp.message}</p>
