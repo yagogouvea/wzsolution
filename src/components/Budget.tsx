@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Mail, Phone, Send, CheckCircle } from 'lucide-react';
-import InputMask from 'react-input-mask';
+import { IMaskInput } from 'react-imask';
 
 const budgetSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
@@ -172,8 +172,8 @@ export default function Budget() {
                 <label className="block text-white font-semibold mb-2">
                   WhatsApp
                 </label>
-                <InputMask
-                  mask="(99) 99999-9999"
+                <IMaskInput
+                  mask="(00) 00000-0000"
                   {...register('whatsapp')}
                   className="form-input"
                   placeholder="(11) 94729-3221"
