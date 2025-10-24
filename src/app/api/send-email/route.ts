@@ -177,10 +177,16 @@ Responda para: ${email}
     console.log('To:', emailConfig.to);
     console.log('Subject:', `Nova Solicitação de Orçamento - ${name}`);
     console.log('AWS Region:', process.env.AWS_REGION);
+    console.log('SES Client config:', {
+      region: process.env.AWS_REGION,
+      hasAccessKey: !!process.env.AWS_ACCESS_KEY_ID,
+      hasSecretKey: !!process.env.AWS_SECRET_ACCESS_KEY
+    });
     console.log('===================================');
 
     // Enviar email
     try {
+      console.log('=== TENTANDO ENVIAR EMAIL ===');
       const result = await sesClient.send(command);
       console.log('=== EMAIL ENVIADO COM SUCESSO ===');
       console.log('MessageId:', result.MessageId);
@@ -190,6 +196,8 @@ Responda para: ${email}
       console.error('AWS Error:', awsError);
       console.error('Error name:', awsError instanceof Error ? awsError.name : 'Unknown');
       console.error('Error message:', awsError instanceof Error ? awsError.message : String(awsError));
+      console.error('Error code:', (awsError as any)?.$metadata?.httpStatusCode);
+      console.error('Error requestId:', (awsError as any)?.$metadata?.requestId);
       console.error('===================');
       throw awsError;
     }
@@ -202,13 +210,17 @@ Responda para: ${email}
   } catch (error) {
     console.error('=== ERRO CAPTURADO ===');
     console.error('Error type:', typeof error);
+    console.error('Error name:', error instanceof Error ? error.name : 'Unknown');
     console.error('Error message:', error instanceof Error ? error.message : String(error));
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
     console.error('NODE_ENV:', process.env.NODE_ENV);
+    console.error('AWS_REGION:', process.env.AWS_REGION);
+    console.error('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID ? 'Set' : 'Missing');
+    console.error('AWS_SECRET_ACCESS_KEY:', process.env.AWS_SECRET_ACCESS_KEY ? 'Set' : 'Missing');
     console.error('======================');
     
     // Verificar se é erro de credenciais AWS
-    if (error instanceof Error && error.message.includes('credentials')) {
+    if (error instanceof Error && (error.message.includes('credentials') || error.message.includes('Credential'))) {
       console.error('=== ERRO DE CREDENCIAIS AWS ===');
       return NextResponse.json(
         { 
@@ -217,6 +229,7 @@ Responda para: ${email}
           debug: {
             errorType: 'AWS Credentials Error',
             message: error.message,
+            name: error.name,
             timestamp: new Date().toISOString()
           },
           contact: {
@@ -229,7 +242,7 @@ Responda para: ${email}
     }
     
     // Verificar se é erro de região AWS
-    if (error instanceof Error && error.message.includes('region')) {
+    if (error instanceof Error && (error.message.includes('region') || error.message.includes('Region'))) {
       console.error('=== ERRO DE REGIÃO AWS ===');
       return NextResponse.json(
         { 
@@ -238,6 +251,29 @@ Responda para: ${email}
           debug: {
             errorType: 'AWS Region Error',
             message: error.message,
+            name: error.name,
+            timestamp: new Date().toISOString()
+          },
+          contact: {
+            email: 'contact@wzsolutions.com.br',
+            whatsapp: '+55 11 94729-3221'
+          }
+        },
+        { status: 503 }
+      );
+    }
+    
+    // Verificar se é erro de SES
+    if (error instanceof Error && (error.message.includes('SES') || error.message.includes('ses'))) {
+      console.error('=== ERRO AWS SES ===');
+      return NextResponse.json(
+        { 
+          error: 'Serviço de email temporariamente indisponível',
+          message: 'Problema com serviço de email. Entre em contato conosco diretamente.',
+          debug: {
+            errorType: 'AWS SES Error',
+            message: error.message,
+            name: error.name,
             timestamp: new Date().toISOString()
           },
           contact: {
@@ -255,11 +291,12 @@ Responda para: ${email}
       { 
         error: 'Erro interno do servidor',
         message: 'Ocorreu um erro inesperado. Entre em contato conosco diretamente.',
-        debug: process.env.NODE_ENV === 'development' ? {
+        debug: {
           errorType: 'Generic Error',
           message: error instanceof Error ? error.message : String(error),
+          name: error instanceof Error ? error.name : 'Unknown',
           timestamp: new Date().toISOString()
-        } : undefined,
+        },
         contact: {
           email: 'contact@wzsolutions.com.br',
           whatsapp: '+55 11 94729-3221'
