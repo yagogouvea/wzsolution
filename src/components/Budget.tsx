@@ -6,7 +6,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Mail, Phone, Send, CheckCircle } from 'lucide-react';
-import { IMaskInput } from 'react-imask';
 
 const budgetSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
@@ -20,16 +19,29 @@ const budgetSchema = z.object({
 
 type BudgetFormData = z.infer<typeof budgetSchema>;
 
-// Componente wrapper para integrar IMaskInput com react-hook-form
+// Função para aplicar máscara de telefone
+const formatPhoneNumber = (value: string) => {
+  const numbers = value.replace(/\D/g, '');
+  if (numbers.length <= 2) return numbers;
+  if (numbers.length <= 7) return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
+  return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+};
+
+// Componente de input com máscara nativa
 const MaskedInput = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>((props, ref) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    e.target.value = formatted;
+    props.onChange?.(e);
+  };
+
   return (
-    <IMaskInput
+    <input
       {...props}
-      inputRef={ref}
-      mask="(00) 00000-0000"
+      ref={ref}
+      onChange={handleChange}
       placeholder="(11) 94729-3221"
-      lazy={false}
-      unmask={false}
+      maxLength={15}
     />
   );
 });
