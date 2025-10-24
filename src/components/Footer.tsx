@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Mail, Phone, ArrowUp } from 'lucide-react';
 
 export default function Footer() {
@@ -43,9 +44,11 @@ export default function Footer() {
           {/* Company Info */}
           <motion.div variants={itemVariants} className="lg:col-span-2">
             <div className="flex items-center space-x-3 mb-4">
-              <img 
+              <Image 
                 src="/images/wzlogo_trans.png" 
                 alt="WZ Solution Logo" 
+                width={40}
+                height={40}
                 className="h-10 w-auto object-contain"
               />
               <h3 className="text-2xl font-bold text-gradient">

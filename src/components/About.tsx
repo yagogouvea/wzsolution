@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Smartphone, Globe, Code, Zap, Brain, ArrowRight } from 'lucide-react';
+import { Smartphone, Globe, Code, Zap, Brain } from 'lucide-react';
 
 export default function About() {
   const containerVariants = {

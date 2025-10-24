@@ -21,13 +21,15 @@ const budgetSchema = z.object({
 type BudgetFormData = z.infer<typeof budgetSchema>;
 
 // Componente wrapper para integrar IMaskInput com react-hook-form
-const MaskedInput = forwardRef<HTMLInputElement, any>((props, ref) => {
+const MaskedInput = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>((props, ref) => {
   return (
     <IMaskInput
       {...props}
       inputRef={ref}
       mask="(00) 00000-0000"
       placeholder="(11) 94729-3221"
+      lazy={false}
+      unmask={false}
     />
   );
 });
