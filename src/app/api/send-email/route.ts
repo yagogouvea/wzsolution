@@ -7,11 +7,37 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, email, whatsapp, projectType, description } = body;
 
+    // Debug: Verificar variáveis de ambiente
+    console.log('AWS_REGION:', process.env.AWS_REGION);
+    console.log('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID ? 'Set' : 'Not set');
+    console.log('FROM_EMAIL:', process.env.FROM_EMAIL);
+
     // Validação básica
     if (!name || !email || !whatsapp || !projectType || !description) {
       return NextResponse.json(
         { error: 'Todos os campos são obrigatórios' },
         { status: 400 }
+      );
+    }
+
+    // Verificar se as credenciais AWS estão configuradas
+    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+      console.error('AWS credentials not configured');
+      
+      // Em desenvolvimento, simular envio bem-sucedido
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Simulando envio de email em desenvolvimento...');
+        console.log('Dados do formulário:', { name, email, whatsapp, projectType, description });
+        
+        return NextResponse.json(
+          { message: 'Email simulado enviado com sucesso! (Desenvolvimento)' },
+          { status: 200 }
+        );
+      }
+      
+      return NextResponse.json(
+        { error: 'Configuração de email não disponível. Tente novamente mais tarde.' },
+        { status: 503 }
       );
     }
 
@@ -135,8 +161,18 @@ Responda para: ${email}
 
   } catch (error) {
     console.error('Erro ao enviar email:', error);
+    
+    // Log detalhado do erro para debug
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      { 
+        error: 'Erro interno do servidor',
+        details: process.env.NODE_ENV === 'development' ? error : undefined
+      },
       { status: 500 }
     );
   }
