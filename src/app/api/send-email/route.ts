@@ -3,13 +3,24 @@ import { SendEmailCommand } from '@aws-sdk/client-ses';
 import { sesClient, emailConfig } from '@/lib/aws-config';
 
 export async function POST(request: NextRequest) {
+  console.log('=== API SEND-EMAIL INICIADA ===');
+  console.log('Timestamp:', new Date().toISOString());
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  
   try {
     const body = await request.json();
     const { name, email, whatsapp, projectType, description } = body;
 
+    console.log('=== DADOS RECEBIDOS ===');
+    console.log('Name:', name);
+    console.log('Email:', email);
+    console.log('WhatsApp:', whatsapp);
+    console.log('Project Type:', projectType);
+    console.log('Description length:', description?.length || 0);
+    console.log('========================');
+
     // Debug: Verificar variáveis de ambiente
-    console.log('=== DEBUG API SEND-EMAIL ===');
-    console.log('NODE_ENV:', process.env.NODE_ENV);
+    console.log('=== VARIÁVEIS DE AMBIENTE ===');
     console.log('AWS_REGION:', process.env.AWS_REGION);
     console.log('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID ? 'Set' : 'Not set');
     console.log('AWS_SECRET_ACCESS_KEY:', process.env.AWS_SECRET_ACCESS_KEY ? 'Set' : 'Not set');
@@ -46,7 +57,8 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      // Em produção, retornar erro mais específico
+      // Em produção, retornar erro 503 com fallback
+      console.error('=== RETORNANDO ERRO 503 - CREDENCIAIS AUSENTES ===');
       return NextResponse.json(
         { 
           error: 'Serviço de email temporariamente indisponível',
@@ -193,18 +205,70 @@ Responda para: ${email}
     );
 
   } catch (error) {
-    console.error('Erro ao enviar email:', error);
+    console.error('=== ERRO CAPTURADO ===');
+    console.error('Error type:', typeof error);
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
+    console.error('NODE_ENV:', process.env.NODE_ENV);
+    console.error('======================');
     
-    // Log detalhado do erro para debug
-    if (error instanceof Error) {
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
+    // Verificar se é erro de credenciais AWS
+    if (error instanceof Error && error.message.includes('credentials')) {
+      console.error('=== ERRO DE CREDENCIAIS AWS ===');
+      return NextResponse.json(
+        { 
+          error: 'Serviço de email temporariamente indisponível',
+          message: 'Problema com credenciais de email. Entre em contato conosco diretamente.',
+          debug: {
+            errorType: 'AWS Credentials Error',
+            message: error.message,
+            timestamp: new Date().toISOString()
+          },
+          contact: {
+            email: 'contact@wzsolutions.com.br',
+            whatsapp: '+55 11 94729-3221'
+          }
+        },
+        { status: 503 }
+      );
     }
     
+    // Verificar se é erro de região AWS
+    if (error instanceof Error && error.message.includes('region')) {
+      console.error('=== ERRO DE REGIÃO AWS ===');
+      return NextResponse.json(
+        { 
+          error: 'Serviço de email temporariamente indisponível',
+          message: 'Problema com configuração de região. Entre em contato conosco diretamente.',
+          debug: {
+            errorType: 'AWS Region Error',
+            message: error.message,
+            timestamp: new Date().toISOString()
+          },
+          contact: {
+            email: 'contact@wzsolutions.com.br',
+            whatsapp: '+55 11 94729-3221'
+          }
+        },
+        { status: 503 }
+      );
+    }
+    
+    // Outros erros
+    console.error('=== ERRO GENÉRICO ===');
     return NextResponse.json(
       { 
         error: 'Erro interno do servidor',
-        details: process.env.NODE_ENV === 'development' ? error : undefined
+        message: 'Ocorreu um erro inesperado. Entre em contato conosco diretamente.',
+        debug: process.env.NODE_ENV === 'development' ? {
+          errorType: 'Generic Error',
+          message: error instanceof Error ? error.message : String(error),
+          timestamp: new Date().toISOString()
+        } : undefined,
+        contact: {
+          email: 'contact@wzsolutions.com.br',
+          whatsapp: '+55 11 94729-3221'
+        }
       },
       { status: 500 }
     );
