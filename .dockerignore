@@ -44,3 +44,8 @@ check-sync.js
 # Railway specific
 railway.json
 .nvmrc
+
+# Cache directories
+.cache
+node_modules/.cache
+.next/cache
