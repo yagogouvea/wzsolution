@@ -8,6 +8,7 @@ export async function POST(request: NextRequest) {
   console.log('NODE_ENV:', process.env.NODE_ENV);
   
   try {
+    console.log('=== INICIANDO PROCESSAMENTO ===');
     const body = await request.json();
     const { name, email, whatsapp, projectType, description } = body;
 
@@ -62,8 +63,11 @@ export async function POST(request: NextRequest) {
       // Continuar com o fluxo normal para ver o erro específico
     }
 
+    console.log('=== PROCESSANDO DADOS ===');
+    
     // Limpar máscara do WhatsApp (remover caracteres especiais)
     const cleanWhatsapp = whatsapp.replace(/\D/g, '');
+    console.log('WhatsApp limpo:', cleanWhatsapp);
 
     // Mapear tipos de projeto
     const projectTypeMap: { [key: string]: string } = {
@@ -74,6 +78,7 @@ export async function POST(request: NextRequest) {
     };
 
     const projectTypeLabel = projectTypeMap[projectType] || projectType;
+    console.log('Tipo de projeto mapeado:', projectTypeLabel);
 
     // Template do email
     const emailHtml = `
@@ -147,6 +152,8 @@ Data: ${new Date().toLocaleString('pt-BR')}
 Responda para: ${email}
     `;
 
+    console.log('=== CRIANDO COMANDO SES ===');
+    
     // Comando para enviar email via AWS SES
     const command = new SendEmailCommand({
       Source: emailConfig.from,

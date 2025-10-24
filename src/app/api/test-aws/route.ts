@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SESClient } from '@aws-sdk/client-ses';
 
 export async function GET(request: NextRequest) {
   console.log('=== TESTE AWS SES ===');
@@ -11,31 +10,29 @@ export async function GET(request: NextRequest) {
   console.log('TO_EMAIL:', process.env.TO_EMAIL);
   
   try {
-    // Testar criação do cliente SES
-    const sesClient = new SESClient({
-      region: process.env.AWS_REGION || 'us-east-1',
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-      },
-    });
+    // Teste básico sem criar cliente SES
+    console.log('Testando configuração básica...');
     
-    console.log('SES Client criado com sucesso');
+    const config = {
+      region: process.env.AWS_REGION,
+      hasAccessKey: !!process.env.AWS_ACCESS_KEY_ID,
+      hasSecretKey: !!process.env.AWS_SECRET_ACCESS_KEY,
+      fromEmail: process.env.FROM_EMAIL,
+      toEmail: process.env.TO_EMAIL,
+      nodeEnv: process.env.NODE_ENV
+    };
+    
+    console.log('Configuração:', config);
     
     return NextResponse.json({
       success: true,
-      message: 'AWS SES configurado corretamente',
-      config: {
-        region: process.env.AWS_REGION,
-        hasAccessKey: !!process.env.AWS_ACCESS_KEY_ID,
-        hasSecretKey: !!process.env.AWS_SECRET_ACCESS_KEY,
-        fromEmail: process.env.FROM_EMAIL,
-        toEmail: process.env.TO_EMAIL
-      }
+      message: 'Configuração AWS verificada',
+      config: config,
+      timestamp: new Date().toISOString()
     });
     
   } catch (error) {
-    console.error('Erro ao testar AWS SES:', error);
+    console.error('Erro ao testar configuração:', error);
     
     return NextResponse.json({
       success: false,
@@ -46,7 +43,8 @@ export async function GET(request: NextRequest) {
         hasSecretKey: !!process.env.AWS_SECRET_ACCESS_KEY,
         fromEmail: process.env.FROM_EMAIL,
         toEmail: process.env.TO_EMAIL
-      }
+      },
+      timestamp: new Date().toISOString()
     }, { status: 500 });
   }
 }
