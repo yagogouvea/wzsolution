@@ -8,9 +8,15 @@ export async function POST(request: NextRequest) {
     const { name, email, whatsapp, projectType, description } = body;
 
     // Debug: Verificar variáveis de ambiente
+    console.log('=== DEBUG API SEND-EMAIL ===');
+    console.log('NODE_ENV:', process.env.NODE_ENV);
     console.log('AWS_REGION:', process.env.AWS_REGION);
     console.log('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID ? 'Set' : 'Not set');
+    console.log('AWS_SECRET_ACCESS_KEY:', process.env.AWS_SECRET_ACCESS_KEY ? 'Set' : 'Not set');
     console.log('FROM_EMAIL:', process.env.FROM_EMAIL);
+    console.log('TO_EMAIL:', process.env.TO_EMAIL);
+    console.log('NEXT_PUBLIC_APP_URL:', process.env.NEXT_PUBLIC_APP_URL);
+    console.log('================================');
 
     // Validação básica
     if (!name || !email || !whatsapp || !projectType || !description) {
@@ -43,6 +49,12 @@ export async function POST(request: NextRequest) {
         { 
           error: 'Serviço de email temporariamente indisponível',
           message: 'As credenciais de email não estão configuradas no servidor. Entre em contato conosco diretamente.',
+          debug: {
+            awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID ? 'Set' : 'Missing',
+            awsSecretKey: process.env.AWS_SECRET_ACCESS_KEY ? 'Set' : 'Missing',
+            nodeEnv: process.env.NODE_ENV,
+            timestamp: new Date().toISOString()
+          },
           contact: {
             email: 'contact@wzsolutions.com.br',
             whatsapp: '+55 11 94729-3221'
