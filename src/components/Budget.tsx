@@ -65,6 +65,7 @@ export default function Budget() {
     setIsSubmitting(true);
     
     try {
+      // Tentar API principal primeiro
       const response = await fetch('/api/send-email', {
         method: 'POST',
         headers: {
@@ -78,16 +79,46 @@ export default function Budget() {
         reset();
         // Resetar mensagem de sucesso após 5 segundos
         setTimeout(() => setIsSubmitted(false), 5000);
-      } else {
-        const errorData = await response.json();
-        console.error('Erro ao enviar email:', errorData);
+        return;
+      }
+
+      // Se der erro 503, tentar API de fallback
+      if (response.status === 503) {
+        console.log('API principal falhou, tentando fallback...');
         
-        // Tratamento específico para erro 503 (serviço indisponível)
-        if (response.status === 503) {
-          alert(`Serviço de email temporariamente indisponível.\n\nEntre em contato conosco diretamente:\n📧 ${errorData.contact?.email || 'contact@wzsolutions.com.br'}\n📱 ${errorData.contact?.whatsapp || '+55 11 94729-3221'}`);
-        } else {
-          alert(`Erro ao enviar solicitação: ${errorData.error || 'Tente novamente.'}`);
+        const fallbackResponse = await fetch('/api/send-email-fallback', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        });
+
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          setIsSubmitted(true);
+          reset();
+          
+          // Mostrar mensagem de sucesso com link do WhatsApp
+          if (fallbackData.whatsappUrl) {
+            alert(`Solicitação registrada com sucesso!\n\nNossa equipe entrará em contato via WhatsApp.\n\nClique OK para abrir o WhatsApp.`);
+            window.open(fallbackData.whatsappUrl, '_blank');
+          }
+          
+          setTimeout(() => setIsSubmitted(false), 5000);
+          return;
         }
+      }
+
+      // Se chegou aqui, houve erro
+      const errorData = await response.json();
+      console.error('Erro ao enviar email:', errorData);
+      
+      // Tratamento específico para erro 503 (serviço indisponível)
+      if (response.status === 503) {
+        alert(`Serviço de email temporariamente indisponível.\n\nEntre em contato conosco diretamente:\n📧 ${errorData.contact?.email || 'contact@wzsolutions.com.br'}\n📱 ${errorData.contact?.whatsapp || '+55 11 94729-3221'}`);
+      } else {
+        alert(`Erro ao enviar solicitação: ${errorData.error || 'Tente novamente.'}`);
       }
     } catch (error) {
       console.error('Erro ao enviar email:', error);
