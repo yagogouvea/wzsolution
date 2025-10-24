@@ -9,21 +9,18 @@ interface GoogleAnalyticsProps {
 export default function GoogleAnalytics({ measurementId }: GoogleAnalyticsProps) {
   return (
     <>
-      {/* Google Analytics 4 */}
+      {/* Google tag (gtag.js) - Configuração Manual */}
       <Script
         src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}
         strategy="afterInteractive"
+        async
       />
       <Script id="google-analytics" strategy="afterInteractive">
         {`
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
           gtag('js', new Date());
-          gtag('config', '${measurementId}', {
-            page_title: document.title,
-            page_location: window.location.href,
-            send_page_view: true
-          });
+          gtag('config', '${measurementId}');
         `}
       </Script>
     </>

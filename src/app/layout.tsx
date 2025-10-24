@@ -47,10 +47,8 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
-        {/* Google Analytics */}
-        {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
-          <GoogleAnalytics measurementId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
-        )}
+        {/* Google Analytics - Configuração Manual */}
+        <GoogleAnalytics measurementId="G-FJ86C36NYP" />
       </head>
       <body className={`${inter.className} antialiased`} suppressHydrationWarning>
         <NoSSR>
