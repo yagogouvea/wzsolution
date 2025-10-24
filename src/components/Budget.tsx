@@ -81,7 +81,13 @@ export default function Budget() {
       } else {
         const errorData = await response.json();
         console.error('Erro ao enviar email:', errorData);
-        alert('Erro ao enviar solicitação. Tente novamente.');
+        
+        // Tratamento específico para erro 503 (serviço indisponível)
+        if (response.status === 503) {
+          alert(`Serviço de email temporariamente indisponível.\n\nEntre em contato conosco diretamente:\n📧 ${errorData.contact?.email || 'contact@wzsolutions.com.br'}\n📱 ${errorData.contact?.whatsapp || '+55 11 94729-3221'}`);
+        } else {
+          alert(`Erro ao enviar solicitação: ${errorData.error || 'Tente novamente.'}`);
+        }
       }
     } catch (error) {
       console.error('Erro ao enviar email:', error);

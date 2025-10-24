@@ -23,6 +23,9 @@ export async function POST(request: NextRequest) {
     // Verificar se as credenciais AWS estão configuradas
     if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
       console.error('AWS credentials not configured');
+      console.error('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID ? 'Set' : 'Missing');
+      console.error('AWS_SECRET_ACCESS_KEY:', process.env.AWS_SECRET_ACCESS_KEY ? 'Set' : 'Missing');
+      console.error('NODE_ENV:', process.env.NODE_ENV);
       
       // Em desenvolvimento, simular envio bem-sucedido
       if (process.env.NODE_ENV === 'development') {
@@ -35,8 +38,16 @@ export async function POST(request: NextRequest) {
         );
       }
       
+      // Em produção, retornar erro mais específico
       return NextResponse.json(
-        { error: 'Configuração de email não disponível. Tente novamente mais tarde.' },
+        { 
+          error: 'Serviço de email temporariamente indisponível',
+          message: 'As credenciais de email não estão configuradas no servidor. Entre em contato conosco diretamente.',
+          contact: {
+            email: 'contact@wzsolutions.com.br',
+            whatsapp: '+55 11 94729-3221'
+          }
+        },
         { status: 503 }
       );
     }
