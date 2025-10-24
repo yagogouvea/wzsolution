@@ -28,10 +28,12 @@ export async function POST(request: NextRequest) {
 
     // Verificar se as credenciais AWS estão configuradas
     if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-      console.error('AWS credentials not configured');
+      console.error('=== AWS CREDENTIALS MISSING ===');
       console.error('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID ? 'Set' : 'Missing');
       console.error('AWS_SECRET_ACCESS_KEY:', process.env.AWS_SECRET_ACCESS_KEY ? 'Set' : 'Missing');
       console.error('NODE_ENV:', process.env.NODE_ENV);
+      console.error('All env vars:', Object.keys(process.env).filter(key => key.includes('AWS') || key.includes('EMAIL')));
+      console.error('================================');
       
       // Em desenvolvimento, simular envio bem-sucedido
       if (process.env.NODE_ENV === 'development') {
@@ -174,8 +176,16 @@ Responda para: ${email}
       },
     });
 
+    console.log('=== ENVIANDO EMAIL VIA AWS SES ===');
+    console.log('From:', emailConfig.from);
+    console.log('To:', emailConfig.to);
+    console.log('Subject:', `Nova Solicitação de Orçamento - ${name}`);
+    console.log('===================================');
+
     // Enviar email
     await sesClient.send(command);
+    
+    console.log('=== EMAIL ENVIADO COM SUCESSO ===');
 
     return NextResponse.json(
       { message: 'Email enviado com sucesso!' },
