@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['framer-motion', 'lucide-react'],
   },
   
+  // Otimizações para produção
+  compress: true,
+  
   // Configuração de imagens
   images: {
     remotePatterns: [
