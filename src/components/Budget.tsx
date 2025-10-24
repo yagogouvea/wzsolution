@@ -92,7 +92,7 @@ export default function Budget() {
         console.log('API principal falhou com 503, usando fallback direto...');
         
         // Fallback direto - gerar link do WhatsApp
-        const cleanWhatsapp = data.whatsapp.replace(/\D/g, '');
+        // const cleanWhatsapp = data.whatsapp.replace(/\D/g, '');
         
         const projectTypeMap: { [key: string]: string } = {
           mobile: 'App Mobile',
@@ -339,7 +339,7 @@ Por favor, entre em contato com o cliente para dar continuidade ao orçamento.`;
                            description: 'Teste do sistema de fallback'
                          };
                          
-                         const cleanWhatsapp = testData.whatsapp.replace(/\D/g, '');
+                         // const cleanWhatsapp = testData.whatsapp.replace(/\D/g, '');
                          const projectTypeMap: { [key: string]: string } = {
                            mobile: 'App Mobile',
                            web: 'Web App',

@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Limpar máscara do WhatsApp (remover caracteres especiais)
-    const cleanWhatsapp = whatsapp.replace(/\D/g, '');
+    // const cleanWhatsapp = whatsapp.replace(/\D/g, '');
 
     // Mapear tipos de projeto
     const projectTypeMap: { [key: string]: string } = {
