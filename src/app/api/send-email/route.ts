@@ -57,25 +57,9 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      // Em produção, retornar erro 503 com fallback
-      console.error('=== RETORNANDO ERRO 503 - CREDENCIAIS AUSENTES ===');
-      return NextResponse.json(
-        { 
-          error: 'Serviço de email temporariamente indisponível',
-          message: 'As credenciais de email não estão configuradas no servidor. Entre em contato conosco diretamente.',
-          debug: {
-            awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID ? 'Set' : 'Missing',
-            awsSecretKey: process.env.AWS_SECRET_ACCESS_KEY ? 'Set' : 'Missing',
-            nodeEnv: process.env.NODE_ENV,
-            timestamp: new Date().toISOString()
-          },
-          contact: {
-            email: 'contact@wzsolutions.com.br',
-            whatsapp: '+55 11 94729-3221'
-          }
-        },
-        { status: 503 }
-      );
+      // Em produção, tentar enviar mesmo sem credenciais (para debug)
+      console.error('=== TENTANDO ENVIAR SEM CREDENCIAIS (PRODUÇÃO) ===');
+      // Continuar com o fluxo normal para ver o erro específico
     }
 
     // Limpar máscara do WhatsApp (remover caracteres especiais)
@@ -192,12 +176,23 @@ Responda para: ${email}
     console.log('From:', emailConfig.from);
     console.log('To:', emailConfig.to);
     console.log('Subject:', `Nova Solicitação de Orçamento - ${name}`);
+    console.log('AWS Region:', process.env.AWS_REGION);
     console.log('===================================');
 
     // Enviar email
-    await sesClient.send(command);
-    
-    console.log('=== EMAIL ENVIADO COM SUCESSO ===');
+    try {
+      const result = await sesClient.send(command);
+      console.log('=== EMAIL ENVIADO COM SUCESSO ===');
+      console.log('MessageId:', result.MessageId);
+      console.log('================================');
+    } catch (awsError) {
+      console.error('=== ERRO AWS SES ===');
+      console.error('AWS Error:', awsError);
+      console.error('Error name:', awsError instanceof Error ? awsError.name : 'Unknown');
+      console.error('Error message:', awsError instanceof Error ? awsError.message : String(awsError));
+      console.error('===================');
+      throw awsError;
+    }
 
     return NextResponse.json(
       { message: 'Email enviado com sucesso!' },

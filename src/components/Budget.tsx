@@ -86,58 +86,13 @@ export default function Budget() {
         return;
       }
 
-      // Se der erro 503, usar fallback direto
+      // Se der erro 503, mostrar erro sem redirecionar
       if (response.status === 503) {
-        console.log('Erro 503 detectado, ativando fallback direto...');
-        console.log('API principal falhou com 503, usando fallback direto...');
+        console.log('Erro 503 detectado - API indisponível');
+        const errorData = await response.json();
+        console.error('Detalhes do erro 503:', errorData);
         
-        // Fallback direto - gerar link do WhatsApp
-        // const cleanWhatsapp = data.whatsapp.replace(/\D/g, '');
-        
-        const projectTypeMap: { [key: string]: string } = {
-          mobile: 'App Mobile',
-          web: 'Web App',
-          site: 'Site Institucional',
-          custom: 'Solução Personalizada',
-          ai: 'Projetos IA',
-        };
-        
-        const projectTypeLabel = projectTypeMap[data.projectType] || data.projectType;
-        
-        const whatsappMessage = `Olá! Recebi uma nova solicitação de orçamento:
-
-📋 *Dados do Cliente:*
-• Nome: ${data.name}
-• Email: ${data.email}
-• WhatsApp: ${data.whatsapp}
-• Tipo de Projeto: ${projectTypeLabel}
-
-📝 *Descrição do Projeto:*
-${data.description}
-
-📅 *Data:* ${new Date().toLocaleString('pt-BR')}
-
-Por favor, entre em contato com o cliente para dar continuidade ao orçamento.`;
-
-        const whatsappUrl = `https://wa.me/5511947293221?text=${encodeURIComponent(whatsappMessage)}`;
-        
-        console.log('Fallback direto - WhatsApp URL gerada:', whatsappUrl);
-        console.log('Fallback direto - Executando...');
-        
-        setIsSubmitted(true);
-        reset();
-        
-        console.log('Fallback direto - Mostrando alerta...');
-        // Mostrar mensagem de sucesso com link do WhatsApp
-        alert(`Solicitação registrada com sucesso!\n\nNossa equipe entrará em contato via WhatsApp.\n\nClique OK para abrir o WhatsApp.`);
-        
-        console.log('Fallback direto - Abrindo WhatsApp...');
-        window.open(whatsappUrl, '_blank');
-        
-        console.log('Fallback direto - Configurando timeout...');
-        setTimeout(() => setIsSubmitted(false), 5000);
-        
-        console.log('Fallback direto - Concluído com sucesso!');
+        alert(`Serviço de email temporariamente indisponível.\n\nEntre em contato conosco diretamente:\n📧 contact@wzsolutions.com.br\n📱 +55 11 94729-3221`);
         return;
       }
 
@@ -326,54 +281,6 @@ Por favor, entre em contato com o cliente para dar continuidade ao orçamento.`;
                        )}
                      </button>
                      
-                     {/* Botão de teste do fallback */}
-                     <button
-                       type="button"
-                       onClick={() => {
-                         console.log('Testando fallback direto...');
-                         const testData = {
-                           name: 'Teste Fallback',
-                           email: 'teste@teste.com',
-                           whatsapp: '(11) 99999-9999',
-                           projectType: 'mobile',
-                           description: 'Teste do sistema de fallback'
-                         };
-                         
-                         // const cleanWhatsapp = testData.whatsapp.replace(/\D/g, '');
-                         const projectTypeMap: { [key: string]: string } = {
-                           mobile: 'App Mobile',
-                           web: 'Web App',
-                           site: 'Site Institucional',
-                           custom: 'Solução Personalizada',
-                           ai: 'Projetos IA',
-                         };
-                         const projectTypeLabel = projectTypeMap[testData.projectType] || testData.projectType;
-                         
-                         const whatsappMessage = `Olá! Recebi uma nova solicitação de orçamento:
-
-📋 *Dados do Cliente:*
-• Nome: ${testData.name}
-• Email: ${testData.email}
-• WhatsApp: ${testData.whatsapp}
-• Tipo de Projeto: ${projectTypeLabel}
-
-📝 *Descrição do Projeto:*
-${testData.description}
-
-📅 *Data:* ${new Date().toLocaleString('pt-BR')}
-
-Por favor, entre em contato com o cliente para dar continuidade ao orçamento.`;
-
-                         const whatsappUrl = `https://wa.me/5511947293221?text=${encodeURIComponent(whatsappMessage)}`;
-                         
-                         console.log('Teste fallback - URL:', whatsappUrl);
-                         alert('Teste do fallback!\n\nClique OK para abrir o WhatsApp.');
-                         window.open(whatsappUrl, '_blank');
-                       }}
-                       className="w-full mt-2 btn-secondary inline-flex items-center justify-center"
-                     >
-                       🧪 Testar Fallback
-                     </button>
             </form>
           </motion.div>
 
