@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['framer-motion', 'lucide-react'],
   },
   
+  // Configuração para Railway
+  output: 'standalone',
+  
   // Configuração de imagens
   images: {
     remotePatterns: [
