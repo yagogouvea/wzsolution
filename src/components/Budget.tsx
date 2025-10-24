@@ -74,7 +74,11 @@ export default function Budget() {
         body: JSON.stringify(data),
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+      
       if (response.ok) {
+        console.log('API principal funcionou, email enviado com sucesso');
         setIsSubmitted(true);
         reset();
         // Resetar mensagem de sucesso após 5 segundos
@@ -84,6 +88,7 @@ export default function Budget() {
 
       // Se der erro 503, usar fallback direto
       if (response.status === 503) {
+        console.log('Erro 503 detectado, ativando fallback direto...');
         console.log('API principal falhou com 503, usando fallback direto...');
         
         // Fallback direto - gerar link do WhatsApp
@@ -117,15 +122,22 @@ Por favor, entre em contato com o cliente para dar continuidade ao orçamento.`;
         const whatsappUrl = `https://wa.me/5511947293221?text=${encodeURIComponent(whatsappMessage)}`;
         
         console.log('Fallback direto - WhatsApp URL gerada:', whatsappUrl);
+        console.log('Fallback direto - Executando...');
         
         setIsSubmitted(true);
         reset();
         
+        console.log('Fallback direto - Mostrando alerta...');
         // Mostrar mensagem de sucesso com link do WhatsApp
         alert(`Solicitação registrada com sucesso!\n\nNossa equipe entrará em contato via WhatsApp.\n\nClique OK para abrir o WhatsApp.`);
+        
+        console.log('Fallback direto - Abrindo WhatsApp...');
         window.open(whatsappUrl, '_blank');
         
+        console.log('Fallback direto - Configurando timeout...');
         setTimeout(() => setIsSubmitted(false), 5000);
+        
+        console.log('Fallback direto - Concluído com sucesso!');
         return;
       }
 
@@ -296,23 +308,72 @@ Por favor, entre em contato com o cliente para dar continuidade ao orçamento.`;
                 )}
               </div>
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full btn-primary inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="spinner mr-2" />
-                    Enviando...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-5 h-5 mr-2" />
-                    Enviar Solicitação
-                  </>
-                )}
-              </button>
+                     <button
+                       type="submit"
+                       disabled={isSubmitting}
+                       className="w-full btn-primary inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                     >
+                       {isSubmitting ? (
+                         <>
+                           <div className="spinner mr-2" />
+                           Enviando...
+                         </>
+                       ) : (
+                         <>
+                           <Send className="w-5 h-5 mr-2" />
+                           Enviar Solicitação
+                         </>
+                       )}
+                     </button>
+                     
+                     {/* Botão de teste do fallback */}
+                     <button
+                       type="button"
+                       onClick={() => {
+                         console.log('Testando fallback direto...');
+                         const testData = {
+                           name: 'Teste Fallback',
+                           email: 'teste@teste.com',
+                           whatsapp: '(11) 99999-9999',
+                           projectType: 'mobile',
+                           description: 'Teste do sistema de fallback'
+                         };
+                         
+                         const cleanWhatsapp = testData.whatsapp.replace(/\D/g, '');
+                         const projectTypeMap: { [key: string]: string } = {
+                           mobile: 'App Mobile',
+                           web: 'Web App',
+                           site: 'Site Institucional',
+                           custom: 'Solução Personalizada',
+                           ai: 'Projetos IA',
+                         };
+                         const projectTypeLabel = projectTypeMap[testData.projectType] || testData.projectType;
+                         
+                         const whatsappMessage = `Olá! Recebi uma nova solicitação de orçamento:
+
+📋 *Dados do Cliente:*
+• Nome: ${testData.name}
+• Email: ${testData.email}
+• WhatsApp: ${testData.whatsapp}
+• Tipo de Projeto: ${projectTypeLabel}
+
+📝 *Descrição do Projeto:*
+${testData.description}
+
+📅 *Data:* ${new Date().toLocaleString('pt-BR')}
+
+Por favor, entre em contato com o cliente para dar continuidade ao orçamento.`;
+
+                         const whatsappUrl = `https://wa.me/5511947293221?text=${encodeURIComponent(whatsappMessage)}`;
+                         
+                         console.log('Teste fallback - URL:', whatsappUrl);
+                         alert('Teste do fallback!\n\nClique OK para abrir o WhatsApp.');
+                         window.open(whatsappUrl, '_blank');
+                       }}
+                       className="w-full mt-2 btn-secondary inline-flex items-center justify-center"
+                     >
+                       🧪 Testar Fallback
+                     </button>
             </form>
           </motion.div>
 
