@@ -82,32 +82,51 @@ export default function Budget() {
         return;
       }
 
-      // Se der erro 503, tentar API de fallback
+      // Se der erro 503, usar fallback direto
       if (response.status === 503) {
-        console.log('API principal falhou, tentando fallback...');
+        console.log('API principal falhou com 503, usando fallback direto...');
         
-        const fallbackResponse = await fetch('/api/send-email-fallback', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data),
-        });
+        // Fallback direto - gerar link do WhatsApp
+        const cleanWhatsapp = data.whatsapp.replace(/\D/g, '');
+        
+        const projectTypeMap: { [key: string]: string } = {
+          mobile: 'App Mobile',
+          web: 'Web App',
+          site: 'Site Institucional',
+          custom: 'Solução Personalizada',
+          ai: 'Projetos IA',
+        };
+        
+        const projectTypeLabel = projectTypeMap[data.projectType] || data.projectType;
+        
+        const whatsappMessage = `Olá! Recebi uma nova solicitação de orçamento:
 
-        if (fallbackResponse.ok) {
-          const fallbackData = await fallbackResponse.json();
-          setIsSubmitted(true);
-          reset();
-          
-          // Mostrar mensagem de sucesso com link do WhatsApp
-          if (fallbackData.whatsappUrl) {
-            alert(`Solicitação registrada com sucesso!\n\nNossa equipe entrará em contato via WhatsApp.\n\nClique OK para abrir o WhatsApp.`);
-            window.open(fallbackData.whatsappUrl, '_blank');
-          }
-          
-          setTimeout(() => setIsSubmitted(false), 5000);
-          return;
-        }
+📋 *Dados do Cliente:*
+• Nome: ${data.name}
+• Email: ${data.email}
+• WhatsApp: ${data.whatsapp}
+• Tipo de Projeto: ${projectTypeLabel}
+
+📝 *Descrição do Projeto:*
+${data.description}
+
+📅 *Data:* ${new Date().toLocaleString('pt-BR')}
+
+Por favor, entre em contato com o cliente para dar continuidade ao orçamento.`;
+
+        const whatsappUrl = `https://wa.me/5511947293221?text=${encodeURIComponent(whatsappMessage)}`;
+        
+        console.log('Fallback direto - WhatsApp URL gerada:', whatsappUrl);
+        
+        setIsSubmitted(true);
+        reset();
+        
+        // Mostrar mensagem de sucesso com link do WhatsApp
+        alert(`Solicitação registrada com sucesso!\n\nNossa equipe entrará em contato via WhatsApp.\n\nClique OK para abrir o WhatsApp.`);
+        window.open(whatsappUrl, '_blank');
+        
+        setTimeout(() => setIsSubmitted(false), 5000);
+        return;
       }
 
       // Se chegou aqui, houve erro
