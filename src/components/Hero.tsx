@@ -2,8 +2,11 @@
 
 import { motion } from 'framer-motion';
 import { ArrowRight, Code, Smartphone, Globe } from 'lucide-react';
+import { useGoogleAnalytics } from '@/components/GoogleAnalytics';
 
 export default function Hero() {
+  const { trackEvent } = useGoogleAnalytics();
+  
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -113,7 +116,13 @@ export default function Hero() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => document.getElementById('budget')?.scrollIntoView({ behavior: 'smooth' })}
+              onClick={() => {
+                trackEvent('cta_click', {
+                  button_name: 'solicitar_orcamento',
+                  location: 'hero_section',
+                });
+                document.getElementById('budget')?.scrollIntoView({ behavior: 'smooth' });
+              }}
               className="btn-primary inline-flex items-center text-lg px-8 py-4"
             >
               Solicitar Orçamento
@@ -122,7 +131,13 @@ export default function Hero() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' })}
+              onClick={() => {
+                trackEvent('cta_click', {
+                  button_name: 'conhecer_servicos',
+                  location: 'hero_section',
+                });
+                document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' });
+              }}
               className="btn-secondary text-lg px-8 py-4"
             >
               Conhecer Serviços

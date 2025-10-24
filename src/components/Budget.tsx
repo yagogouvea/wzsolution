@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Mail, Phone, Send, CheckCircle } from 'lucide-react';
+import { useGoogleAnalytics } from '@/components/GoogleAnalytics';
 
 const budgetSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
@@ -51,6 +52,7 @@ MaskedInput.displayName = 'MaskedInput';
 export default function Budget() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const { trackEvent, trackConversion } = useGoogleAnalytics();
 
   const {
     register,
@@ -63,6 +65,12 @@ export default function Budget() {
 
   const onSubmit = async (data: BudgetFormData) => {
     setIsSubmitting(true);
+    
+    // Track form submission start
+    trackEvent('form_submit_start', {
+      form_name: 'budget_request',
+      project_type: data.projectType,
+    });
     
     try {
       // Tentar API principal primeiro
@@ -79,6 +87,18 @@ export default function Budget() {
       
       if (response.ok) {
         console.log('API principal funcionou, email enviado com sucesso');
+        
+        // Track successful form submission
+        trackEvent('form_submit_success', {
+          form_name: 'budget_request',
+          project_type: data.projectType,
+          value: 1,
+          currency: 'BRL',
+        });
+        
+        // Track conversion
+        trackConversion('budget_request_conversion', 1, 'BRL');
+        
         setIsSubmitted(true);
         reset();
         // Resetar mensagem de sucesso após 5 segundos
@@ -92,6 +112,13 @@ export default function Budget() {
         const errorData = await response.json();
         console.error('Detalhes do erro 503:', errorData);
         
+        // Track API error
+        trackEvent('form_submit_error', {
+          form_name: 'budget_request',
+          error_type: 'api_unavailable',
+          error_code: 503,
+        });
+        
         alert(`Serviço de email temporariamente indisponível.\n\nEntre em contato conosco diretamente:\n📧 contact@wzsolutions.com.br\n📱 +55 11 94729-3221`);
         return;
       }
@@ -99,6 +126,14 @@ export default function Budget() {
       // Se chegou aqui, houve erro
       const errorData = await response.json();
       console.error('Erro ao enviar email:', errorData);
+      
+      // Track API error
+      trackEvent('form_submit_error', {
+        form_name: 'budget_request',
+        error_type: 'api_error',
+        error_code: response.status,
+        error_message: errorData.error,
+      });
       
       // Tratamento específico para erro 503 (serviço indisponível)
       if (response.status === 503) {
@@ -108,6 +143,14 @@ export default function Budget() {
       }
     } catch (error) {
       console.error('Erro ao enviar email:', error);
+      
+      // Track network error
+      trackEvent('form_submit_error', {
+        form_name: 'budget_request',
+        error_type: 'network_error',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+      });
+      
       alert('Erro ao enviar solicitação. Tente novamente.');
     } finally {
       setIsSubmitting(false);

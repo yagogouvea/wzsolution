@@ -3,15 +3,23 @@
 import { motion } from 'framer-motion';
 import { MessageCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useGoogleAnalytics } from '@/components/GoogleAnalytics';
 
 export default function WhatsAppButton() {
   const [mounted, setMounted] = useState(false);
+  const { trackEvent } = useGoogleAnalytics();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const handleWhatsAppClick = () => {
+    // Track WhatsApp click
+    trackEvent('whatsapp_click', {
+      button_location: 'floating_button',
+      phone_number: '5511947293221',
+    });
+    
     const phoneNumber = '5511947293221'; // Número atualizado
     const message = 'Olá! Gostaria de saber mais sobre os serviços da WZ Solution.';
     const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
