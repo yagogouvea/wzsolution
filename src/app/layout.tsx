@@ -7,7 +7,6 @@ import WhatsAppButton from "@/components/WhatsAppButton";
 import NoSSR from "@/components/NoSSR";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import SchemaMarkup from "@/components/SchemaMarkup";
-import LiveChat from "@/components/LiveChat";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -115,9 +114,6 @@ export default function RootLayout({
         </NoSSR>
         <NoSSR>
           <WhatsAppButton />
-        </NoSSR>
-        <NoSSR>
-          <LiveChat />
         </NoSSR>
       </body>
     </html>
