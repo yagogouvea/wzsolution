@@ -5,7 +5,7 @@ const http = require('http');
 
 // Configuração
 const BASE_URL = 'https://app.wzsolutions.com.br';
-const GA_MEASUREMENT_ID = 'G-FJ86C36NYP';
+const GA_MEASUREMENT_ID = 'G-T34W2161VL';
 
 // Função para fazer requisição HTTP/HTTPS
 function makeRequest(url, options, data = null) {
@@ -184,12 +184,12 @@ async function runTests() {
   console.log('');
   console.log('📋 Tag implementada:');
   console.log('<!-- Google tag (gtag.js) -->');
-  console.log('<script async src="https://www.googletagmanager.com/gtag/js?id=G-FJ86C36NYP"></script>');
+  console.log('<script async src="https://www.googletagmanager.com/gtag/js?id=G-T34W2161VL"></script>');
   console.log('<script>');
   console.log('  window.dataLayer = window.dataLayer || [];');
   console.log('  function gtag(){dataLayer.push(arguments);}');
   console.log('  gtag(\'js\', new Date());');
-  console.log('  gtag(\'config\', \'G-FJ86C36NYP\');');
+  console.log('  gtag(\'config\', \'G-T34W2161VL\');');
   console.log('</script>');
   
   await testGoogleTag();

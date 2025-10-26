@@ -87,7 +87,7 @@ export const metadata: Metadata = {
     },
   },
   verification: {
-    google: "G-FJ86C36NYP",
+    google: "G-T34W2161VL",
   },
 };
 
@@ -100,7 +100,7 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
         {/* Google Analytics - Configuração Manual */}
-        <GoogleAnalytics measurementId="G-FJ86C36NYP" />
+        <GoogleAnalytics measurementId="G-T34W2161VL" />
         {/* Schema Markup para SEO */}
         <SchemaMarkup />
       </head>

@@ -121,3 +121,4 @@ src/
 - Conteúdo otimizado para cada público
 - Meta tags específicas por idioma
 
+

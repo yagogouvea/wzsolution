@@ -13,14 +13,16 @@
 
 ### 3. **Configurar Variável de Ambiente**
 
+> **✅ ID Atual Configurado:** `G-T34W2161VL`
+
 #### **No Railway (Produção):**
 ```env
-NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-T34W2161VL
 ```
 
 #### **No .env.local (Desenvolvimento):**
 ```env
-NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-T34W2161VL
 ```
 
 ### 4. **Eventos Configurados**
@@ -62,7 +64,7 @@ NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 #### **Teste Local:**
 ```bash
 # 1. Configure a variável de ambiente
-echo "NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX" >> .env.local
+echo "NEXT_PUBLIC_GA_MEASUREMENT_ID=G-T34W2161VL" >> .env.local
 
 # 2. Inicie o servidor
 npm run dev

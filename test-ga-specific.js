@@ -5,13 +5,13 @@ const http = require('http');
 
 // Configuração
 const BASE_URL = 'https://app.wzsolutions.com.br';
-const GA_MEASUREMENT_ID = 'G-FJ86C36NYP';
+const GA_MEASUREMENT_ID = 'G-T34W2161VL';
 const TEST_DATA = {
   name: 'Teste GA Específico',
   email: 'teste@teste.com',
   whatsapp: '(11) 99999-9999',
   projectType: 'mobile',
-  description: 'Teste de tracking com ID específico G-FJ86C36NYP'
+  description: 'Teste de tracking com ID específico G-T34W2161VL'
 };
 
 // Função para fazer requisição HTTP/HTTPS
@@ -50,7 +50,7 @@ function makeRequest(url, options, data = null) {
 
 // Teste 1: Verificar se o site carrega e se tem o GA configurado
 async function testSiteWithSpecificGA() {
-  console.log('\n🌐 TESTE 1: Site com Google Analytics G-FJ86C36NYP');
+  console.log('\n🌐 TESTE 1: Site com Google Analytics G-T34W2161VL');
   console.log('==================================================');
   
   try {
@@ -173,14 +173,14 @@ async function testRailwayConfig() {
   console.log('');
   console.log('⚠️ IMPORTANTE:');
   console.log('- A variável deve começar com NEXT_PUBLIC_');
-  console.log('- O valor deve ser exatamente: G-FJ86C36NYP');
+  console.log('- O valor deve ser exatamente: G-T34W2161VL');
   console.log('- Após configurar, aguarde alguns minutos para o deploy');
   console.log('');
 }
 
 // Função principal
 async function runTests() {
-  console.log('🚀 VERIFICAÇÃO DO GOOGLE ANALYTICS G-FJ86C36NYP');
+  console.log('🚀 VERIFICAÇÃO DO GOOGLE ANALYTICS G-T34W2161VL');
   console.log('================================================');
   console.log('ID de Métricas:', GA_MEASUREMENT_ID);
   console.log('URL Base:', BASE_URL);
@@ -200,7 +200,7 @@ async function runTests() {
   console.log('⚠️ Google Analytics precisa ser configurado no Railway');
   console.log('');
   console.log('🎯 PRÓXIMO PASSO:');
-  console.log('Configure NEXT_PUBLIC_GA_MEASUREMENT_ID=G-FJ86C36NYP no Railway');
+  console.log('Configure NEXT_PUBLIC_GA_MEASUREMENT_ID=G-T34W2161VL no Railway');
   console.log('e aguarde o deploy para começar a coletar dados!');
 }
 

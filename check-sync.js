@@ -62,3 +62,4 @@ console.log('\n📋 URLs para testar:');
 console.log('🇧🇷 Português: http://localhost:3000/pt');
 console.log('🇺🇸 English: http://localhost:3000/en');
 
+
