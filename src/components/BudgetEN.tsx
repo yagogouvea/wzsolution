@@ -69,6 +69,7 @@ export default function BudgetEN() {
       <section id="budget" className="py-20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.div
+            id="mensagem-sucesso"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             className="glass rounded-2xl p-12"
