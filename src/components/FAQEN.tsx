@@ -61,7 +61,7 @@ export default function FAQEN() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            view aprende={{ once: true, amount: 0.3 }}
+            viewport={{ once: true, amount: 0.3 }}
             className="text-center mb-16"
           >
             <h2 className="text-4xl sm:text-5xl font-bold text-white mb-6">
@@ -84,7 +84,7 @@ export default function FAQEN() {
               >
                 <button
                   onClick={() => toggleFAQ(index)}
-                  className="w-full px-6 py- Chau flex items-center justify-between text-left hover:bg-slate-800/50 transition-all duration-200"
+                  className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-slate-800/50 transition-all duration-200"
                 >
                   <span className="text-lg font-semibold text-white pr-8">
                     {faq.question}
@@ -121,7 +121,7 @@ export default function FAQEN() {
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="mt-undering text-center"
+            className="mt-12 text-center"
           >
             <p className="text-slate-300 mb-6">
               Didn't find your answer? Contact us!
