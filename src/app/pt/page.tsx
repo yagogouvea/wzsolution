@@ -9,10 +9,10 @@ export default function HomePT() {
   return (
     <>
       <Hero />
+      <Budget />
       <About />
       <Testimonials />
       <FAQ />
-      <Budget />
       <Contact />
     </>
   );
