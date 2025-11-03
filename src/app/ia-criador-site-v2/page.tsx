@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Send, Bot, User, ArrowLeft, Globe, CheckCircle, Upload, Loader2, MessageSquare, Eye } from 'lucide-react';
+import { Send, Bot, User, ArrowLeft, Globe, CheckCircle, Upload, Loader2, Eye, X } from 'lucide-react';
 import Link from 'next/link';
 import ProtectedSitePreview from '@/components/ProtectedSitePreview';
 import LogoUpload from '@/components/LogoUpload';
@@ -48,8 +48,10 @@ function SiteCriadorV2Content() {
   });
   const [showLogoUpload, setShowLogoUpload] = useState(false);
   const [awaitingFormFields, setAwaitingFormFields] = useState(false);
-  // ✅ Estado para alternar entre Chat e Preview em mobile
-  const [mobileView, setMobileView] = useState<'chat' | 'preview'>('chat');
+  // ✅ Estado para modal de preview
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewSiteCode, setPreviewSiteCode] = useState<string | null>(null);
+  const [previewVersion, setPreviewVersion] = useState<number>(1);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -396,43 +398,9 @@ Vamos continuar construindo seu site. Preciso de mais alguns detalhes para criar
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
-        {/* ✅ Mobile: Tabs para alternar entre Chat e Preview */}
-        {(() => {
-          const hasPreview = messages.some(m => m.metadata?.sitePreview && m.metadata.siteCode);
-          if (!hasPreview) return null;
-          return (
-            <div className="lg:hidden mb-4 flex bg-slate-800/50 rounded-xl p-1 backdrop-blur-sm">
-              <button
-                onClick={() => setMobileView('chat')}
-                className={`flex-1 px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 transition-all ${
-                  mobileView === 'chat'
-                    ? 'bg-blue-500 text-white shadow-lg'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-              >
-                <MessageSquare className="w-5 h-5" />
-                <span className="font-medium">Chat</span>
-              </button>
-              <button
-                onClick={() => setMobileView('preview')}
-                className={`flex-1 px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 transition-all ${
-                  mobileView === 'preview'
-                    ? 'bg-blue-500 text-white shadow-lg'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-              >
-                <Eye className="w-5 h-5" />
-                <span className="font-medium">Preview</span>
-              </button>
-            </div>
-          );
-        })()}
-
-        <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
-          {/* Chat Area */}
-          <div className={`lg:col-span-2 ${mobileView === 'chat' ? 'block' : 'hidden lg:block'}`}>
-            <div className="glass rounded-2xl h-[calc(100vh-200px)] sm:h-[700px] flex flex-col">
+      <div className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* Chat Interface - Apenas chat, sem preview lateral */}
+        <div className="glass rounded-2xl h-[calc(100vh-200px)] sm:h-[700px] flex flex-col">
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-3 sm:space-y-4">
             <AnimatePresence>
@@ -461,14 +429,20 @@ Vamos continuar construindo seu site. Preciso de mais alguns detalhes para criar
                     }`}>
                       <div className="whitespace-pre-wrap text-sm sm:text-base leading-relaxed break-words">{message.content}</div>
                       
-                      {/* Renderizar preview do site apenas em mobile dentro do chat */}
+                      {/* Botão para ver preview quando site for criado */}
                       {message.metadata?.sitePreview && message.metadata.siteCode && (
-                        <div className="mt-4 lg:hidden">
-                          <ProtectedSitePreview 
-                            siteCodeId={message.metadata.siteCode}
-                            version={message.metadata.version || 1}
-                            conversationId={conversationState.conversationId || ''}
-                          />
+                        <div className="mt-4">
+                          <button
+                            onClick={() => {
+                              setPreviewSiteCode(message.metadata!.siteCode!);
+                              setPreviewVersion(message.metadata!.version || 1);
+                              setShowPreviewModal(true);
+                            }}
+                            className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
+                          >
+                            <Eye className="w-5 h-5" />
+                            <span>👁️ Ver Preview do Site</span>
+                          </button>
                         </div>
                       )}
                       
@@ -592,34 +566,45 @@ Vamos continuar construindo seu site. Preciso de mais alguns detalhes para criar
               </button>
             </div>
           </div>
-            </div>
-          </div>
-
-          {/* Preview Area - Desktop sempre visível, Mobile apenas quando selecionado */}
-          {(() => {
-            const previewMessage = messages.find(m => m.metadata?.sitePreview && m.metadata.siteCode);
-            if (!previewMessage || !previewMessage.metadata?.siteCode) return null;
-            
-            return (
-              <div className={`lg:col-span-1 ${mobileView === 'preview' ? 'block' : 'hidden lg:block'}`}>
-                <div className="glass rounded-2xl p-4 lg:p-6 sticky top-24 lg:top-28">
-                  <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-                    <Eye className="w-5 h-5 mr-2 text-blue-400" />
-                    Preview do Site
-                  </h3>
-                  <div className="bg-slate-800 rounded-xl overflow-hidden">
-                    <ProtectedSitePreview 
-                      siteCodeId={previewMessage.metadata.siteCode}
-                      version={previewMessage.metadata.version || 1}
-                      conversationId={conversationState.conversationId || ''}
-                    />
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
         </div>
       </div>
+
+      {/* Modal de Preview */}
+      {showPreviewModal && previewSiteCode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="glass rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col"
+          >
+            {/* Header do Modal */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-700">
+              <h3 className="text-xl font-bold text-white flex items-center">
+                <Eye className="w-6 h-6 mr-2 text-blue-400" />
+                Preview do Site
+              </h3>
+              <button
+                onClick={() => setShowPreviewModal(false)}
+                className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6 text-slate-300" />
+              </button>
+            </div>
+            
+            {/* Preview Content */}
+            <div className="flex-1 overflow-auto p-4">
+              <div className="bg-slate-800 rounded-xl overflow-hidden">
+                <ProtectedSitePreview 
+                  siteCodeId={previewSiteCode}
+                  version={previewVersion}
+                  conversationId={conversationState.conversationId || ''}
+                />
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
