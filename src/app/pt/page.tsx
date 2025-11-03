@@ -1,4 +1,5 @@
 import Hero from "@/components/Hero";
+import AIGeneratorSection from "@/components/AIGeneratorSection";
 import About from "@/components/About";
 import Budget from "@/components/Budget";
 import FAQ from "@/components/FAQ";
@@ -9,6 +10,7 @@ export default function HomePT() {
   return (
     <>
       <Hero />
+      <AIGeneratorSection />
       <Budget />
       <About />
       <Testimonials />

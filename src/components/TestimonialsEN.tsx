@@ -78,7 +78,7 @@ export default function TestimonialsEN() {
               What Our Clients Say
             </h2>
             <p className="text-xl text-slate-300 max-w-3xl mx-auto">
-              Our clients' satisfaction is our priority
+              Our clients&apos; satisfaction is our priority
             </p>
           </motion.div>
 
@@ -113,7 +113,7 @@ export default function TestimonialsEN() {
 
                 {/* Testimonial Text */}
                 <p className="text-slate-300 leading-relaxed mb-6 relative z-10">
-                  "{testimonial.text}"
+                  &quot;{testimonial.text}&quot;
                 </p>
 
                 {/* Author */}

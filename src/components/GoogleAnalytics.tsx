@@ -29,7 +29,7 @@ export default function GoogleAnalytics({ measurementId }: GoogleAnalyticsProps)
 
 // Hook para tracking de eventos
 export const useGoogleAnalytics = () => {
-  const trackEvent = (eventName: string, parameters?: Record<string, any>) => {
+  const trackEvent = (eventName: string, parameters?: Record<string, unknown>) => {
     if (typeof window !== 'undefined' && window.gtag) {
       window.gtag('event', eventName, parameters);
     }
@@ -64,6 +64,6 @@ export const useGoogleAnalytics = () => {
 // Declaração global para TypeScript
 declare global {
   interface Window {
-    gtag: (...args: any[]) => void;
+    gtag: (...args: unknown[]) => void;
   }
 }

@@ -1,0 +1,112 @@
+/**
+ * 🔒 Sistema de Limites e ID de Projeto
+ * Gerencia limites de modificações e ID único do projeto
+ */
+
+import { DatabaseService } from './supabase';
+
+/**
+ * Limites configurados
+ */
+export const PROJECT_LIMITS = {
+  INITIAL_PROMPT: 1,        // Prompt inicial (geração)
+  MODIFICATIONS: 3,         // Modificações permitidas
+  TOTAL_REQUESTS: 4         // Total: 1 inicial + 3 modificações
+};
+
+/**
+ * Gera ID numérico único a partir do UUID
+ * Converte os primeiros caracteres do UUID em número
+ */
+export function generateProjectId(conversationId: string): number {
+  // Usar hash simples do UUID para gerar número único
+  // Pegar primeiros 8 caracteres e converter para número base 16
+  const hash = conversationId.replace(/-/g, '').substring(0, 8);
+  const numId = parseInt(hash, 16);
+  
+  // Garantir que seja um número de 7 dígitos (fácil de lembrar)
+  // Usar módulo para garantir tamanho máximo
+  return numId % 9999999; // Máximo 7 dígitos
+}
+
+/**
+ * Conta modificações realizadas (excluindo geração inicial)
+ */
+export async function countModifications(conversationId: string): Promise<number> {
+  try {
+    const versions = await DatabaseService.getSiteVersions(conversationId);
+    
+    // Contar versões após a primeira (que é a geração inicial)
+    // Se tem 1 versão = geração inicial (0 modificações)
+    // Se tem 2 versões = 1 modificação
+    // Se tem 3 versões = 2 modificações
+    // Se tem 4 versões = 3 modificações
+    // Se tem 5+ versões = excedeu limite
+    
+    if (!versions || versions.length === 0) {
+      return 0; // Nenhuma versão ainda
+    }
+    
+    // Versão 1 = geração inicial, versões 2+ = modificações
+    const modifications = Math.max(0, versions.length - 1);
+    
+    return modifications;
+  } catch (error) {
+    console.error('❌ Erro ao contar modificações:', error);
+    return 0;
+  }
+}
+
+/**
+ * Verifica se o projeto excedeu o limite de modificações
+ */
+export async function hasExceededLimit(conversationId: string): Promise<boolean> {
+  const modifications = await countModifications(conversationId);
+  return modifications >= PROJECT_LIMITS.MODIFICATIONS;
+}
+
+/**
+ * Verifica se pode fazer modificação
+ */
+export async function canMakeModification(conversationId: string): Promise<{
+  allowed: boolean;
+  modificationsUsed: number;
+  modificationsRemaining: number;
+  projectId: number;
+}> {
+  const modifications = await countModifications(conversationId);
+  const projectId = generateProjectId(conversationId);
+  
+  return {
+    allowed: modifications < PROJECT_LIMITS.MODIFICATIONS,
+    modificationsUsed: modifications,
+    modificationsRemaining: Math.max(0, PROJECT_LIMITS.MODIFICATIONS - modifications),
+    projectId
+  };
+}
+
+/**
+ * Mensagem de WhatsApp pré-formatada
+ */
+export function getWhatsAppMessage(projectId: number): string {
+  return `Olá! Criei meu site na WZ Solution e tenho interesse em adquirir o projeto completo.
+
+🔢 **ID do Projeto:** ${projectId}
+
+Gostaria de:
+• Adquirir o código fonte completo
+• Solicitar mais modificações
+• Implementar ferramentas adicionais
+• Colocar o site no ar
+
+Podem me ajudar?`;
+}
+
+/**
+ * URL do WhatsApp com mensagem pré-formatada
+ */
+export function getWhatsAppUrl(projectId: number, phoneNumber: string = '5511947293221'): string {
+  const message = encodeURIComponent(getWhatsAppMessage(projectId));
+  return `https://wa.me/${phoneNumber}?text=${message}`;
+}
+

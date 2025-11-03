@@ -203,8 +203,9 @@ Responda para: ${email}
       console.error('AWS Error:', awsError);
       console.error('Error name:', awsError instanceof Error ? awsError.name : 'Unknown');
       console.error('Error message:', awsError instanceof Error ? awsError.message : String(awsError));
-      console.error('Error code:', (awsError as any)?.$metadata?.httpStatusCode);
-      console.error('Error requestId:', (awsError as any)?.$metadata?.requestId);
+      const awsErrorMetadata = (awsError as { $metadata?: { httpStatusCode?: number; requestId?: string } })?.$metadata;
+      console.error('Error code:', awsErrorMetadata?.httpStatusCode);
+      console.error('Error requestId:', awsErrorMetadata?.requestId);
       console.error('===================');
       throw awsError;
     }

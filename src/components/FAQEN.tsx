@@ -124,7 +124,7 @@ export default function FAQEN() {
             className="mt-12 text-center"
           >
             <p className="text-slate-300 mb-6">
-              Didn't find your answer? Contact us!
+              Didn&apos;t find your answer? Contact us!
             </p>
             <motion.button
               whileHover={{ scale: 1.05 }}

@@ -106,14 +106,20 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} antialiased`} suppressHydrationWarning>
         <NoSSR>
+          <div className="site-header-footer">
           <Header />
+          </div>
         </NoSSR>
         <main>{children}</main>
         <NoSSR>
+          <div className="site-header-footer">
           <Footer />
+          </div>
         </NoSSR>
         <NoSSR>
+          <div className="site-header-footer">
           <WhatsAppButton />
+          </div>
         </NoSSR>
       </body>
     </html>

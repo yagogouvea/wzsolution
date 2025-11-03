@@ -113,7 +113,7 @@ export default function Testimonials() {
 
                 {/* Testimonial Text */}
                 <p className="text-slate-300 leading-relaxed mb-6 relative z-10">
-                  "{testimonial.text}"
+                  &quot;{testimonial.text}&quot;
                 </p>
 
                 {/* Author */}

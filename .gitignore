@@ -39,3 +39,32 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# desenvolvimento e testes
+test-*.js
+test-*.ts
+test-*.html
+check-sync.js
+sync-components.js
+verificar-*.js
+executar-sql-*.js
+scripts/test-*
+scripts/logs/
+*.md
+!README.md
+
+# arquivos SQL antigos (manter apenas SCHEMA_COMPLETO_ATUAL.sql)
+ADD_CONTENT_FIELDS.sql
+VERIFICACAO_*.sql
+SQL_RAPIDO_*.sql
+SUPABASE_STORAGE_SETUP.sql
+SUPABASE_SETUP_SQL.sql
+MIGRATION_*.sql
+database-schema*.sql
+
+# scripts de setup/tests
+EXECUTAR_TUDO.*
+setup-*.ps1
+setup-*.sh
+test-api.*
+docs/
