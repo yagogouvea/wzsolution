@@ -49,9 +49,12 @@ export default function FullscreenChat({
   const [isBlocked, setIsBlocked] = useState(false);
   // ✅ Estado para modal de preview
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  // ✅ Estado para detectar teclado no mobile
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -65,6 +68,72 @@ export default function FullscreenChat({
     if (isOpen && !isMinimized) {
       inputRef.current?.focus();
     }
+  }, [isOpen, isMinimized]);
+
+  // ✅ Detectar teclado no mobile e ajustar layout
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleFocus = () => {
+      // Verificar se é mobile
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+      if (isMobile) {
+        setIsKeyboardOpen(true);
+        // Scroll suave para o input após um pequeno delay para o teclado aparecer
+        setTimeout(() => {
+          inputContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }, 300);
+      }
+    };
+
+    const handleBlur = () => {
+      setIsKeyboardOpen(false);
+    };
+
+    const input = inputRef.current;
+    if (input) {
+      input.addEventListener('focus', handleFocus);
+      input.addEventListener('blur', handleBlur);
+    }
+
+    // Usar visualViewport API se disponível (melhor suporte para teclado)
+    if (window.visualViewport) {
+      const handleViewportChange = () => {
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+        if (isMobile) {
+          const viewportHeight = window.visualViewport.height;
+          const windowHeight = window.innerHeight;
+          // Se a altura da viewport diminuiu significativamente, o teclado está aberto
+          setIsKeyboardOpen(viewportHeight < windowHeight * 0.75);
+          
+          if (viewportHeight < windowHeight * 0.75) {
+            // Ajustar scroll quando teclado abrir
+            setTimeout(() => {
+              inputContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }, 100);
+          }
+        }
+      };
+
+      window.visualViewport.addEventListener('resize', handleViewportChange);
+      window.visualViewport.addEventListener('scroll', handleViewportChange);
+
+      return () => {
+        if (input) {
+          input.removeEventListener('focus', handleFocus);
+          input.removeEventListener('blur', handleBlur);
+        }
+        window.visualViewport?.removeEventListener('resize', handleViewportChange);
+        window.visualViewport?.removeEventListener('scroll', handleViewportChange);
+      };
+    }
+
+    return () => {
+      if (input) {
+        input.removeEventListener('focus', handleFocus);
+        input.removeEventListener('blur', handleBlur);
+      }
+    };
   }, [isOpen, isMinimized]);
 
   useEffect(() => {
@@ -764,11 +833,18 @@ ${getRedirectMessage(messageToSend)}`,
 
       {/* Main Content - Only Chat */}
       {!isMinimized && (
-        <div className="h-[calc(100vh-64px)]">
+        <div 
+          className="h-[calc(100vh-64px)]"
+          style={{
+            height: isKeyboardOpen && typeof window !== 'undefined' && window.visualViewport
+              ? `${window.visualViewport.height - 64}px`
+              : 'calc(100vh - 64px)'
+          }}
+        >
           {/* Chat Area - Full Width */}
-          <div className="max-w-4xl mx-auto h-full flex flex-col">
+          <div className="max-w-4xl mx-auto h-full flex flex-col px-4">
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 ${isKeyboardOpen ? 'pb-2' : ''}`}>
             <AnimatePresence>
               {messages.map((message) => (
                 <motion.div
@@ -876,8 +952,20 @@ ${getRedirectMessage(messageToSend)}`,
           </div>
 
           {/* Input */}
-          <div className="border-t border-slate-700 p-6 bg-slate-800/50">
-            <div className="flex gap-4">
+          <div 
+            ref={inputContainerRef}
+            className={`border-t border-slate-700 p-4 sm:p-6 bg-slate-800/50 transition-all duration-200 sticky bottom-0 z-10 ${
+              isKeyboardOpen ? 'pb-2' : ''
+            }`}
+            style={{
+              paddingBottom: isKeyboardOpen 
+                ? (typeof window !== 'undefined' && window.visualViewport 
+                    ? `${Math.max(window.innerHeight - window.visualViewport.height, 0) + 8}px` 
+                    : '1rem')
+                : undefined
+            }}
+          >
+            <div className="flex gap-2 sm:gap-4">
               {/* Hidden file input */}
               <input
                 ref={fileInputRef}
@@ -894,13 +982,13 @@ ${getRedirectMessage(messageToSend)}`,
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading}
-                className="p-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 sm:p-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                 title="Enviar imagem"
               >
-                <ImageIcon size={20} />
+                <ImageIcon size={18} className="sm:w-5 sm:h-5" />
               </button>
               
-              <div className="flex-1 relative">
+              <div className="flex-1 relative min-w-0">
                 <input
                   ref={inputRef}
                   type="text"
@@ -909,22 +997,23 @@ ${getRedirectMessage(messageToSend)}`,
                   onKeyPress={handleKeyPress}
                   placeholder={isBlocked ? "Limite atingido. Entre em contato para continuar..." : "Digite sua mensagem..."}
                   disabled={isLoading || isBlocked}
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors pr-12 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-slate-800 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors pr-10 sm:pr-12 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400">
-                  <Send size={18} />
+                <div className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none">
+                  <Send size={16} className="sm:w-[18px] sm:h-[18px]" />
                 </div>
               </div>
               <button
                 onClick={() => sendMessage()}
                 disabled={!inputMessage.trim() || isLoading || isBlocked}
-                className={`px-6 py-3 rounded-xl font-medium transition-all ${
+                className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium transition-all text-sm sm:text-base flex-shrink-0 ${
                   inputMessage.trim() && !isLoading && !isBlocked
                     ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700'
                     : 'bg-slate-700 text-slate-400 cursor-not-allowed'
                 }`}
               >
-                Enviar
+                <span className="hidden sm:inline">Enviar</span>
+                <Send size={18} className="sm:hidden" />
               </button>
             </div>
           </div>
