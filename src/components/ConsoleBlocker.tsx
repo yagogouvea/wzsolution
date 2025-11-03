@@ -45,16 +45,36 @@ export default function ConsoleBlocker() {
       }
     }, 100);
 
-    // Bloquear DevTools
+    // Bloquear DevTools (mas NÃO em mobile/iPhone)
     const blockDevTools = () => {
-      const threshold = 160;
-      if (window.outerHeight - window.innerHeight > threshold || 
-          window.outerWidth - window.innerWidth > threshold) {
-        document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#000;color:#fff;font-family:monospace;font-size:24px;">🔒 Acesso bloqueado - WZ Solution</div>';
+      // ✅ Detectar se é mobile/iPhone para não bloquear
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
+                       window.innerWidth < 768 ||
+                       ('ontouchstart' in window) ||
+                       (navigator.maxTouchPoints > 0);
+      
+      // Em mobile, não bloquear - diferenças de viewport são normais
+      if (isMobile) {
+        return;
+      }
+      
+      // Em desktop, usar threshold mais alto e verificar múltiplas condições
+      const threshold = 200; // Aumentado de 160 para 200
+      const heightDiff = window.outerHeight - window.innerHeight;
+      const widthDiff = window.outerWidth - window.innerWidth;
+      
+      // ✅ Apenas bloquear se diferença for SIGNIFICATIVA e consistente
+      // Não bloquear se for apenas uma pequena diferença de viewport
+      if ((heightDiff > threshold || widthDiff > threshold) && 
+          heightDiff < window.innerHeight * 0.5 && // Não bloquear se diferença for muito grande (pode ser redimensionamento normal)
+          widthDiff < window.innerWidth * 0.5) {
+        // ✅ Apenas avisar, não bloquear completamente no chat
+        // O bloqueio completo só deve acontecer no preview do site gerado, não no chat
+        console.warn('🔒 DevTools detectado');
       }
     };
 
-    const devToolsInterval = setInterval(blockDevTools, 500);
+    const devToolsInterval = setInterval(blockDevTools, 1000); // Reduzido de 500ms para 1000ms
 
     // Bloquear teclas de atalho
     const blockKeys = (e: KeyboardEvent) => {

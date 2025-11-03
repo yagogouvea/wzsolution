@@ -63,23 +63,39 @@ export function injectSecurityProtections(html: string, siteId: string): string 
       Object.seal(fakeConsole);
     } catch(e) {}
     
-    // Bloquear DevTools
+    // Bloquear DevTools (mas NÃO em mobile/iPhone)
     let devtools = {open: false, orientation: null};
-    const threshold = 160;
+    const threshold = 200; // Aumentado de 160 para 200
     
     setInterval(() => {
       // ✅ AJUSTE: Não bloquear se estiver em iframe (preview mode)
-      // Verificar se está em iframe antes de bloquear
       const isInIframe = window.self !== window.top;
       
-      if (!isInIframe && (window.outerHeight - window.innerHeight > threshold || 
-          window.outerWidth - window.innerWidth > threshold)) {
+      // ✅ Detectar se é mobile/iPhone para não bloquear
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
+                       window.innerWidth < 768 ||
+                       ('ontouchstart' in window) ||
+                       (navigator.maxTouchPoints > 0);
+      
+      // Em mobile ou iframe, não bloquear - diferenças de viewport são normais
+      if (isMobile || isInIframe) {
+        devtools.open = false;
+        return;
+      }
+      
+      const heightDiff = window.outerHeight - window.innerHeight;
+      const widthDiff = window.outerWidth - window.innerWidth;
+      
+      // ✅ Apenas bloquear se diferença for SIGNIFICATIVA e consistente
+      if (!isInIframe && (heightDiff > threshold || widthDiff > threshold) &&
+          heightDiff < window.innerHeight * 0.5 &&
+          widthDiff < window.innerWidth * 0.5) {
         if (!devtools.open) {
           devtools.open = true;
           // Apenas avisar, não bloquear completamente em preview
           try {
-            document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#000;color:#fff;font-family:monospace;font-size:24px;">🔒 Código protegido - WZ Solution</div>';
-            window.location.href = 'about:blank';
+            // Não bloquear completamente - apenas avisar
+            console.warn('🔒 DevTools detectado');
           } catch(e) {
             // Ignorar erro se não conseguir bloquear
           }
@@ -87,7 +103,7 @@ export function injectSecurityProtections(html: string, siteId: string): string 
       } else {
         devtools.open = false;
       }
-    }, 500);
+    }, 1000); // Reduzido de 500ms para 1000ms
     
     // Bloquear teclas de atalho
     document.addEventListener('keydown', (e) => {
