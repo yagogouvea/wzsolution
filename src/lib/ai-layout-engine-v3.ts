@@ -16,10 +16,15 @@ function getOpenAIClient() {
   return new OpenAI({ apiKey });
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// ✅ Não inicializar no nível do módulo - apenas quando necessário
+function getSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabase credentials are required.');
+  }
+  return createClient(supabaseUrl, supabaseKey);
+}
 
 interface LayoutConfig {
   companyName: string;
@@ -188,6 +193,7 @@ GERE O CÓDIGO AGORA!`;
   let savedVersionId: string | null = null;
   if (config.conversationId) {
     // Verificar/criar conversa
+    const supabase = getSupabaseClient();
     const { data: existingConv } = await supabase
       .from("conversations")
       .select("id")
@@ -195,6 +201,7 @@ GERE O CÓDIGO AGORA!`;
       .single();
 
     if (!existingConv) {
+      const supabase = getSupabaseClient();
       await supabase.from("conversations").insert({
         id: config.conversationId,
         initial_prompt: config.additionalPrompt || `Site para ${config.companyName}`,
@@ -343,6 +350,7 @@ Retorne APENAS o código modificado, sem explicações.`;
   
   let savedVersionId: string | null = null;
   if (conversationId) {
+    const supabase = getSupabaseClient();
     const { data } = await supabase.from("site_versions").insert({
       conversation_id: conversationId,
       version_number: 1,

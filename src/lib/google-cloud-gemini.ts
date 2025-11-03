@@ -7,12 +7,23 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from "@supabase/supabase-js";
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
+// ✅ Não inicializar no nível do módulo - apenas quando necessário
+function getGenAIClient() {
+  const apiKey = process.env.GOOGLE_AI_API_KEY;
+  if (!apiKey) {
+    throw new Error('GOOGLE_AI_API_KEY is required.');
+  }
+  return new GoogleGenerativeAI(apiKey);
+}
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabase credentials are required.');
+  }
+  return createClient(supabaseUrl, supabaseKey);
+}
 
 interface LayoutConfig {
   companyName: string;
@@ -176,6 +187,7 @@ GERE O CÓDIGO AGORA!`;
   let savedVersionId: string | null = null;
   if (config.conversationId) {
     // Verificar/criar conversa
+    const supabase = getSupabaseClient();
     const { data: existingConv } = await supabase
       .from("conversations")
       .select("id")
@@ -337,6 +349,7 @@ Retorne APENAS o código modificado, sem explicações.`;
   
   let savedVersionId: string | null = null;
   if (conversationId) {
+    const supabase = getSupabaseClient();
     const { data } = await supabase.from("site_versions").insert({
       conversation_id: conversationId,
       version_number: 1,

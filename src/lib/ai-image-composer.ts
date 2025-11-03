@@ -17,10 +17,15 @@ function getOpenAIClient() {
   return new OpenAI({ apiKey });
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// ✅ Não inicializar no nível do módulo - apenas quando necessário
+function getSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabase credentials are required.');
+  }
+  return createClient(supabaseUrl, supabaseKey);
+}
 
 export type ImageSlot =
   | "hero"
@@ -129,7 +134,7 @@ async function uploadToSupabase(
   contentType = "image/png"
 ): Promise<string> {
   console.log(`📤 [Image Composer] Uploading to ${path}...`);
-  
+  const supabase = getSupabaseClient();
   const { error } = await supabase.storage.from(BUCKET).upload(path, arrayBuffer, {
     contentType,
     upsert: true

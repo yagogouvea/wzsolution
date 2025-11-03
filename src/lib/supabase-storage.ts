@@ -7,11 +7,15 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// ✅ Criar cliente com Service Role Key (acesso completo ao Storage)
-const supabaseStorage = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// ✅ Não inicializar no nível do módulo - apenas quando necessário
+function getSupabaseStorageClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabase credentials are required.');
+  }
+  return createClient(supabaseUrl, supabaseKey);
+}
 
 /**
  * 📤 Upload de arquivo para o Supabase Storage
@@ -30,7 +34,7 @@ export async function uploadToStorage(
 ): Promise<string> {
   try {
     console.log(`📤 Uploading ${fileName} to ${bucket}/${folder}...`);
-
+    const supabaseStorage = getSupabaseStorageClient();
     // ✅ Upload do arquivo
     const filePath = `${folder}/${fileName}`;
     const { data: uploadData, error: uploadError } = await supabaseStorage.storage
@@ -156,6 +160,7 @@ export async function deleteFromStorage(
   bucket: string = 'site_assets'
 ): Promise<void> {
   try {
+    const supabaseStorage = getSupabaseStorageClient();
     const { error } = await supabaseStorage.storage
       .from(bucket)
       .remove([filePath]);
@@ -177,6 +182,7 @@ export async function deleteFromStorage(
  */
 export async function validateStorageSetup(): Promise<boolean> {
   try {
+    const supabaseStorage = getSupabaseStorageClient();
     // Tentar listar buckets
     const { data: buckets, error } = await supabaseStorage.storage.listBuckets();
     
