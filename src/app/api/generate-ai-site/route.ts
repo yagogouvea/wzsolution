@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { generateSiteWithClaude } from "@/lib/claude";
 import { DatabaseService } from "@/lib/supabase";
 import { moderateMessage } from "@/lib/message-moderation";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
+  const startTime = Date.now();
   try {
-    console.log("🏗️ [generate-ai-site] Iniciando com Claude...");
+    logger.info("🏗️ [generate-ai-site] Iniciando com Claude...");
     
     let body;
     try {

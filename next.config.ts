@@ -36,7 +36,9 @@ const nextConfig: NextConfig = {
   
   // Compiler options
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    // ✅ Manter console.log em produção para logs no Railway
+    // removeConsole está desabilitado para permitir visualização de logs
+    removeConsole: false,
   },
   
   // ✅ Desabilitar linting durante build (apenas em produção para velocidade)

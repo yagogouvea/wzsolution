@@ -4,7 +4,7 @@
     "builder": "DOCKERFILE"
   },
   "deploy": {
-    "startCommand": "npm start",
+    "startCommand": "node server.js",
     "healthcheckPath": "/",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
@@ -12,6 +12,7 @@
   },
   "variables": {
     "NODE_ENV": "production",
-    "PORT": "3000"
+    "PORT": "3000",
+    "NEXT_TELEMETRY_DISABLED": "1"
   }
 }

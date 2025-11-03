@@ -43,5 +43,9 @@ EXPOSE 3000
 ENV NODE_ENV=production
 ENV PORT=3000
 
+# Configurar logging para stdout/stderr (visível no Railway)
+ENV NODE_OPTIONS="--no-warnings"
+
 # Start the application (standalone server)
+# Usar exec para garantir que os logs sejam redirecionados corretamente
 CMD ["node", "server.js"]
