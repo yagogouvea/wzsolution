@@ -1,3 +1,6 @@
+// ✅ Forçar renderização dinâmica (não pré-renderizar)
+export const dynamic = 'force-dynamic';
+
 import BuilderPageClient from "@/components/BuilderPageClient";
 
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {

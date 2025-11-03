@@ -13,6 +13,9 @@ RUN npm ci --frozen-lockfile
 # Copy source code
 COPY . .
 
+# Set environment to production before build
+ENV NODE_ENV=production
+
 # Build the application (usando build normal para produção)
 RUN npm run build
 

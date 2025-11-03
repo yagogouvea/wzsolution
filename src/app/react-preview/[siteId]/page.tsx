@@ -1,3 +1,6 @@
+// ✅ Forçar renderização dinâmica (não pré-renderizar)
+export const dynamic = 'force-dynamic';
+
 import { DatabaseService } from '@/lib/supabase';
 
 export default async function ReactPreview({ params }: { params: Promise<{ siteId: string }> }) {

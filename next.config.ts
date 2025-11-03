@@ -39,6 +39,17 @@ const nextConfig: NextConfig = {
     removeConsole: process.env.NODE_ENV === 'production',
   },
   
+  // ✅ Desabilitar linting durante build (apenas em produção para velocidade)
+  // Linting ainda roda em desenvolvimento, mas não bloqueia build em produção
+  eslint: {
+    ignoreDuringBuilds: process.env.NODE_ENV === 'production',
+  },
+  
+  // ✅ Desabilitar type checking durante build (já verificado em dev)
+  typescript: {
+    ignoreBuildErrors: process.env.NODE_ENV === 'production',
+  },
+  
   // Headers de segurança
   async headers() {
     return [

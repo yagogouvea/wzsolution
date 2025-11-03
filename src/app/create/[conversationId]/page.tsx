@@ -1,5 +1,8 @@
 'use client';
 
+// ✅ Forçar renderização dinâmica (não pré-renderizar)
+export const dynamic = 'force-dynamic';
+
 import { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 

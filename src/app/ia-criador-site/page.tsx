@@ -1,6 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+// ✅ Forçar renderização dinâmica (não pré-renderizar)
+export const dynamic = 'force-dynamic';
+
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Send, Bot, User, ArrowLeft, Globe, CheckCircle, Image as ImageIcon, Loader2 } from 'lucide-react';
@@ -28,7 +31,7 @@ interface ConversationState {
   error: string | null;
 }
 
-export default function SiteCriadorPage() {
+function SiteCriadorPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [messages, setMessages] = useState<SiteMessage[]>([]);
@@ -561,5 +564,18 @@ export default function SiteCriadorPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ✅ Wrapper com Suspense para useSearchParams
+export default function SiteCriadorPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-white" />
+      </div>
+    }>
+      <SiteCriadorPageContent />
+    </Suspense>
   );
 }

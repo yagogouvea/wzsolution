@@ -1,5 +1,8 @@
 "use client";
 
+// ✅ Forçar renderização dinâmica (não pré-renderizar)
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from "react";
 import SitePreview from "@/components/SitePreview";
 import ClaudeChatPanel from "@/components/ClaudeChatPanel";

@@ -1,3 +1,6 @@
+// ✅ Forçar renderização dinâmica (não pré-renderizar)
+export const dynamic = 'force-dynamic';
+
 import { notFound } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { convertJSXToHTML, processAIGeneratedCode } from "@/lib/jsx-to-html";

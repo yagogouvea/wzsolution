@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+// ✅ Forçar renderização dinâmica (não pré-renderizar)
+export const dynamic = 'force-dynamic';
+
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
-import { Send, Bot, User, ArrowLeft, Download, Calendar, MessageSquare } from 'lucide-react';
+import { Send, Bot, User, ArrowLeft, Download, Calendar, MessageSquare, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 interface Message {
@@ -21,7 +24,7 @@ interface ProjectState {
   currentStep: 'initial' | 'questions' | 'refinement' | 'completion';
 }
 
-export default function IACreatorPage() {
+function IACreatorPageContent() {
   const searchParams = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -490,6 +493,19 @@ Vamos criar um sistema que otimize seus processos!`
         </div>
       </div>
     </div>
+  );
+}
+
+// ✅ Wrapper com Suspense para useSearchParams
+export default function IACreatorPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-white" />
+      </div>
+    }>
+      <IACreatorPageContent />
+    </Suspense>
   );
 }
 
