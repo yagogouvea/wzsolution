@@ -384,7 +384,7 @@ function SiteCriadorPageContent() {
             {/* Chat Interface */}
             <div className="glass rounded-2xl h-[calc(100vh-280px)] sm:h-[600px] flex flex-col">
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-3 sm:space-y-4">
                 <AnimatePresence>
                   {messages.map((message) => (
                     <motion.div
@@ -394,22 +394,22 @@ function SiteCriadorPageContent() {
                       exit={{ opacity: 0, y: -20 }}
                       className={`flex ${message.sender_type === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div className={`flex items-start space-x-3 max-w-[85%] ${
+                      <div className={`flex items-start space-x-2 sm:space-x-3 max-w-[92%] sm:max-w-[85%] ${
                         message.sender_type === 'user' ? 'flex-row-reverse space-x-reverse' : ''
                       }`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                           message.sender_type === 'ai' 
                             ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white' 
                             : 'bg-slate-600 text-slate-200'
                         }`}>
-                          {message.sender_type === 'ai' ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                          {message.sender_type === 'ai' ? <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                         </div>
-                        <div className={`p-4 rounded-2xl ${
+                        <div className={`p-3 sm:p-4 rounded-2xl ${
                           message.sender_type === 'user'
                             ? 'bg-blue-500 text-white'
                             : 'bg-slate-700 text-slate-100'
                         }`}>
-                          <div className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</div>
+                          <div className="whitespace-pre-wrap text-sm sm:text-base leading-relaxed break-words">{message.content}</div>
                           
                           {/* Renderizar imagens se existirem */}
                           {message.metadata?.images && message.metadata.images.length > 0 && (
@@ -463,20 +463,20 @@ function SiteCriadorPageContent() {
               </div>
 
               {/* Input */}
-              <div className="border-t border-slate-600 p-4">
-                <div className="flex items-center space-x-3">
+              <div className="border-t border-slate-600 p-3 sm:p-4">
+                <div className="flex items-end space-x-2 sm:space-x-3">
                   <textarea
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyPress={handleKeyPress}
                     placeholder="Digite sua resposta..."
-                    className="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 resize-none"
+                    className="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 text-sm sm:text-base text-white placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 resize-none min-h-[44px]"
                     rows={1}
                   />
                   <button
                     onClick={sendMessage}
                     disabled={!inputValue.trim() || conversationState.isLoading}
-                    className="p-3 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-xl transition-colors"
+                    className="min-w-[44px] min-h-[44px] p-2.5 sm:p-3 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-xl transition-colors flex items-center justify-center"
                   >
                     {conversationState.isLoading ? (
                       <Loader2 className="w-5 h-5 text-white animate-spin" />
