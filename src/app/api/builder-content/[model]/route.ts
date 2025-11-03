@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DatabaseService } from '@/lib/supabase';
 
+// ✅ Forçar renderização dinâmica (não pré-renderizar)
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 /**
  * API para buscar conteúdo do Builder.io do banco de dados
  */

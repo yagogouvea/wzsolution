@@ -1,9 +1,39 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+// ✅ Não inicializar no nível do módulo - apenas quando necessário
+let _supabaseInstance: SupabaseClient | null = null;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+function getSupabaseClient(): SupabaseClient {
+  if (_supabaseInstance) {
+    return _supabaseInstance;
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl) {
+    throw new Error('supabaseUrl is required.');
+  }
+
+  if (!supabaseAnonKey) {
+    throw new Error('supabaseAnonKey is required.');
+  }
+
+  _supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
+  return _supabaseInstance;
+}
+
+// ✅ Export para compatibilidade com código existente (lazy initialization)
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    const client = getSupabaseClient();
+    const value = (client as any)[prop];
+    if (typeof value === 'function') {
+      return value.bind(client);
+    }
+    return value;
+  }
+});
 
 // Types para o banco de dados
 export interface Conversation {
@@ -113,6 +143,7 @@ export interface FileUpload {
 export class DatabaseService {
   // Conversações
   static async createConversation(data: Partial<Conversation>): Promise<Conversation> {
+    const supabase = getSupabaseClient();
     // Se um id foi fornecido, tornar a operação idempotente com upsert e tratar 23505
     if (data.id) {
       const { data: conversation, error } = await supabase
@@ -144,6 +175,7 @@ export class DatabaseService {
   }
 
   static async getConversation(id: string): Promise<Conversation | null> {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('conversations')
       .select('*')
@@ -155,6 +187,7 @@ export class DatabaseService {
   }
 
   static async updateConversation(id: string, updates: Partial<Conversation>): Promise<void> {
+    const supabase = getSupabaseClient();
     const { error } = await supabase
       .from('conversations')
       .update({ ...updates, updated_at: new Date().toISOString() })
@@ -165,6 +198,7 @@ export class DatabaseService {
 
   // Mensagens
   static async addMessage(data: Partial<Message>): Promise<Message> {
+    const supabase = getSupabaseClient();
     const { data: message, error } = await supabase
       .from('messages')
       .insert(data)
@@ -176,6 +210,7 @@ export class DatabaseService {
   }
 
   static async getMessages(conversationId: string): Promise<Message[]> {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('messages')
       .select('*')
@@ -188,6 +223,7 @@ export class DatabaseService {
 
   // Dados do projeto
   static async updateProjectData(conversationId: string, data: Partial<ProjectData>): Promise<void> {
+    const supabase = getSupabaseClient();
     // Upsert idempotente baseado em UNIQUE(conversation_id)
     const { error } = await supabase
       .from('project_data')
@@ -216,6 +252,7 @@ export class DatabaseService {
   }
 
   static async getProjectData(conversationId: string): Promise<ProjectData | null> {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('project_data')
       .select('*')
@@ -228,6 +265,7 @@ export class DatabaseService {
 
   // Leads
   static async createLead(data: Partial<Lead>): Promise<Lead> {
+    const supabase = getSupabaseClient();
     const { data: lead, error } = await supabase
       .from('leads')
       .insert(data)
@@ -239,6 +277,7 @@ export class DatabaseService {
   }
 
   static async updateLead(id: string, updates: Partial<Lead>): Promise<void> {
+    const supabase = getSupabaseClient();
     const { error } = await supabase
       .from('leads')
       .update(updates)
@@ -249,6 +288,7 @@ export class DatabaseService {
 
   // ✅ Site Versions - FUNÇÕES FALTANTES
   static async addSiteVersion(data: Partial<SiteVersion>): Promise<SiteVersion> {
+    const supabase = getSupabaseClient();
     console.log('💾 [DatabaseService.addSiteVersion] Salvando versão...');
     console.log('💾 [DatabaseService.addSiteVersion] conversation_id:', data.conversation_id);
     console.log('💾 [DatabaseService.addSiteVersion] version_number:', data.version_number);
@@ -273,6 +313,7 @@ export class DatabaseService {
   }
 
   static async getSiteVersions(conversationId: string): Promise<SiteVersion[]> {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('site_versions')
       .select('*')
@@ -287,6 +328,7 @@ export class DatabaseService {
   }
 
   static async getLatestSiteVersion(conversationId: string): Promise<SiteVersion | null> {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('site_versions')
       .select('*')
@@ -301,6 +343,7 @@ export class DatabaseService {
 
   // ✅ File Uploads - FUNÇÕES FALTANTES
   static async addFileUpload(data: Partial<FileUpload>): Promise<FileUpload> {
+    const supabase = getSupabaseClient();
     const { data: fileUpload, error } = await supabase
       .from('file_uploads')
       .insert(data)
@@ -312,6 +355,7 @@ export class DatabaseService {
   }
 
   static async getFileUploads(conversationId: string): Promise<FileUpload[]> {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('file_uploads')
       .select('*')
@@ -327,6 +371,7 @@ export class DatabaseService {
 
   // ✅ Funções auxiliares para o projeto
   static async createProjectDataIfNotExists(conversationId: string, data: Partial<ProjectData>): Promise<ProjectData> {
+    const supabase = getSupabaseClient();
     // Operação idempotente com upsert por conversation_id
     const { data: projectData, error } = await supabase
       .from('project_data')
@@ -376,6 +421,6 @@ export class DatabaseService {
 
   // ✅ Acesso direto ao cliente Supabase para casos especiais
   static get supabase() {
-    return supabase;
+    return getSupabaseClient();
   }
 }
