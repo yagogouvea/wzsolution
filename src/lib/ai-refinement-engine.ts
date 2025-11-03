@@ -15,7 +15,14 @@
 import OpenAI from "openai";
 import { supabase } from "./supabase";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// ✅ Não inicializar no nível do módulo - apenas quando necessário
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.');
+  }
+  return new OpenAI({ apiKey });
+}
 
 export interface RefinementReport {
   score: number;
@@ -122,6 +129,8 @@ ${siteCode}
 
     console.log('🤖 [AI Refinement Engine] Chamando GPT-4o para análise...');
     
+    // ✅ Inicializar cliente apenas quando necessário
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [

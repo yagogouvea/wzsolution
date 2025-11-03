@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { analyzeAndRefineSite, getRefinementHistory } from "@/lib/ai-refinement-engine";
 import { supabase } from "@/lib/supabase";
 
+// ✅ Forçar renderização dinâmica (não pré-renderizar)
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     const { siteId, action } = await request.json();
