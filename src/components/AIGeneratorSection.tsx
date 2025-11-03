@@ -3,17 +3,14 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Brain, ArrowRight, Smartphone, Globe, ShoppingCart, Building2, Monitor } from 'lucide-react';
-import FullscreenChat from './FullscreenChat';
+// Removido FullscreenChat - agora usando página dedicada
 
 export default function AIGeneratorSection() {
   const [selectedType, setSelectedType] = useState('');
   const [idea, setIdea] = useState('');
   const [isAnimating, setIsAnimating] = useState(false);
   
-  // Chat modal
-  const [showFullscreenChat, setShowFullscreenChat] = useState(false);
-  const [conversationId, setConversationId] = useState('');
-  const [formData, setFormData] = useState<Record<string, unknown>>({});
+  // Chat agora é uma página dedicada, não precisa mais de estado modal
 
   const projectTypes = [
     { 
@@ -87,21 +84,20 @@ export default function AIGeneratorSection() {
       projectType: selectedType
     };
     
-    setFormData(basicData);
-    
     // Gerar conversationId
     const newConversationId = crypto.randomUUID();
-    setConversationId(newConversationId);
     
-    // Abrir chat direto
-    setShowFullscreenChat(true);
+    // Salvar dados no sessionStorage para a página de chat
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(`chat_${newConversationId}`, JSON.stringify(basicData));
+    }
+    
+    // Redirecionar para a página de chat
+    const chatUrl = `/chat/${newConversationId}?companyName=${encodeURIComponent(basicData.companyName)}&businessSector=${encodeURIComponent(basicData.businessSector)}&prompt=${encodeURIComponent(basicData.additionalPrompt)}`;
+    window.location.href = chatUrl;
   };
 
-  const handleCloseChat = () => {
-    setShowFullscreenChat(false);
-    setFormData({});
-    setConversationId('');
-  };
+  // Função removida - chat agora é página dedicada
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -276,13 +272,7 @@ export default function AIGeneratorSection() {
         </div>
       </section>
 
-      {/* Chat Fullscreen */}
-      <FullscreenChat
-        isOpen={showFullscreenChat}
-        onClose={handleCloseChat}
-        conversationId={conversationId}
-        initialData={formData as any}
-      />
+      {/* Chat agora é uma página dedicada em /chat/[conversationId] */}
     </>
   );
 }
