@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { callOpenAI, PROMPTS } from '@/features/ai-generator/lib/openai-config';
 import type { ProjectAnalysis, TechStack } from '@/features/ai-generator/types/ai-generator.types';
 
+// ✅ Forçar renderização dinâmica (não pré-renderizar)
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // Multiplicadores baseados em complexidade
 const COMPLEXITY_MULTIPLIERS = {
   low: 0.7,

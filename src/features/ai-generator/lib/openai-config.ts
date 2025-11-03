@@ -2,12 +2,28 @@
 
 import OpenAI from 'openai';
 
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error('OPENAI_API_KEY não configurada');
+// ✅ Não inicializar no nível do módulo - apenas quando necessário
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY não configurada');
+  }
+  return new OpenAI({ apiKey });
 }
 
-export const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+// ✅ Lazy getter para compatibilidade com código existente
+let _openaiInstance: OpenAI | null = null;
+export const openai = new Proxy({} as OpenAI, {
+  get(_target, prop) {
+    if (!_openaiInstance) {
+      _openaiInstance = getOpenAIClient();
+    }
+    const value = (_openaiInstance as any)[prop];
+    if (typeof value === 'function') {
+      return value.bind(_openaiInstance);
+    }
+    return value;
+  }
 });
 
 export const PROMPTS = {
@@ -91,6 +107,8 @@ Base seus cálculos em:
 
 export async function callOpenAI(prompt: string, systemMessage: string) {
   try {
+    // ✅ Inicializar cliente apenas quando necessário
+    const openai = getOpenAIClient();
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
