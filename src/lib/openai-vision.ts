@@ -1,9 +1,13 @@
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  // Removido organization - usar padrão da API key
-});
+// ✅ Não inicializar no nível do módulo - apenas quando necessário
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.');
+  }
+  return new OpenAI({ apiKey });
+}
 
 export interface LogoAnalysis {
   colors: {
@@ -61,6 +65,7 @@ export function suggestLogoPlacement(analysis: LogoAnalysis | null | undefined):
 
 export async function analyzeLogo(imageBase64: string): Promise<LogoAnalysis> {
   try {
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -456,6 +461,7 @@ export default Website;
 RETORNE APENAS O CÓDIGO REACT/JSX COMPLETO COM TAILWIND CSS E FRAMER MOTION.
 `;
 
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4-turbo",
       messages: [
@@ -640,6 +646,7 @@ IMPORTANTE:
 RETORNE APENAS O CÓDIGO REACT/JSX COMPLETO MODIFICADO COM TAILWIND CSS E FRAMER MOTION.
 `;
 
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4-turbo",
       messages: [

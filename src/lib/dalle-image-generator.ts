@@ -7,9 +7,14 @@
 
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// ✅ Não inicializar no nível do módulo - apenas quando necessário
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.');
+  }
+  return new OpenAI({ apiKey });
+}
 
 export interface MockupGenerationOptions {
   businessSector: string;
@@ -296,7 +301,7 @@ export async function generateSingleMockup(
     const prompt = buildMockupPrompt(options, type);
 
     console.log(`🎨 Gerando mockup único (${type})...`);
-    
+    const openai = getOpenAIClient();
     const response = await openai.images.generate({
       model: "dall-e-3",
       prompt: prompt,

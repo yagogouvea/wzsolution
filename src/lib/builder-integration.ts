@@ -8,9 +8,14 @@
 import OpenAI from 'openai';
 import type { GenerationProfile } from './ai-decision-engine';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// ✅ Não inicializar no nível do módulo - apenas quando necessário
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.');
+  }
+  return new OpenAI({ apiKey });
+}
 
 /**
  * Interface para o conteúdo do Builder.io
@@ -168,6 +173,7 @@ Personalize este template conforme o contexto fornecido acima.
 Retorne APENAS o JSON modificado, sem código markdown, sem explicações, pronto para uso.`;
 
   try {
+    const openai = getOpenAIClient();
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       temperature: 0.3, // Baixa temperatura para manter estrutura

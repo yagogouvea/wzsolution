@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { composeContextImages } from '@/lib/ai-image-composer';
 
+// ✅ Forçar renderização dinâmica (não pré-renderizar)
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

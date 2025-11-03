@@ -8,7 +8,14 @@
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+// ✅ Não inicializar no nível do módulo - apenas quando necessário
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.');
+  }
+  return new OpenAI({ apiKey });
+}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -86,6 +93,7 @@ IMPORTANTE:
 PROMPT:`;
 
   try {
+    const openai = getOpenAIClient();
     const completion = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o",
       messages: [
@@ -143,7 +151,7 @@ async function uploadToSupabase(
  */
 async function generateOneImage(prompt: string): Promise<ArrayBuffer> {
   console.log(`🎨 [Image Composer] Generating image...`);
-  
+  const openai = getOpenAIClient();
   const res = await openai.images.generate({
     model: "dall-e-3",
     prompt,

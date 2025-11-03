@@ -5,9 +5,14 @@ import OpenAI from 'openai';
 import { TechStack, selectOptimalTechStack } from './tech-stack-selector';
 import { LogoAnalysis, suggestLogoPlacement } from './openai-vision';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// ✅ Não inicializar no nível do módulo - apenas quando necessário
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.');
+  }
+  return new OpenAI({ apiKey });
+}
 
 // 🎨 INTERFACE PARA DADOS DO PROJETO
 interface ProjectData {
@@ -1243,6 +1248,7 @@ RETORNE CÓDIGO REACT + THREE.JS COMPLETO COM CENA 3D INTERATIVA.
   // 🤖 HELPER PARA CHAMADAS OPENAI
   private static async callOpenAI(prompt: string, model: string): Promise<string> {
     try {
+      const openai = getOpenAIClient();
       const response = await openai.chat.completions.create({
         model,
         messages: [
