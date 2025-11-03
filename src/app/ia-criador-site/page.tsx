@@ -6,8 +6,9 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Send, Bot, User, ArrowLeft, Globe, CheckCircle, Image as ImageIcon, Loader2, MessageSquare, Eye } from 'lucide-react';
+import { Send, Bot, User, ArrowLeft, Globe, CheckCircle, Image as ImageIcon, Loader2, Eye, X } from 'lucide-react';
 import Link from 'next/link';
+import ProtectedSitePreview from '@/components/ProtectedSitePreview';
 
 interface SiteMessage {
   id: string;
@@ -20,6 +21,9 @@ interface SiteMessage {
     stage?: number;
     isWelcomeMessage?: boolean;
     isLeadCreated?: boolean;
+    sitePreview?: boolean;
+    siteCode?: string;
+    version?: number;
   };
 }
 
@@ -45,8 +49,10 @@ function SiteCriadorPageContent() {
   });
   const [showLeadForm, setShowLeadForm] = useState(false);
   const [leadFormData, setLeadFormData] = useState({ name: '', email: '', phone: '', company: '' });
-  // ✅ Estado para alternar entre Chat e Preview em mobile
-  const [mobileView, setMobileView] = useState<'chat' | 'preview'>('chat');
+  // ✅ Estado para modal de preview
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewSiteCode, setPreviewSiteCode] = useState<string | null>(null);
+  const [previewVersion, setPreviewVersion] = useState<number>(1);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -313,78 +319,49 @@ function SiteCriadorPageContent() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        {/* ✅ Mobile: Tabs para alternar entre Chat e Preview */}
-        <div className="lg:hidden mb-4 flex bg-slate-800/50 rounded-xl p-1 backdrop-blur-sm">
-          <button
-            onClick={() => setMobileView('chat')}
-            className={`flex-1 px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 transition-all ${
-              mobileView === 'chat'
-                ? 'bg-blue-500 text-white shadow-lg'
-                : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            <MessageSquare className="w-5 h-5" />
-            <span className="font-medium">Chat</span>
-          </button>
-          <button
-            onClick={() => setMobileView('preview')}
-            className={`flex-1 px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 transition-all ${
-              mobileView === 'preview'
-                ? 'bg-blue-500 text-white shadow-lg'
-                : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            <Eye className="w-5 h-5" />
-            <span className="font-medium">Preview</span>
-          </button>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* Progress Bar */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-white font-medium">Progresso do projeto</span>
+            <span className="text-blue-400 font-bold">{getProgressPercentage()}%</span>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            {stages.map((stage, index) => {
+              const Icon = stage.icon;
+              const isActive = conversationState.stage >= stage.id;
+              const isCurrent = conversationState.stage === stage.id;
+              
+              return (
+                <div key={stage.id} className="flex items-center flex-1">
+                  <div className={`flex flex-col items-center ${
+                    isActive ? stage.color : 'text-slate-500'
+                  }`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${
+                      isActive 
+                        ? `${stage.color} border-current bg-current/20` 
+                        : 'text-slate-500 border-slate-600'
+                    } ${isCurrent ? 'ring-2 ring-current ring-opacity-50' : ''}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs mt-1 text-center">{stage.name}</span>
+                  </div>
+                  {index < stages.length - 1 && (
+                    <div className={`flex-1 h-0.5 mx-2 ${
+                      conversationState.stage > stage.id ? 'bg-green-400' : 'bg-slate-600'
+                    }`} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Chat Area */}
-          <div className={`lg:col-span-2 ${mobileView === 'chat' ? 'block' : 'hidden lg:block'}`}>
-            {/* Progress Bar */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-white font-medium">Progresso do projeto</span>
-                <span className="text-blue-400 font-bold">{getProgressPercentage()}%</span>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                {stages.map((stage, index) => {
-                  const Icon = stage.icon;
-                  const isActive = conversationState.stage >= stage.id;
-                  const isCurrent = conversationState.stage === stage.id;
-                  
-                  return (
-                    <div key={stage.id} className="flex items-center flex-1">
-                      <div className={`flex flex-col items-center ${
-                        isActive ? stage.color : 'text-slate-500'
-                      }`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${
-                          isActive 
-                            ? `${stage.color} border-current bg-current/20` 
-                            : 'text-slate-500 border-slate-600'
-                        } ${isCurrent ? 'ring-2 ring-current ring-opacity-50' : ''}`}>
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        <span className="text-xs mt-1 text-center">{stage.name}</span>
-                      </div>
-                      {index < stages.length - 1 && (
-                        <div className={`flex-1 h-0.5 mx-2 ${
-                          conversationState.stage > stage.id ? 'bg-green-400' : 'bg-slate-600'
-                        }`} />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Chat Interface */}
-            <div className="glass rounded-2xl h-[calc(100vh-280px)] sm:h-[600px] flex flex-col">
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-3 sm:space-y-4">
+        {/* Chat Interface - Apenas chat, sem preview lateral */}
+        <div className="glass rounded-2xl h-[calc(100vh-280px)] sm:h-[600px] flex flex-col">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-3 sm:space-y-4">
                 <AnimatePresence>
                   {messages.map((message) => (
                     <motion.div
@@ -428,6 +405,23 @@ function SiteCriadorPageContent() {
                               ))}
                             </div>
                           )}
+
+                          {/* Botão para ver preview quando site for criado */}
+                          {message.metadata?.sitePreview && message.metadata.siteCode && (
+                            <div className="mt-4">
+                              <button
+                                onClick={() => {
+                                  setPreviewSiteCode(message.metadata!.siteCode!);
+                                  setPreviewVersion(message.metadata!.version || 1);
+                                  setShowPreviewModal(true);
+                                }}
+                                className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
+                              >
+                                <Eye className="w-5 h-5" />
+                                <span>👁️ Ver Preview do Site</span>
+                              </button>
+                            </div>
+                          )}
                           
                           <div className={`text-xs mt-2 ${
                             message.sender_type === 'user' ? 'text-blue-100' : 'text-slate-400'
@@ -460,137 +454,75 @@ function SiteCriadorPageContent() {
                 )}
 
                 <div ref={messagesEndRef} />
-              </div>
-
-              {/* Input */}
-              <div className="border-t border-slate-600 p-3 sm:p-4">
-                <div className="flex items-end space-x-2 sm:space-x-3">
-                  <textarea
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Digite sua resposta..."
-                    className="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 text-sm sm:text-base text-white placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 resize-none min-h-[44px]"
-                    rows={1}
-                  />
-                  <button
-                    onClick={sendMessage}
-                    disabled={!inputValue.trim() || conversationState.isLoading}
-                    className="min-w-[44px] min-h-[44px] p-2.5 sm:p-3 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-xl transition-colors flex items-center justify-center"
-                  >
-                    {conversationState.isLoading ? (
-                      <Loader2 className="w-5 h-5 text-white animate-spin" />
-                    ) : (
-                      <Send className="w-5 h-5 text-white" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* Project Info Panel / Preview */}
-          <div className={`space-y-6 ${mobileView === 'preview' ? 'block' : 'hidden lg:block'}`}>
-            {/* Project Summary */}
-            <div className="glass rounded-2xl p-6">
-              <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-                <Globe className="w-5 h-5 mr-2 text-blue-400" />
-                Seu Site
-              </h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <div className="text-sm text-slate-400">Conversa</div>
-                  <div className="text-white">#{conversationState.conversationId?.slice(-8)}</div>
-                </div>
-                
-                <div>
-                  <div className="text-sm text-slate-400">Progresso</div>
-                  <div className="w-full bg-slate-700 rounded-full h-2">
-                    <div 
-                      className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${getProgressPercentage()}%` }}
-                    />
-                  </div>
-                </div>
-
-                {conversationState.stage > 1 && (
-                  <div>
-                    <div className="text-sm text-slate-400 mb-2">Etapas Concluídas</div>
-                    <div className="space-y-2">
-                      {stages.slice(0, conversationState.stage - 1).map((stage) => {
-                        const Icon = stage.icon;
-                        return (
-                          <div key={stage.id} className="flex items-center text-sm">
-                            <Icon className={`w-4 h-4 mr-2 ${stage.color}`} />
-                            <span className="text-slate-300">{stage.name}</span>
-                            <CheckCircle className="w-4 h-4 ml-auto text-green-400" />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+          {/* Input */}
+          <div className="border-t border-slate-600 p-3 sm:p-4">
+            <div className="flex items-end space-x-2 sm:space-x-3">
+              <textarea
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Digite sua resposta..."
+                className="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 text-sm sm:text-base text-white placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 resize-none min-h-[44px]"
+                rows={1}
+              />
+              <button
+                onClick={sendMessage}
+                disabled={!inputValue.trim() || conversationState.isLoading}
+                className="min-w-[44px] min-h-[44px] p-2.5 sm:p-3 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-xl transition-colors flex items-center justify-center"
+              >
+                {conversationState.isLoading ? (
+                  <Loader2 className="w-5 h-5 text-white animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5 text-white" />
                 )}
-              </div>
+              </button>
             </div>
-
-            {/* Current Stage Info */}
-            <div className="glass rounded-2xl p-6">
-              <h3 className="text-lg font-bold text-white mb-4">Etapa Atual</h3>
-              
-              {conversationState.stage <= 6 && conversationState.stage > 0 && (
-                <div className="flex items-center">
-                  {React.createElement(stages[conversationState.stage - 1].icon, {
-                    className: `w-6 h-6 mr-3 ${stages[conversationState.stage - 1].color}`
-                  })}
-                  <div>
-                    <div className="font-semibold text-white">
-                      {stages[conversationState.stage - 1].name}
-                    </div>
-                    <div className="text-sm text-slate-400">
-                      {conversationState.stage === 1 && "Entendendo seu negócio"}
-                      {conversationState.stage === 2 && "Definindo páginas"}
-                      {conversationState.stage === 3 && "Escolhendo design"}
-                      {conversationState.stage === 4 && "Selecionando funcionalidades"}
-                      {conversationState.stage === 5 && "Planejando conteúdo"}
-                      {conversationState.stage === 6 && "Finalizando projeto"}
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {conversationState.error && (
-                <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
-                  <p className="text-red-300 text-sm">{conversationState.error}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Quick Actions */}
-            {conversationState.isComplete && (
-              <div className="glass rounded-2xl p-6">
-                <h3 className="text-lg font-bold text-white mb-4">Próximos Passos</h3>
-                
-                <div className="space-y-3">
-                  <div className="p-3 bg-green-600/20 border border-green-500/30 rounded-lg">
-                    <div className="font-medium text-green-300">✅ Projeto Concluído!</div>
-                    <div className="text-sm text-green-200">Nossa equipe entrará em contato em breve</div>
-                  </div>
-                  
-                  <a 
-                    href="https://wa.me/5511999999999?text=Olá! Acabei de concluir o planejamento do meu site no chat de IA e gostaria de prosseguir com o projeto."
-                    target="_blank"
-                    className="w-full text-left p-3 bg-green-600 hover:bg-green-700 rounded-lg transition-colors text-white block"
-                  >
-                    <div className="font-medium">📱 Falar Agora no WhatsApp</div>
-                    <div className="text-sm text-green-200">Acelerar o processo</div>
-                  </a>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
+
+      {/* Modal de Preview */}
+      {showPreviewModal && previewSiteCode && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setShowPreviewModal(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            onClick={(e) => e.stopPropagation()}
+            className="glass rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col"
+          >
+            {/* Header do Modal */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-700">
+              <h3 className="text-xl font-bold text-white flex items-center">
+                <Eye className="w-6 h-6 mr-2 text-blue-400" />
+                Preview do Site
+              </h3>
+              <button
+                onClick={() => setShowPreviewModal(false)}
+                className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6 text-slate-300" />
+              </button>
+            </div>
+            
+            {/* Preview Content */}
+            <div className="flex-1 overflow-auto p-4">
+              <div className="bg-slate-800 rounded-xl overflow-hidden">
+                <ProtectedSitePreview 
+                  siteCodeId={previewSiteCode}
+                  version={previewVersion}
+                  conversationId={conversationState.conversationId || ''}
+                />
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
