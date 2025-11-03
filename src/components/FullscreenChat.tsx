@@ -79,10 +79,8 @@ export default function FullscreenChat({
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
       if (isMobile) {
         setIsKeyboardOpen(true);
-        // Scroll suave para o input após um pequeno delay para o teclado aparecer
-        setTimeout(() => {
-          inputContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        }, 300);
+        // Não fazer scroll automático - deixar o navegador lidar naturalmente
+        // O sticky bottom já garante que o input fique visível
       }
     };
 
@@ -104,14 +102,10 @@ export default function FullscreenChat({
           const viewportHeight = window.visualViewport.height;
           const windowHeight = window.innerHeight;
           // Se a altura da viewport diminuiu significativamente, o teclado está aberto
-          setIsKeyboardOpen(viewportHeight < windowHeight * 0.75);
+          const keyboardIsOpen = viewportHeight < windowHeight * 0.75;
+          setIsKeyboardOpen(keyboardIsOpen);
           
-          if (viewportHeight < windowHeight * 0.75) {
-            // Ajustar scroll quando teclado abrir
-            setTimeout(() => {
-              inputContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-            }, 100);
-          }
+          // Não fazer scroll automático - o sticky bottom já resolve
         }
       };
 
@@ -833,18 +827,11 @@ ${getRedirectMessage(messageToSend)}`,
 
       {/* Main Content - Only Chat */}
       {!isMinimized && (
-        <div 
-          className="h-[calc(100vh-64px)]"
-          style={{
-            height: isKeyboardOpen && typeof window !== 'undefined' && window.visualViewport
-              ? `${window.visualViewport.height - 64}px`
-              : 'calc(100vh - 64px)'
-          }}
-        >
+        <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden">
           {/* Chat Area - Full Width */}
-          <div className="max-w-4xl mx-auto h-full flex flex-col px-4">
+          <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col px-4 min-h-0 overflow-hidden">
             {/* Messages */}
-            <div className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 ${isKeyboardOpen ? 'pb-2' : ''}`}>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 min-h-0">
             <AnimatePresence>
               {messages.map((message) => (
                 <motion.div
@@ -954,16 +941,7 @@ ${getRedirectMessage(messageToSend)}`,
           {/* Input */}
           <div 
             ref={inputContainerRef}
-            className={`border-t border-slate-700 p-4 sm:p-6 bg-slate-800/50 transition-all duration-200 sticky bottom-0 z-10 ${
-              isKeyboardOpen ? 'pb-2' : ''
-            }`}
-            style={{
-              paddingBottom: isKeyboardOpen 
-                ? (typeof window !== 'undefined' && window.visualViewport 
-                    ? `${Math.max(window.innerHeight - window.visualViewport.height, 0) + 8}px` 
-                    : '1rem')
-                : undefined
-            }}
+            className="border-t border-slate-700 p-3 sm:p-6 bg-slate-800/50 z-10 flex-shrink-0"
           >
             <div className="flex gap-2 sm:gap-4">
               {/* Hidden file input */}
