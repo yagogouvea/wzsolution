@@ -98,6 +98,7 @@ function ChatPageContent() {
       setModificationsUsed(limits.modificationsUsed);
       setIsBlocked(!limits.allowed);
       
+      // Mostrar mensagem de ID de projeto quando site for gerado
       if (limits.projectId && currentSiteCode && messages.length > 0) {
         const hasIdMessage = messages.some(msg => msg.content.includes('ID de Projeto'));
         if (!hasIdMessage) {
@@ -683,33 +684,21 @@ ${getRedirectMessage(messageToSend)}`,
     <div className="min-h-screen bg-slate-900 flex flex-col">
       <ConsoleBlocker />
       
-      {/* Header */}
-      <div className="h-16 bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-between px-4 sm:px-6 text-white flex-shrink-0">
-        <div className="flex items-center gap-4 min-w-0">
-          <Link 
-            href="/pt"
-            className="p-2 hover:bg-white/20 rounded-lg transition-colors flex-shrink-0"
-          >
-            <ArrowLeft size={20} />
-          </Link>
-          <div className="flex items-center gap-2 min-w-0">
-            <Bot className="text-white flex-shrink-0" size={24} />
-            <div className="min-w-0">
-              <h1 className="font-bold text-sm sm:text-base truncate">IA Generator - {initialData.companyName}</h1>
-              <p className="text-xs sm:text-sm opacity-80 truncate">
-                {projectId ? `🔢 ID: ${projectId} • ` : ''}
-                {modificationsUsed > 0 ? `${modificationsUsed}/${PROJECT_LIMITS.MODIFICATIONS} modificações` : 'Criando seu site perfeito'}
-                {isBlocked && ' • Limite atingido'}
-              </p>
-            </div>
-          </div>
-        </div>
+      {/* Header Ultra Minimalista - Apenas botão voltar */}
+      <div className="h-12 sm:h-14 bg-slate-900 border-b border-slate-800 flex items-center px-3 sm:px-4 flex-shrink-0">
+        <Link 
+          href="/pt"
+          className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white"
+          title="Voltar"
+        >
+          <ArrowLeft size={18} className="sm:w-5 sm:h-5" />
+        </Link>
       </div>
 
-      {/* Main Content - Full Page Layout */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 min-h-0">
+      {/* Main Content - Chat Only */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-slate-900">
+        {/* Messages Area - Full Width, No Max Width */}
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 min-h-0 w-full">
           <AnimatePresence>
             {messages.map((message) => (
               <motion.div
@@ -718,14 +707,14 @@ ${getRedirectMessage(messageToSend)}`,
                 animate={{ opacity: 1, y: 0 }}
                 className={`flex gap-4 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                {message.sender === 'ai' && (
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Bot className="text-white" size={20} />
+                  {message.sender === 'ai' && (
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Bot className="text-white" size={16} />
                   </div>
                 )}
                 
                 <div
-                  className={`max-w-3xl p-4 rounded-2xl ${
+                  className={`max-w-[90%] sm:max-w-[75%] p-3 sm:p-4 rounded-xl sm:rounded-2xl ${
                     message.sender === 'user'
                       ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
                       : 'bg-slate-800 text-white border border-slate-700'
@@ -772,17 +761,11 @@ ${getRedirectMessage(messageToSend)}`,
                       )}
                     </div>
                   )}
-
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-600/50">
-                    <span className="text-xs opacity-60">
-                      {message.timestamp.toLocaleTimeString()}
-                    </span>
-                  </div>
                 </div>
 
                 {message.sender === 'user' && (
-                  <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <User className="text-white" size={20} />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <User className="text-white" size={16} />
                   </div>
                 )}
               </motion.div>
@@ -793,19 +776,19 @@ ${getRedirectMessage(messageToSend)}`,
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex gap-4 justify-start"
+              className="flex gap-3 sm:gap-4 justify-start"
             >
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                <Bot className="text-white" size={20} />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                <Bot className="text-white" size={16} />
               </div>
-              <div className="bg-slate-800 border border-slate-700 p-4 rounded-2xl">
+              <div className="bg-slate-800 border border-slate-700 p-3 sm:p-4 rounded-xl sm:rounded-2xl">
                 <div className="flex items-center gap-2 text-slate-400">
                   <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                   </div>
-                  <span className="text-sm">IA gerando...</span>
+                  <span className="text-xs sm:text-sm">IA gerando...</span>
                 </div>
               </div>
             </motion.div>
@@ -814,9 +797,9 @@ ${getRedirectMessage(messageToSend)}`,
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input - Fixed at bottom, mobile optimized */}
-        <div className="border-t border-slate-700 p-3 sm:p-4 bg-slate-800/50 flex-shrink-0">
-          <div className="flex gap-2 sm:gap-4">
+        {/* Input - Fixed at bottom, mobile optimized - Sem borda superior */}
+        <div className="p-3 sm:p-4 bg-slate-900 flex-shrink-0">
+          <div className="w-full flex gap-2 sm:gap-4 px-2 sm:px-0">
             <input
               ref={fileInputRef}
               type="file"
