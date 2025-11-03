@@ -712,11 +712,15 @@ ${messageToSend.toLowerCase().includes('páginas') || messageToSend.toLowerCase(
 
       {/* Modal de Preview */}
       {showPreviewModal && previewSiteCode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setShowPreviewModal(false)}
+        >
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
+            onClick={(e) => e.stopPropagation()}
             className="glass rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col"
           >
             {/* Header do Modal */}
