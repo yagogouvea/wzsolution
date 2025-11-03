@@ -396,7 +396,7 @@ Vamos continuar construindo seu site. Preciso de mais alguns detalhes para criar
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Chat Interface */}
-        <div className="glass rounded-2xl h-[700px] flex flex-col">
+        <div className="glass rounded-2xl h-[calc(100vh-180px)] sm:h-[700px] flex flex-col">
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             <AnimatePresence>

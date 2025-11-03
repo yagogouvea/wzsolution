@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
-import { Send, Bot, User, ArrowLeft, Download, Calendar, MessageSquare, Loader2 } from 'lucide-react';
+import { Send, Bot, User, ArrowLeft, Download, Calendar, MessageSquare, Loader2, Eye } from 'lucide-react';
 import Link from 'next/link';
 
 interface Message {
@@ -29,6 +29,8 @@ function IACreatorPageContent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  // ✅ Estado para alternar entre Chat e Preview em mobile
+  const [mobileView, setMobileView] = useState<'chat' | 'preview'>('chat');
   const [projectState, setProjectState] = useState<ProjectState>({
     type: '',
     initialIdea: '',
@@ -322,11 +324,37 @@ Vamos criar um sistema que otimize seus processos!`
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* ✅ Mobile: Tabs para alternar entre Chat e Preview */}
+        <div className="lg:hidden mb-4 flex bg-slate-800/50 rounded-xl p-1 backdrop-blur-sm">
+          <button
+            onClick={() => setMobileView('chat')}
+            className={`flex-1 px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 transition-all ${
+              mobileView === 'chat'
+                ? 'bg-blue-500 text-white shadow-lg'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <MessageSquare className="w-5 h-5" />
+            <span className="font-medium">Chat</span>
+          </button>
+          <button
+            onClick={() => setMobileView('preview')}
+            className={`flex-1 px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 transition-all ${
+              mobileView === 'preview'
+                ? 'bg-blue-500 text-white shadow-lg'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Eye className="w-5 h-5" />
+            <span className="font-medium">Preview</span>
+          </button>
+        </div>
+
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Chat Area */}
-          <div className="lg:col-span-2">
-            <div className="glass rounded-2xl h-[600px] flex flex-col">
+          <div className={`lg:col-span-2 ${mobileView === 'chat' ? 'block' : 'hidden lg:block'}`}>
+            <div className="glass rounded-2xl h-[calc(100vh-280px)] sm:h-[600px] flex flex-col">
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 <AnimatePresence>
@@ -412,7 +440,7 @@ Vamos criar um sistema que otimize seus processos!`
           </div>
 
           {/* Project Preview */}
-          <div className="space-y-6">
+          <div className={`space-y-6 ${mobileView === 'preview' ? 'block' : 'hidden lg:block'}`}>
             {/* Project Info */}
             <div className="glass rounded-2xl p-6">
               <h3 className="text-lg font-bold text-white mb-4">Seu Projeto</h3>
