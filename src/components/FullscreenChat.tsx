@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Minimize2, Maximize2, User, Bot, Image as ImageIcon, Monitor } from 'lucide-react';
+import { X, Send, Minimize2, Maximize2, User, Bot, Image as ImageIcon, Monitor, Eye } from 'lucide-react';
 import PreviewIframe from './PreviewIframe';
 import ConsoleBlocker from './ConsoleBlocker';
 import { moderateMessage, getRedirectMessage } from '@/lib/message-moderation';
@@ -47,6 +47,8 @@ export default function FullscreenChat({
   const [projectId, setProjectId] = useState<number | null>(null);
   const [modificationsUsed, setModificationsUsed] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
+  // ✅ Estado para modal de preview
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -760,11 +762,11 @@ ${getRedirectMessage(messageToSend)}`,
         </div>
       </div>
 
-      {/* Main Content - Split Layout */}
+      {/* Main Content - Only Chat */}
       {!isMinimized && (
-        <div className="flex h-[calc(100vh-64px)]">
-          {/* Chat Area - Left Side */}
-          <div className="flex-1 flex flex-col border-r border-slate-700">
+        <div className="h-[calc(100vh-64px)]">
+          {/* Chat Area - Full Width */}
+          <div className="max-w-4xl mx-auto h-full flex flex-col">
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
             <AnimatePresence>
@@ -805,31 +807,30 @@ ${getRedirectMessage(messageToSend)}`,
                       </div>
                     )}
 
-                    {/* Site Preview Info */}
+                    {/* Botão para ver preview quando site for criado */}
                     {message.type === 'site_preview' && message.siteCodeId && (
-                      <div className="mt-4 p-4 bg-green-900/20 border border-green-500/30 rounded-xl">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
-                              <Monitor className="text-green-400" size={20} />
-                            </div>
-                            <div>
-                              <p className="text-white font-semibold">✅ Site gerado!</p>
-                              <p className="text-green-400 text-sm">Veja o preview à direita →</p>
-                            </div>
-                          </div>
-                          {message.siteCodeId && (
-                            <a
-                              href={`/preview/${message.siteCodeId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
-                            >
-                              <Monitor size={16} />
-                              Abrir em Nova Aba
-                            </a>
-                          )}
-                        </div>
+                      <div className="mt-4">
+                        <button
+                          onClick={() => {
+                            setCurrentSiteCode(message.siteCodeId!);
+                            setShowPreviewModal(true);
+                          }}
+                          className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
+                        >
+                          <Eye className="w-5 h-5" />
+                          <span>👁️ Ver Preview do Site</span>
+                        </button>
+                        {message.siteCodeId && (
+                          <a
+                            href={`/preview/${message.siteCodeId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                          >
+                            <Monitor size={16} />
+                            Abrir em Nova Aba
+                          </a>
+                        )}
                       </div>
                     )}
 
@@ -1028,33 +1029,45 @@ ${getRedirectMessage(messageToSend)}`,
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
+      )}
 
-          {/* Preview Area - Right Side */}
-          <div className="w-1/2 bg-slate-950 flex flex-col">
-            <div className="p-4 border-b border-slate-700">
-              <h3 className="text-white font-semibold flex items-center gap-2">
-                <Monitor size={20} className="text-blue-400" />
+      {/* Modal de Preview */}
+      {showPreviewModal && currentSiteCode && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setShowPreviewModal(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-slate-800 rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col border border-slate-700"
+          >
+            {/* Header do Modal */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-700">
+              <h3 className="text-xl font-bold text-white flex items-center">
+                <Eye className="w-6 h-6 mr-2 text-blue-400" />
                 Preview do Site
               </h3>
+              <button
+                onClick={() => setShowPreviewModal(false)}
+                className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6 text-slate-300" />
+              </button>
             </div>
-            <div className="flex-1 overflow-hidden bg-white p-4">
-              {currentSiteCode ? (
-                <PreviewIframe
-                  siteId={currentSiteCode}
-                  height="100%"
-                  className="w-full h-full"
-                />
-              ) : (
-                <div className="h-full flex items-center justify-center text-slate-400 text-center bg-slate-900 rounded">
-                  <div>
-                    <Monitor size={48} className="mx-auto mb-4 opacity-50" />
-                    <p className="text-lg font-medium">Preview do site aparecerá aqui</p>
-                    <p className="text-sm mt-2">Continue a conversa para gerar seu site</p>
-                  </div>
-                </div>
-              )}
+            
+            {/* Preview Content */}
+            <div className="flex-1 overflow-auto p-4 bg-white">
+              <PreviewIframe
+                siteId={currentSiteCode}
+                height="100%"
+                className="w-full min-h-[600px]"
+              />
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
 
