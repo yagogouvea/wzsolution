@@ -52,6 +52,36 @@ function ChatPageContent() {
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Esconder Header, Footer e WhatsAppButton quando estiver no chat
+  useEffect(() => {
+    const hideSiteElements = () => {
+      const siteElements = document.querySelectorAll('.site-header-footer');
+      siteElements.forEach(el => {
+        (el as HTMLElement).style.display = 'none';
+      });
+      // Prevenir scroll do body
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    };
+
+    const showSiteElements = () => {
+      const siteElements = document.querySelectorAll('.site-header-footer');
+      siteElements.forEach(el => {
+        (el as HTMLElement).style.display = '';
+      });
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    };
+
+    hideSiteElements();
+
+    return () => {
+      showSiteElements();
+    };
+  }, []);
+
   // Buscar dados do sessionStorage se não vierem por query params
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -681,7 +711,7 @@ ${getRedirectMessage(messageToSend)}`,
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col">
+    <div className="fixed inset-0 bg-slate-900 flex flex-col z-[9999] overflow-hidden" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' }}>
       <ConsoleBlocker />
       
       {/* Header Ultra Minimalista - Apenas botão voltar */}
@@ -696,7 +726,7 @@ ${getRedirectMessage(messageToSend)}`,
       </div>
 
       {/* Main Content - Chat Only */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-slate-900">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-slate-900 h-full">
         {/* Messages Area - Full Width, No Max Width */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 min-h-0 w-full">
           <AnimatePresence>
