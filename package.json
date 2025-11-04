@@ -20,7 +20,8 @@
     "db:fix-duplicates": "node scripts/fix-project-data-duplicates.js",
     "db:diagnostico": "npm run db:verificar && npm run db:fix-duplicates",
     "builder:create-templates": "npx tsx scripts/create-builder-templates.ts",
-    "builder:test-model": "npx tsx scripts/test-builder-model.ts"
+    "builder:test-model": "npx tsx scripts/test-builder-model.ts",
+    "test:claude": "npx tsx scripts/test-claude-api.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",

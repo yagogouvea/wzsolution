@@ -49,7 +49,7 @@ export async function generateSiteWithClaude(prompt: string): Promise<string> {
   const systemPrompt = `Você é um desenvolvedor web sênior da WZ Solution...`;
   const fullPrompt = systemPrompt + `\n\n💡 PEDIDO DO CLIENTE:\n${prompt}`;
   const estimatedInputTokens = estimateTokens(fullPrompt);
-  const estimatedMaxOutputTokens = 18000; // Estimativa conservadora
+  const estimatedMaxOutputTokens = 6000; // ✅ Configurado para 6k tokens
   const estimatedCost = calculateCost(estimatedInputTokens, estimatedMaxOutputTokens, 'sonnet');
   
   console.log(`💰 [Claude-Generate] Custo estimado (Sonnet): $${estimatedCost.toFixed(4)}`);
@@ -64,9 +64,9 @@ export async function generateSiteWithClaude(prompt: string): Promise<string> {
     try {
       const response = await anthropic.messages.create({
         model: process.env.CLAUDE_MODEL || "claude-sonnet-4-5-20250929",
-        max_tokens: 18000, // ✅ Otimizado: 18k é suficiente para sites completos (vs 32k antes)
+        max_tokens: 6000, // ✅ Configurado para 6k tokens
         temperature: 0.6,
-        stream: true, // ✅ Streaming obrigatório para max_tokens > 8192
+        stream: true, // ✅ Streaming habilitado (melhor performance)
         messages: [
           {
             role: "user",
@@ -328,8 +328,33 @@ ${prompt}
       
       console.error(`❌ [Claude] Tentativa ${attempt}/${maxRetries} falhou:`, errorMessage);
       
+      // ✅ Tratamento de Rate Limit (429) - NÃO fazer retry, retornar erro imediatamente
+      const errorStatus = error?.status || error?.response?.status;
+      if (errorStatus === 429 || errorMessage.includes('rate_limit') || errorMessage.includes('Rate limit')) {
+        // Tentar extrair retry-after
+        let retryAfter: string | number | undefined;
+        if (error?.response?.headers) {
+          const headers = error.response.headers;
+          retryAfter = headers.get?.('retry-after') || headers['retry-after'];
+        } else if (error?.headers) {
+          retryAfter = error.headers.get?.('retry-after') || error.headers['retry-after'];
+        }
+        
+        if (!retryAfter && errorMessage.includes('retry-after')) {
+          const match = errorMessage.match(/retry-after[:\s]+(\d+)/i);
+          if (match) retryAfter = match[1];
+        }
+        
+        const waitMinutes = retryAfter ? Math.ceil(parseInt(String(retryAfter), 10) / 60) : 10;
+        
+        console.error(`⏸️ [Claude] Rate limit atingido! Aguarde ${waitMinutes} minutos antes de tentar novamente.`);
+        
+        // ✅ NÃO fazer retry quando rate limit - retornar erro imediatamente
+        throw new Error(`❌ Rate limit do Claude AI atingido. Por favor, aguarde ${waitMinutes} minutos antes de tentar novamente.`);
+      }
+      
       // Se for erro de overload ou timeout, tentar novamente
-      if (errorMessage.includes('Overloaded') || errorMessage.includes('timeout') || error.status === 500) {
+      if (errorMessage.includes('Overloaded') || errorMessage.includes('timeout') || errorStatus === 500) {
         if (attempt < maxRetries) {
           const waitTime = Math.pow(2, attempt) * 500; // ✅ Otimizado: 500ms, 1s (vs 2s, 4s antes)
           console.log(`⏳ [Claude] Aguardando ${waitTime}ms antes de retry...`);
@@ -486,6 +511,14 @@ export async function modifySiteWithClaude(
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
+      // ✅ Se tentativa anterior falhou por resposta explicativa, reforçar prompt
+      const isRetryAfterExplanatory = lastError?.message === 'RESPONSE_IS_EXPLANATORY_ONLY';
+      let currentModification = modification;
+      if (isRetryAfterExplanatory) {
+        console.log('🔄 [Claude-Modify] Retry após resposta explicativa. Reforçando prompt...');
+        currentModification = `🚨 CRÍTICO: Retorne DIRETAMENTE o código HTML completo modificado começando com <!DOCTYPE html>. NÃO faça perguntas, NÃO liste modificações ("Substituir X por Y"), NÃO explique. APLIQUE as modificações DIRETAMENTE e retorne o código COMPLETO.\n\n${modification}`;
+      }
+      
       // ✅ Construir contexto completo incluindo histórico da conversa
       let contextInfo = '';
       
@@ -591,7 +624,7 @@ ${currentCode}
 \`\`\`
 
 🎯 SOLICITAÇÃO DE MODIFICAÇÃO:
-${modification}
+${currentModification}
 
 ⚠️ IMPORTANTE: Se a solicitação não for sobre modificação do site (design, conteúdo, funcionalidades web), responda educadamente redirecionando para o foco em criação de sites.
 
@@ -719,7 +752,7 @@ ${currentCode}
 \`\`\`
 
 🎯 SOLICITAÇÃO DE MODIFICAÇÃO:
-${modification}
+${currentModification}
 
 ⚠️ IMPORTANTE: Se a solicitação não for sobre modificação do site (design, conteúdo, funcionalidades web), responda educadamente redirecionando para o foco em criação de sites.
 
@@ -750,9 +783,13 @@ Adicione um botão flutuante fixo no canto inferior direito com:
 ✓ Preserve a estrutura responsiva (mobile-first)
 ✓ Retorne o código COMPLETO modificado (não apenas a parte alterada)
 ✓ Mantenha consistência visual com o resto do site
-✓ Não adicione explicações ou markdown
+✓ NÃO adicione explicações, comentários ou markdown ANTES ou DEPOIS do código
+✓ NÃO faça perguntas como "Deseja que eu prossiga?" ou "Posso prosseguir?"
+✓ NÃO liste as modificações que fará - APLIQUE DIRETAMENTE e retorne o código
 
-⚠️⚠️⚠️ CRÍTICO ABSOLUTO: Retorne SEMPRE o código HTML COMPLETO e INTEGRAL, do INÍCIO ao FIM!
+⚠️⚠️⚠️ CRÍTICO ABSOLUTO: Retorne SEMPRE e DIRETAMENTE o código HTML COMPLETO e INTEGRAL, do INÍCIO ao FIM!
+🚨 INÍCIE DIRETAMENTE COM <!DOCTYPE html> OU <html> - SEM TEXTO ANTES!
+🚨 TERMINE COM </html> - SEM TEXTO DEPOIS!
 
 🚨 LIMITE DE TOKENS: Você tem até 8192 tokens de output. Use TODOS se necessário para retornar o código COMPLETO!
 
@@ -760,26 +797,31 @@ Adicione um botão flutuante fixo no canto inferior direito com:
 - Código truncado ou incompleto (apenas header, apenas footer, apenas uma seção)
 - Textos como "seria muito extenso para ser reproduzido aqui"
 - Instruções como "recomendo usar classes Tailwind" sem mostrar o código
-- Listas de substituições sem o código modificado
+- Listas de substituições sem o código modificado (ex: "Substituir purple-600 por blue-600")
 - Código que termina abruptamente antes de </body></html>
-- Textos explicativos antes do código
-- Perguntas como "Posso prosseguir?" ou "Aguardo sua confirmação"
+- Textos explicativos ANTES do código (ex: "Modificarei o código substituindo...")
+- Textos explicativos DEPOIS do código
+- Perguntas como "Posso prosseguir?", "Aguardo sua confirmação", "Deseja que eu prossiga?"
 - Textos como "Antes de enviar" ou "gostaria de esclarecer"
 - Perguntas sobre origem das imagens ("de onde virão as imagens?", "posso usar placeholders?")
-- Qualquer texto que não seja código HTML COMPLETO
+- Frases como "Principais modificações:" seguida de lista sem código
+- Qualquer texto que não seja código HTML COMPLETO DIRETO
 
 ✅ OBRIGATÓRIO ABSOLUTAMENTE:
 - SEMPRE retornar o código HTML COMPLETO do início (<!DOCTYPE html>) ao fim (</html>)
 - SEMPRE incluir TODAS as seções: <head>, <body>, header, main, footer, scripts, styles
 - SEMPRE terminar com </body></html> - nunca deixar código incompleto
 - Se o código original tem 35938 chars, retorne pelo menos 35000+ chars modificado
-- Começar diretamente com <!DOCTYPE html> ou <html>
+- INICIAR DIRETAMENTE com <!DOCTYPE html> ou <html> - SEM NENHUM TEXTO ANTES
 - Retornar código HTML completo e funcional (não resumos ou instruções)
-- NÃO adicionar explicações ou comentários textuais antes ou depois
-- NÃO fazer perguntas ao usuário
+- NÃO adicionar explicações ou comentários textuais ANTES do código
+- NÃO adicionar explicações ou comentários textuais DEPOIS do código
+- NÃO fazer perguntas ao usuário (ex: "Deseja que eu prossiga?")
+- NÃO listar modificações sem aplicar (ex: "Substituir X por Y" - deve aplicar diretamente)
 - NÃO dizer que o código é "muito extenso" - SEMPRE retornar tudo
-- Quando solicitado cores: aplicar em TODAS as ocorrências e retornar código completo
+- Quando solicitado cores: aplicar em TODAS as ocorrências DIRETAMENTE e retornar código completo
 - Quando solicitado imagens: usar SEMPRE Unsplash (sem perguntar ou questionar)
+- EXECUTAR a modificação IMEDIATAMENTE - não explicar o que vai fazer, FAZER diretamente
 
 🔴 SE O CÓDIGO FOR MUITO LONGO, RETORNE MESMO ASSIM! Use TODOS os tokens disponíveis (8192) se necessário!
 
@@ -900,8 +942,8 @@ Adicione um botão flutuante fixo no canto inferior direito com:
         'gostaria de esclarecer',
         'Aguardo sua confirmação',
         'Posso prosseguir',
+        'Deseja que eu prossiga',
         'Para manter a integridade',
-        'Entendi',
         'Vou adicionar',
         'Converti',
         'Substitui',
@@ -910,27 +952,53 @@ Adicione um botão flutuante fixo no canto inferior direito com:
         'instruções de implementação',
         'Pelo novo logo',
         'Substituirei',
+        'Modificarei o código',
         'No cabeçalho',
         'Código omitido',
         'para manter o foco',
         'Todas as cores foram',
-        'Modificações globais'
+        'Modificações globais',
+        'Principais modificações'
       ];
       
+      // Verificar se começa com texto explicativo (primeiros 500 chars)
+      const first500Chars = result.substring(0, 500).toLowerCase();
       const hasExplanatoryText = explanatoryPatterns.some(pattern => 
-        result.toLowerCase().includes(pattern.toLowerCase())
+        first500Chars.includes(pattern.toLowerCase())
       );
       
+      // Verificar se tem código HTML (não apenas no início)
       const hasCode = result.includes('<!DOCTYPE') || result.includes('<html') || 
                       result.includes('<div') || result.includes('<section') || 
                       result.includes('<svg') || result.includes('<img') ||
-                      result.includes('data:image');
+                      result.includes('data:image') ||
+                      result.includes('<head') || result.includes('<body') ||
+                      result.includes('<header') || result.includes('<footer');
       
-      // Se tem texto explicativo mas também tem código, remover apenas o texto
+      // ✅ Se começa com texto explicativo mas tem código depois, tentar extrair o código
+      if (hasExplanatoryText && hasCode) {
+        console.log('⚠️ [Claude-Modify] Resposta tem texto explicativo + código. Tentando extrair código...');
+        // Tentar encontrar início do código HTML
+        const htmlStart = result.search(/<!DOCTYPE|<html/i);
+        if (htmlStart > 0) {
+          console.log(`✅ [Claude-Modify] Código encontrado na posição ${htmlStart}. Extraindo...`);
+          result = result.substring(htmlStart);
+        }
+      }
+      
       // Se só tem texto explicativo sem código, lançar erro
       if (hasExplanatoryText && !hasCode && !result.includes('```')) {
         console.error('❌ [Claude-Modify] Resposta parece ser APENAS texto explicativo, sem código HTML!');
         console.error('❌ [Claude-Modify] Primeiros 500 chars:', result.substring(0, 500));
+        console.error('❌ [Claude-Modify] Tamanho total:', result.length);
+        
+        // ✅ Tentar retry com prompt mais direto
+        if (attempt < maxRetries) {
+          console.log(`🔄 [Claude-Modify] Tentativa ${attempt} falhou. Tentando novamente com prompt reforçado...`);
+          lastError = new Error('RESPONSE_IS_EXPLANATORY_ONLY');
+          continue; // Tentar novamente
+        }
+        
         throw new Error('A IA retornou apenas texto explicativo sem código HTML. Por favor, reformule sua solicitação de forma mais específica e direta.');
       }
       

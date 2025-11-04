@@ -170,7 +170,7 @@ export default function Footer() {
               className="flex items-center space-x-6 text-sm"
             >
               <Link
-                href="#"
+                href="/pt/politica-privacidade"
                 className="text-slate-400 hover:text-cyan-400 transition-colors duration-300"
               >
                 Política de Privacidade

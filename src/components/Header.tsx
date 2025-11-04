@@ -41,10 +41,40 @@ export default function Header() {
   }, []);
 
   const scrollToSection = (sectionId: string) => {
-    const element = document.getElementById(sectionId);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
+    // Redirecionar "Contato" para área de orçamento
+    const targetSectionId = sectionId === 'contact' ? 'budget' : sectionId;
+    
+    // Aguardar um pouco para garantir que o DOM está pronto
+    setTimeout(() => {
+      const element = document.getElementById(targetSectionId);
+      if (element) {
+        // Calcular posição considerando o header fixo
+        const headerHeight = 80;
+        const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+        const offsetPosition = elementPosition - headerHeight;
+        
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        });
+      } else {
+        // Se não encontrou, tentar procurar em iframes
+        console.warn(`Seção "${targetSectionId}" não encontrada. Tentando buscar no iframe...`);
+        const iframe = document.querySelector('iframe');
+        if (iframe && iframe.contentWindow) {
+          try {
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+            const iframeElement = iframeDoc.getElementById(targetSectionId);
+            if (iframeElement) {
+              iframeElement.scrollIntoView({ behavior: 'smooth' });
+            }
+          } catch (e) {
+            console.warn('Não foi possível acessar o iframe:', e);
+          }
+        }
+      }
+    }, 100);
+    
     setIsMenuOpen(false);
   };
 

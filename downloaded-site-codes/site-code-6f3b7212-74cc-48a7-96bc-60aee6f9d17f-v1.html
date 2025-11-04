@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Mari.indica - Produtos de maquiagem premium e dicas exclusivas para realçar sua beleza natural">
+  <title>Mari.indica - Maquiagem & Beleza</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Poppins:wght@300;400;500;600;700&display=swap');
+    
+    body {
+      font-family: 'Poppins', sans-serif;
+    }
+    
+    h1, h2, h3 {
+      font-family: 'Playfair Display', serif;
+    }
+    
+    .hover-scale {
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .hover-scale:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 20px 40px rgba(236, 72, 153, 0.2);
+    }
+    
+    .gradient-text {
+      background: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .nav-link {
+      position: relative;
+      transition: color 0.3s ease;
+    }
+    
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #ec4899, #f97316);
+      transition: width 0.3s ease;
+    }
+    
+    .nav-link:hover::after {
+      width: 100%;
+    }
+    
+    .card-shine {
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .card-shine::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+      transform: rotate(45deg);
+      transition: all 0.6s ease;
+    }
+    
+    .card-shine:hover::before {
+      left: 100%;
+    }
+  </style>
+</head>
+<body class="bg-white">
+
+  <header class="fixed top-0 w-full bg-white/95 backdrop-blur-sm shadow-md z-50">
+    <nav class="container mx-auto px-6 py-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <svg class="w-8 h-8 text-pink-500" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+          </svg>
+          <span class="text-2xl font-bold gradient-text">Mari.indica</span>
+        </div>
+        
+        <ul class="hidden md:flex items-center space-x-8">
+          <li><a href="#home" class="nav-link text-gray-700 hover:text-pink-500 font-medium">Início</a></li>
+          <li><a href="#produtos" class="nav-link text-gray-700 hover:text-pink-500 font-medium">Produtos</a></li>
+          <li><a href="#dicas" class="nav-link text-gray-700 hover:text-pink-500 font-medium">Dicas</a></li>
+          <li><a href="#sobre" class="nav-link text-gray-700 hover:text-pink-500 font-medium">Sobre</a></li>
+          <li><a href="#contato" class="bg-gradient-to-r from-pink-500 to-orange-400 text-white px-6 py-2 rounded-full hover:shadow-lg transition-all duration-300">Contato</a></li>
+        </ul>
+        
+        <button class="md:hidden text-pink-500">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section id="home" class="pt-32 pb-20 px-6 bg-gradient-to-br from-pink-50 via-white to-orange-50">
+      <div class="container mx-auto">
+        <div class="grid md:grid-cols-2 gap-12 items-center">
+          <div class="space-y-6">
+            <h1 class="text-5xl md:text-6xl font-bold text-gray-900 leading-tight">
+              Realce Sua <span class="gradient-text">Beleza Natural</span>
+            </h1>
+            <p class="text-xl text-gray-600 leading-relaxed">
+              Descubra produtos de maquiagem premium e dicas exclusivas para criar looks incríveis que expressam sua personalidade única.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 pt-4">
+              <a href="#produtos" class="bg-gradient-to-r from-pink-500 to-orange-400 text-white px-8 py-4 rounded-full font-semibold text-center hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                Ver Produtos
+              </a>
+              <a href="#dicas" class="border-2 border-pink-500 text-pink-500 px-8 py-4 rounded-full font-semibold text-center hover:bg-pink-50 transition-all duration-300">
+                Dicas de Maquiagem
+              </a>
+            </div>
+          </div>
+          
+          <div class="relative">
+            <img src="https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&q=80" alt="Produtos de maquiagem premium" class="w-full rounded-3xl shadow-2xl" loading="lazy">
+            <div class="absolute -bottom-6 -left-6 bg-white p-6 rounded-2xl shadow-xl">
+              <div class="flex items-center space-x-3">
+                <div class="bg-pink-100 p-3 rounded-full">
+                  <svg class="w-6 h-6 text-pink-500" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-2xl font-bold text-gray-900">5.0</p>
+                  <p class="text-sm text-gray-600">Avaliação dos clientes</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="py-20 px-6 bg-white">
+      <div class="container mx-auto">
+        <div class="grid md:grid-cols-4 gap-8">
+          <div class="text-center space-y-3">
+            <div class="bg-pink-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+              <svg class="w-8 h-8 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900">Produtos Originais</h3>
+            <p class="text-gray-600">100% autênticos e certificados</p>
+          </div>
+          
+          <div class="text-center space-y-3">
+            <div class="bg-pink-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+              <svg class="w-8 h-8 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900">Entrega Rápida</h3>
+            <p class="text-gray-600">Receba em até 48 horas</p>
+          </div>
+          
+          <div class="text-center space-y-3">
+            <div class="bg-pink-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+              <svg class="w-8 h-8 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900">Dicas Exclusivas</h3>
+            <p class="text-gray-600">Tutoriais e guias completos</p>
+          </div>
+          
+          <div class="text-center space-y-3">
+            <div class="bg-pink-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+              <svg class="w-8 h-8 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900">Atendimento Premium</h3>
+            <p class="text-gray-600">Suporte personalizado</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="produtos" class="py-20 px-6 bg-gradient-to-br from-pink-50 to-orange-50">
+      <div class="container mx-auto">
+        <div class="text-center mb-16 space-y-4">
+          <h2 class="text-4xl md:text-5xl font-bold text-gray-900">Nossos <span class="gradient-text">Produtos</span></h2>
+          <p class="text-xl text-gray-600 max-w-2xl mx-auto">Seleção exclusiva de maquiagens premium para todos os estilos e ocasiões</p>
+        </div>
+        
+        <div class="grid md:grid-cols-3 gap-8">
+          <div class="bg-white rounded-3xl overflow-hidden shadow-lg hover-scale card-shine">
+            <div class="relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=800&q=80" alt="Paleta de sombras profissional" class="w-full h-64 object-cover" loading="lazy">
+              <span class="absolute top-4 right-4 bg-pink-500 text-white px-4 py-1 rounded-full text-sm font-semibold">Bestseller</span>
+            </div>
+            <div class="p-6 space-y-4">
+              <h3 class="text-2xl font-bold text-gray-900">Paleta de Sombras Premium</h3>
+              <p class="text-gray-600">24 cores vibrantes e duradouras. Acabamento matte e shimmer para criar looks do dia e noite.</p>
+              <div class="flex items-center justify-between pt-4">
+                <div>
+                  <p class="text-3xl font-bold gradient-text">R$ 129,90</p>
+                  <p class="text-sm text-gray-500">ou 3x de R$ 43,30</p>
+                </div>
+                <button class="bg-gradient-to-r from-pink-500 to-orange-400 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg transition-all duration-300">
+                  Comprar
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="bg-white rounded-3xl overflow-hidden shadow-lg hover-scale card-shine">
+            <div class="relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1631214524020-7e18db9a8f92?w=800&q=80" alt="Base líquida alta cobertura" class="w-full h-64 object-cover" loading="lazy">
+              <span class="absolute top-4 right-4 bg-orange-500 text-white px-4 py-1 rounded-full text-sm font-semibold">Novo</span>
+            </div>
+            <div class="p-6 space-y-4">
+              <h3 class="text-2xl font-bold text-gray-900">Base Líquida HD</h3>
+              <p class="text-gray-600">Alta cobertura e acabamento natural. Fórmula oil-free com FPS 30. Disponível em 12 tonalidades.</p>
+              <div class="flex items-center justify-between pt-4">
+                <div>
+                  <p class="text-3xl font-bold gradient-text">R$ 89,90</p>
+                  <p class="text-sm text-gray-500">ou 2x de R$ 44,95</p>
+                </div>
+                <button class="bg-gradient-to-r from-pink-500 to-orange-400 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg transition-all duration-300">
+                  Comprar
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="bg-white rounded-3xl overflow-hidden shadow-lg hover-scale card-shine">
+            <div class="relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=800&q=80" alt="Kit de pincéis profissionais" class="w-full h-64 object-cover" loading="lazy">
+            </div>
+            <div class="p-6 space-y-4">
+              <h3 class="text-2xl font-bold text-gray-900">Kit Pincéis Profissional</h3>
+              <p class="text-gray-600">12 pincéis premium com cerdas sintéticas macias. Estojo elegante incluso. Perfeito para todas as técnicas.</p>
+              <div class="flex items-center justify-between pt-4">
+                <div>
+                  <p class="text-3xl font-bold gradient-text">R$ 159,90</p>
+                  <p class="text-sm text-gray-500">ou 4x de R$ 39,98</p>
+                </div>
+                <button class="bg-gradient-to-r from-pink-500 to-orange-400 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg transition-all duration-300">
+                  Comprar
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="bg-white rounded-3xl overflow-hidden shadow-lg hover-scale card-shine">
+            <div class="relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=800&q=80" alt="Batom líquido matte" class="w-full h-64 object-cover" loading="lazy">
+            </div>
+            <div class="p-6 space-y-4">
+              <h3 class="text-2xl font-bold text-gray-900">Batom Líquido Matte</h3>
+              <p class="text-gray-600">Longa duração com textura aveludada. Não transfere e não resseca os lábios. 18 cores incríveis.</p>
+              <div class="flex items-center justify-between pt-4">
+                <div>
+                  <p class="text-3xl font-bold gradient-text">R$ 49,90</p>
+                  <p class="text-sm text-gray-500">à vista</p>
+                </div>
+                <button class="bg-gradient-to-r from-pink-500 to-orange-400 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg transition-all duration-300">
+                  Comprar
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="bg-white rounded-3xl overflow-hidden shadow-lg hover-scale card-shine">
+            <div class="relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=800&q=80" alt="Iluminador facial" class="w-full h-64 object-cover" loading="lazy">
+            </div>
+            <div class="p-6 space-y-4">
+              <h3 class="text-2xl font-bold text-gray-900">Iluminador Facial Glow</h3>
+              <p class="text-gray-600">Brilho natural e radiante. Fórmula cremosa de fácil aplicação. Perfeito para destacar pontos estratégicos.</p>
+              <div class="flex items-center justify-between pt-4">
+                <div>
+                  <p class="text-3xl font-bold gradient-text">R$ 69,90</p>
+                  <p class="text-sm text-gray-500">ou 2x de R$ 34,95</p>
+                </div>
+                <button class="bg-gradient-to-r from-pink-500 to-orange-400 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg transition-all duration-300">
+                  Comprar
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="bg-white rounded-3xl overflow-hidden shadow-lg hover-scale card-shine">
+            <div class="relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1583241800698-c318676f1e9a?w=800&q=80" alt="Máscara de cílios volumosa" class="w-full h-64 object-cover" loading="lazy">
+            </div>
+            <div class="p-6 space-y-4">
+              <h3 class="text-2xl font-bold text-gray-900">Máscara Cílios Volume</h3>
+              <p class="text-gray-600">Volume extremo e alongamento. Fórmula à prova d'água que não borra. Escova exclusiva para separação perfeita.</p>
+              <div class="flex items-center justify-between pt-4">
+                <div>
+                  <p class="text-3xl font-bold gradient-text">R$ 59,90</p>
+                  <p class="text-sm text-gray-500">à vista</p>
+                </div>
+                <button class="bg-gradient-to-r from-pink-500 to-orange-400 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg transition-all duration-300">
+                  Comprar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="dicas" class="py-20 px-6 bg-white">
+      <div class="container mx-auto">
+        <div class="text-center mb-16 space-y-4">
+          <h2 class="text-4xl md:text-5xl font-bold text-gray-900">Dicas de <span class="gradient-text">Maquiagem</span></h2>
+          <p class="text-xl text-gray-600 max-w-2xl mx-auto">Aprenda técnicas profissionais e truques para arrasar em qualquer ocasião</p>
+        </div>
+        
+        <div class="grid md:grid-cols-2 gap-8 mb-12">
+          <div class="bg-gradient-to-br from-pink-50 to-orange-50 rounded-3xl overflow-hidden shadow-lg hover-scale">
+            <img src="https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?w=800&q=80" alt="Tutorial de maquiagem para o dia" class="w-full h-80 object-cover" loading="lazy">
+            <div class="p-8 space-y-4">
+              <span class="bg-pink-500 text-white px-4 py-1 rounded-full text-sm font-semibold">Tutorial</span>
+              <h3 class="text-3xl font-bold text-gray-900">Maquiagem Natural para o Dia</h3>
+              <p class="text-gray-600 text-lg">Aprenda a criar um look leve e natural perfeito para o dia a dia. Técnicas de aplicação de base, corretivo e sombras neutras para realçar sua beleza sem exageros.</p>
+              <ul class="space-y-2 text-gray-700">
+                <li class="flex items-start space-x-2">
+                  <svg class="w-6 h-6 text-pink-500 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                  </svg>
+                  <span>Preparação da pele com primer e hidratante</span>
+                </li>
+                <li class="flex items-start space-x-2">
+                  <svg class="w-6 h-6 text-pink-500 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                  </svg>
+                  <span>Aplicação de base leve com esponja úmida</span>
+                </li>
+                <li class="flex items-start space-x-2">
+                  <svg class="w-6 h-6 text-pink-500 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                  </svg>
+                  <span>Sombras neutras e iluminador nos pontos certos</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+          <div class="bg-gradient-to-br from-pink-50 to-orange-50 rounded-3xl overflow-hidden shadow-lg hover-scale">
+            <img src="https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?w=800&q=80" alt="Maquiagem para festa e eventos" class="w-full h-80 object-cover" loading="lazy">
+            <div class="p-8 space-y-4">
+              <span class="bg-orange-500 text-white px-4 py-1 rounded-full text-sm font-semibold">Avançado</span>
+              <h3 class="text-3xl font-bold text-gray-900">Maquiagem Glamourosa para Festas</h3>
+              <p class="text-gray-600 text-lg">Destaque-se em eventos especiais com técnicas de contorno, esfumado e aplicação de glitter. Aprenda a criar um look marcante que dura a noite toda.</p>
+              <ul class="space-y-2 text-gray-700">
+                <li class="flex items-start space-x-2">
+                  <svg class="w-6 h-6 text-pink-500 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                  </svg>
+                  <span>Técnicas de contorno e iluminação profissional</span>
+                </li>
+                <li class="flex items-start space-x-2">
+                  <svg class="w-6 h-6 text-pink-500 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                  </svg>
+                  <span>Esfumado perfeito com cores vibrantes</span>
+                </li>
+                <li class="flex items-start space-x-2">
+                  <svg class="w-6 h-6 text-pink-500 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                  </svg>
+                  <span>Fixação para maquiagem duradoura</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        
+        <div class="grid md:grid-cols-3 gap-6">
+          <div class="bg-white border-2 border-pink-100 rounded-2xl p-6 space-y-4 hover-scale">
+            <div class="bg-pink-100 w-12 h-12 rounded-full flex items-center justify-center">
+              <svg class="w-6 h-6 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+              </svg>
+            </div>
+            <h4 class="text-xl font-bold text-gray-900">Cuidados com a Pele</h4>
+            <p class="text-gray-600">Prepare sua pele corretamente antes da maquiagem. Limpeza, hidratação e primer são essenciais para um resultado impecável.</p>
+          </div>
+          
+          <div class="bg-white border-2 border-pink-100 rounded-2xl p-6 space-y-4 hover-scale">
+            <div class="bg-pink-100 w-12 h-12 rounded-full flex items-center justify-center">
+              <svg class="w-6 h-6 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
+              </svg>
+            </div>
+            <h4 class="text-xl font-bold text-gray-900">Escolha de Cores</h4>
+            <p class="text-gray-600">Aprenda a escolher tons que harmonizam com seu subtom de pele. Cores quentes para subtons amarelados, frias para rosados.</p>
+          </div>
+          
+          <div class="bg-white border-2 border-pink-100 rounded-2xl p-6 space-y-4 hover-scale">
+            <div class="bg-pink-100 w-12 h-12 rounded-full flex items-center justify-center">
+              <svg class="w-6 h-6 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <h4 class="text-xl font-bold text-gray-900">Pincéis Corretos</h4>
+            <p class="text-gray-600">Use o pincel adequado para cada produto. Pincéis densos para base, macios para pó e chanfrados para esfumado.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="sobre" class="py-20 px-6 bg-gradient-to-br from-pink-50 to-orange-50">
+      <div class="container mx-auto">
+        <div class="grid md:grid-cols-2 gap-12 items-center">
+          <div class="space-y-6">
+            <h2 class="text-4xl md:text-5xl font-bold text-gray-900">Sobre a <span class="gradient-text">Mari.indica</span></h2>
+            <p class="text-xl text-gray-600 leading-relaxed">
+              Somos apaixonadas por maquiagem e acreditamos que toda mulher merece se sentir linda e confiante. Nossa missão é oferecer produtos de alta qualidade e compartilhar conhecimento para que você possa expressar sua beleza única.
+            </p>
+            <p class="text-lg text-gray-600 leading-relaxed">
+              Com mais de 5 anos de experiência no mercado de cosméticos, selecionamos cuidadosamente cada produto para garantir a melhor experiência para nossas clientes. Trabalhamos apenas com marcas renomadas e produtos testados dermatologicamente.
+            </p>
+            <div class="grid grid-cols-3 gap-6 pt-6">
+              <div class="text-center">
+                <p class="text-4xl font-bold gradient-text">15k+</p>
+                <p class="text-gray-600 mt-2">Clientes Felizes</p>
+              </div>
+              <div class="text-center">
+                <p class="text-4xl font-bold gradient-text">200+</p>
+                <p class="text-gray-600 mt-2">Produtos</p>
+              </div>
+              <div class="text-center">
+                <p class="text-4xl font-bold gradient-text">5.0</p>
+                <p class="text-gray-600 mt-2">Avaliação</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="relative">
+            <img src="https://images.unsplash.com/photo-1522338242992-e1a54906a8da?w=800&q=80" alt="Equipe Mari.indica" class="w-full rounded-3xl shadow-2xl" loading="lazy">
+            <div class="absolute -bottom-6 -right-6 bg-white p-6 rounded-2xl shadow-xl max-w-xs">
+              <p class="text-gray-900 font-semibold mb-2">"Produtos incríveis e atendimento excepcional!"</p>
+              <div class="flex items-center space-x-2">
+                <div class="flex text-yellow-400">
+                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                  </svg>
+                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                  </svg>
+                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                  </svg>
+                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                  </svg>
+                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                  </svg>
+                </div>
+              </div>
+              <p class="text-sm text-gray-600 mt-2">- Juliana Santos</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="py-20 px-6 bg-white">
+      <div class="container mx-auto">
+        <div class="text-center mb-16 space-y-4">
+          <h2 class="text-4xl md:text-5xl font-bold text-gray-900">O Que Dizem Nossas <span class="gradient-text">Clientes</span></h2>
+          <p class="text-xl text-gray-600 max-w-2xl mx-auto">Depoimentos reais de quem já experimentou nossos produtos</p>
+        </div>
+        
+        <div class="grid md:grid-cols-3 gap-8">
+          <div class="bg-gradient-to-br from-pink-50 to-orange-50 rounded-2xl p-8 space-y-4 hover-scale">
+            <div class="flex text-yellow-400 mb-4">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+            </div>
+            <p class="text-gray-700 text-lg">"A paleta de sombras é simplesmente perfeita! As cores são vibrantes e duram o dia todo. Melhor compra que fiz!"</p>
+            <div class="flex items-center space-x-3 pt-4">
+              <div class="w-12 h-12 bg-pink-200 rounded-full flex items-center justify-center">
+                <span class="text-pink-700 font-bold text-lg">AC</span>
+              </div>
+              <div>
+                <p class="font-semibold text-gray-900">Ana Clara</p>
+                <p class="text-sm text-gray-600">São Paulo, SP</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="bg-gradient-to-br from-pink-50 to-orange-50 rounded-2xl p-8 space-y-4 hover-scale">
+            <div class="flex text-yellow-400 mb-4">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+            </div>
+            <p class="text-gray-700 text-lg">"Atendimento impecável e entrega super rápida! Os tutoriais do site me ajudaram muito a melhorar minhas técnicas."</p>
+            <div class="flex items-center space-x-3 pt-4">
+              <div class="w-12 h-12 bg-pink-200 rounded-full flex items-center justify-center">
+                <span class="text-pink-700 font-bold text-lg">BM</span>
+              </div>
+              <div>
+                <p class="font-semibold text-gray-900">Beatriz Martins</p>
+                <p class="text-sm text-gray-600">Rio de Janeiro, RJ</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="bg-gradient-to-br from-pink-50 to-orange-50 rounded-2xl p-8 space-y-4 hover-scale">
+            <div class="flex text-yellow-400 mb-4">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+            </div>
+            <p class="text-gray-700 text-lg">"Kit de pincéis maravilhoso! Qualidade profissional por um preço justo. Já indiquei para todas as minhas amigas!"</p>
+            <div class="flex items-center space-x-3 pt-4">
+              <div class="w-12 h-12 bg-pink-200 rounded-full flex items-center justify-center">
+                <span class="text-pink-700 font-bold text-lg">CS</span>
+              </div>
+              <div>
+                <p class="font-semibold text-gray-900">Carolina Silva</p>
+                <p class="text-sm text-gray-600">Belo Horizonte, MG</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="contato" class="py-20 px-6 bg-gradient-to-r from-pink-500 via-pink-600 to-orange-500 text-white">
+      <div class="container mx-auto text-center space-y-8">
+        <h2 class="text-4xl md:text-5xl font-bold">Pronta Para Transformar Sua Beleza?</h2>
+        <p class="text-xl md:text-2xl max-w-3xl mx-auto opacity-95">
+          Entre em contato conosco e descubra os melhores produtos de maquiagem para realçar sua beleza natural
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center pt-6">
+          <a href="https://wa.me/5511999999999" class="bg-white text-pink-600 px-10 py-4 rounded-full font-bold text-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 inline-flex items-center justify-center space-x-2">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
+            <span>WhatsApp</span>
+          </a>
+          <a href="mailto:contato@mariindica.com.br" class="bg-transparent border-2 border-white text-white px-10 py-4 rounded-full font-bold text-lg hover:bg-white hover:text-pink-600 transition-all duration-300 transform hover:scale-105 inline-flex items-center justify-center space-x-2">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+            <span>E-mail</span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="bg-gray-900 text-white py-12 px-6">
+    <div class="container mx-auto">
+      <div class="grid md:grid-cols-4 gap-8 mb-8">
+        <div class="space-y-4">
+          <div class="flex items-center space-x-2">
+            <svg class="w-8 h-8 text-pink-500" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+            </svg>
+            <span class="text-2xl font-bold gradient-text">Mari.indica</span>
+          </div>
+          <p class="text-gray-400">Sua beleza natural realçada com produtos premium e dicas exclusivas de maquiagem.</p>
+          <div class="flex space-x-4 pt-4">
+            <a href="#" class="bg-pink-500 w-10 h-10 rounded-full flex items-center justify-center hover:bg-pink-600 transition-colors">
+              <svg

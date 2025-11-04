@@ -654,7 +654,7 @@ ${messageToSend.toLowerCase().includes('páginas') || messageToSend.toLowerCase(
                 conversationId={conversationState.conversationId}
                 representative={{
                   name: 'Consultor WZ Solution',
-                  phone: '5511999999999', // Substitua pelo número real
+                  phone: '5511947293221',
                   schedule: 'Segunda à Sexta: 9h às 18h'
                 }}
                 projectSummary={{

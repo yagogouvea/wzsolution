@@ -12,6 +12,13 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://app.wzsolutions.com.br'),
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 5,
+    userScalable: true,
+    viewportFit: 'cover', // ✅ Suporte para iPhone X e superiores (notch)
+  },
   title: {
     default: "WZ Solution - Desenvolvimento de Software",
     template: "%s | WZ Solution"

@@ -175,12 +175,12 @@ export function generateProjectEstimate(projectSummary: ProjectSummary): {
 export const SALES_REPRESENTATIVES = {
   default: {
     name: 'Equipe WZ Solution',
-    phone: '5511999999999', // Substitua pelo número real
+    phone: '5511947293221',
     schedule: 'Segunda à Sexta: 9h às 18h'
   },
   premium: {
     name: 'Consultor Premium',
-    phone: '5511888888888', // Substitua pelo número real
+    phone: '5511947293221',
     schedule: 'Segunda à Sexta: 8h às 20h | Sábado: 9h às 14h'
   }
 };

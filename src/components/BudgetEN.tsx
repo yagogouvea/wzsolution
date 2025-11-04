@@ -240,7 +240,7 @@ export default function BudgetEN() {
                   </div>
                   <div>
                     <h4 className="text-white font-semibold mb-1">WhatsApp</h4>
-                    <p className="text-slate-300">+55 11 99999-9999</p>
+                    <p className="text-slate-300">+55 11 94729-3221</p>
                   </div>
                 </div>
 

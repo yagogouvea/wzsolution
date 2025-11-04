@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateAIResponse } from '@/lib/openai';
+import { generateAIResponse } from '@/lib/claude-chat'; // ✅ Usando Claude em vez de GPT
 import { DatabaseService } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
@@ -206,29 +206,29 @@ export async function POST(request: NextRequest) {
       message_type: 'text',
     });
 
-        // ✅ Buscar histórico COMPLETO - GPT-4o-mini tem 128k tokens (SUPER potente!)
+        // ✅ Buscar histórico COMPLETO - Claude tem contexto grande também
         let conversationHistory = await DatabaseService.getMessages(conversationId);
         
         console.log(`📚 Histórico completo: ${conversationHistory.length} mensagens`);
         
         // ✅ ESTRATÉGIA OTIMIZADA: Preservar MÁXIMO de contexto possível
-        // GPT-4o-mini: ~128k tokens = ~96k palavras = ~400 mensagens médias!
+        // Claude: usar últimas mensagens para contexto (ideal para conversas)
         
-        if (conversationHistory.length > 200) {
-          // ✅ Histórico MUITO grande: preservar primeira + últimas 150
-          console.log(`📊 Histórico muito grande (${conversationHistory.length} mensagens), preservando primeira + últimas 150`);
+        if (conversationHistory.length > 50) {
+          // ✅ Histórico MUITO grande: preservar primeira + últimas 40
+          console.log(`📊 Histórico muito grande (${conversationHistory.length} mensagens), preservando primeira + últimas 40`);
           const firstMessage = conversationHistory[0];
-          const recentMessages = conversationHistory.slice(-150);
+          const recentMessages = conversationHistory.slice(-40);
           conversationHistory = [firstMessage, ...recentMessages];
-        } else if (conversationHistory.length > 100) {
-          // ✅ Histórico grande: preservar primeira + últimas 80
-          console.log(`📊 Histórico grande (${conversationHistory.length} mensagens), preservando primeira + últimas 80`);
+        } else if (conversationHistory.length > 20) {
+          // ✅ Histórico grande: preservar primeira + últimas 18
+          console.log(`📊 Histórico grande (${conversationHistory.length} mensagens), preservando primeira + últimas 18`);
           const firstMessage = conversationHistory[0];
-          const recentMessages = conversationHistory.slice(-80);
+          const recentMessages = conversationHistory.slice(-18);
           conversationHistory = [firstMessage, ...recentMessages];
         } else {
           // ✅ Histórico pequeno/médio: usar TODAS as mensagens!
-          console.log(`✅ Usando TODAS as ${conversationHistory.length} mensagens - GPT-4o-mini aguenta facilmente!`);
+          console.log(`✅ Usando TODAS as ${conversationHistory.length} mensagens - Claude aguenta facilmente!`);
         }
     
     // ✅ Buscar dados do projeto NOVAMENTE (caso tenha sido atualizado pelo formData acima)

@@ -959,7 +959,7 @@ export const reusableComponents: Component[] = [
     description: "Botão flutuante do WhatsApp",
     code: `
       <a 
-        href="https://wa.me/5511999999999?text=Olá!" 
+        href="https://wa.me/5511947293221?text=Olá!" 
         target="_blank" 
         rel="noopener noreferrer"
         className="fixed bottom-6 right-6 bg-green-500 hover:bg-green-600 text-white rounded-full p-4 shadow-lg z-50 transition-all hover:scale-110"
@@ -1251,7 +1251,7 @@ export const reusableComponents: Component[] = [
                   <p className="text-lg text-gray-700 mb-2 flex items-center">
                     {/* Use react-icons: import { FaPhone } from 'react-icons/fa' */}
                     <span className="mr-3">📞</span>
-                    (11) 99999-9999
+                    (11) 94729-3221
                   </p>
                   <p className="text-lg text-gray-700 flex items-center">
                     <span className="mr-3">✉️</span>

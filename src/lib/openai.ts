@@ -91,95 +91,127 @@ export async function generateAIResponse(
     let userConfirmed = false;
 
     // ✅ 1. CONFIRMAÇÃO INICIAL COMPLETA DO FORMULÁRIO (Stage 1)
+    // ✅ SÓ mostrar se realmente houver dados completos do formulário
     if (stage === 1) {
-      // ✅ Extrair dados de content_needs (JSONB)
-      let contentNeeds: Record<string, unknown> = {};
-      if (projectData.content_needs) {
-        try {
-          contentNeeds = typeof projectData.content_needs === 'string' 
-            ? JSON.parse(projectData.content_needs) 
-            : projectData.content_needs as Record<string, unknown>;
-        } catch {
-          contentNeeds = {};
-        }
-      }
+      // ✅ Verificar se há dados suficientes para considerar "formulário completo"
+      const hasBasicInfo = projectData.company_name && projectData.business_type;
+      const hasStructure = projectData.pages_needed && Array.isArray(projectData.pages_needed) && projectData.pages_needed.length > 0;
+      const hasFunctionalities = projectData.functionalities && Array.isArray(projectData.functionalities) && projectData.functionalities.length > 0;
+      const hasStyle = projectData.design_style;
+      const hasCompleteFormData = hasBasicInfo && hasStructure && hasFunctionalities && hasStyle;
       
-      // Construir resumo COMPLETO de TODAS as informações do formulário
-      const sections: string[] = [];
-      
-      // 🏢 SEÇÃO: DADOS DA EMPRESA
-      sections.push('🏢 **DADOS DA EMPRESA:**');
-      // ✅ company_name é o nome da empresa (prioridade)
-      const companyName = projectData.company_name || projectData.business_type;
-      if (companyName && companyName !== 'sua empresa') {
-        sections.push(`   Nome: ${companyName}`);
-      }
-      if (projectData.slogan) sections.push(`   Slogan: "${projectData.slogan}"`);
-      // ✅ business_type é o setor (separado do nome)
-      if (projectData.business_type && projectData.business_type !== companyName) {
-        sections.push(`   Setor: ${projectData.business_type}`);
-      } else if (contentNeeds.business_sector) {
-        sections.push(`   Setor: ${contentNeeds.business_sector}`);
-      }
-      if (projectData.business_objective) sections.push(`   Objetivo: ${projectData.business_objective}`);
-      if (projectData.target_audience) sections.push(`   Público-alvo: ${projectData.target_audience}`);
-      if (projectData.short_description) sections.push(`   Descrição: ${projectData.short_description}`);
-      
-      // 🎨 SEÇÃO: IDENTIDADE VISUAL
-      sections.push('\n🎨 **IDENTIDADE VISUAL:**');
-      if (hasLogo) {
-        sections.push(`   ✅ Logo anexado${projectData.use_logo_colors ? ' (usando cores do logo)' : ''}`);
+      // ✅ Se NÃO tem dados completos, é apenas prompt inicial - responder normalmente
+      if (!hasCompleteFormData) {
+        // Fluxo simples: apenas prompt inicial, responder diretamente
+        // ✅ Extrair o prompt inicial do histórico ou userMessage
+        const initialPrompt = userMessage || (conversationHistory.length > 0 ? conversationHistory[0].content : 'seu projeto');
+        
+        response = `🚀 **Bem-vindo ao gerador de sites da WZ Solution!**
+
+📋 **ID da Solicitação:** \`${conversationId}\`
+
+💡 **Seu Prompt:** ${initialPrompt}
+
+---
+
+⚙️ **STATUS: Gerando seu site agora...**
+
+🔄 Estou criando um site profissional e responsivo baseado na sua solicitação. Isso pode levar alguns segundos.
+
+⏳ Por favor, aguarde enquanto preparo seu site personalizado...`;
+        suggestedOptions = [];
+        nextStage = 2;
+        shouldGeneratePreview = true; // ✅ Gerar preview direto quando só tem prompt inicial
       } else {
-        sections.push(`   ❌ Sem logo`);
-      }
-      if (projectData.design_style) sections.push(`   Tema: ${projectData.design_style}`);
-      if (projectData.design_colors && Array.isArray(projectData.design_colors) && projectData.design_colors.length > 0) {
-        sections.push(`   Cores: ${projectData.design_colors.join(', ')}`);
-      }
-      if (projectData.font_style) sections.push(`   Fonte: ${projectData.font_style}`);
-      
-      // 🧱 SEÇÃO: ESTRUTURA E PÁGINAS
-      sections.push('\n🧱 **ESTRUTURA DO SITE:**');
-      if (projectData.pages_needed && Array.isArray(projectData.pages_needed) && projectData.pages_needed.length > 0) {
-        sections.push(`   Páginas: ${projectData.pages_needed.join(', ')}`);
-      }
-      // ✅ custom_page_titles está em content_needs
-      const customPages = contentNeeds.custom_page_titles as string[];
-      if (customPages && Array.isArray(customPages) && customPages.length > 0) {
-        sections.push(`   Páginas personalizadas: ${customPages.join(', ')}`);
-      }
-      if (projectData.site_structure) sections.push(`   Estrutura: ${projectData.site_structure}`);
-      
-      // ⚙️ SEÇÃO: FUNCIONALIDADES
-      if (projectData.functionalities && Array.isArray(projectData.functionalities) && projectData.functionalities.length > 0) {
-        sections.push('\n⚙️ **FUNCIONALIDADES:**');
-        sections.push(`   ${projectData.functionalities.slice(0, 5).join(', ')}${projectData.functionalities.length > 5 ? ` + ${projectData.functionalities.length - 5} mais` : ''}`);
-      }
-      
-      // ✍️ SEÇÃO: CONTEÚDO E TEXTO
-      sections.push('\n✍️ **CONTEÚDO:**');
-      // ✅ tone está em content_needs
-      const tone = (contentNeeds.tone as string) || projectData.tone;
-      if (tone) sections.push(`   Tom de voz: ${tone}`);
-      if (projectData.cta_text) sections.push(`   CTA: "${projectData.cta_text}"`);
-      if (projectData.has_ai_generated_text !== undefined) {
-        sections.push(`   Gerar textos com IA: ${projectData.has_ai_generated_text ? 'Sim' : 'Não'}`);
-      }
-      
-      // 🌟 SEÇÃO: PREFERÊNCIAS EXTRAS
-      // ✅ inspiration_sites e additional_prompt estão em content_needs
-      const inspirationSites = (contentNeeds.inspiration_sites as string) || projectData.inspiration_sites;
-      const additionalPrompt = (contentNeeds.additional_prompt as string) || projectData.additional_prompt;
-      if (inspirationSites || additionalPrompt || projectData.animation_level) {
-        sections.push('\n🌟 **PREFERÊNCIAS ADICIONAIS:**');
-        if (inspirationSites) sections.push(`   Sites de inspiração: ${inspirationSites}`);
-        if (additionalPrompt) sections.push(`   Observações: ${additionalPrompt}`);
-        if (projectData.animation_level) sections.push(`   Nível de animação: ${projectData.animation_level}`);
-      }
-      
-      const fullSummary = sections.join('\n');
-      
-      response = `📋 **CONFIRMAÇÃO DO FORMULÁRIO COMPLETO**
+        // ✅ TEM dados completos do formulário - mostrar confirmação
+        // ✅ Extrair dados de content_needs (JSONB)
+        let contentNeeds: Record<string, unknown> = {};
+        if (projectData.content_needs) {
+          try {
+            contentNeeds = typeof projectData.content_needs === 'string' 
+              ? JSON.parse(projectData.content_needs) 
+              : projectData.content_needs as Record<string, unknown>;
+          } catch {
+            contentNeeds = {};
+          }
+        }
+        
+        // Construir resumo COMPLETO de TODAS as informações do formulário
+        const sections: string[] = [];
+        
+        // 🏢 SEÇÃO: DADOS DA EMPRESA
+        sections.push('🏢 **DADOS DA EMPRESA:**');
+        // ✅ company_name é o nome da empresa (prioridade)
+        const companyName = projectData.company_name || projectData.business_type;
+        if (companyName && companyName !== 'sua empresa') {
+          sections.push(`   Nome: ${companyName}`);
+        }
+        if (projectData.slogan) sections.push(`   Slogan: "${projectData.slogan}"`);
+        // ✅ business_type é o setor (separado do nome)
+        if (projectData.business_type && projectData.business_type !== companyName) {
+          sections.push(`   Setor: ${projectData.business_type}`);
+        } else if (contentNeeds.business_sector) {
+          sections.push(`   Setor: ${contentNeeds.business_sector}`);
+        }
+        if (projectData.business_objective) sections.push(`   Objetivo: ${projectData.business_objective}`);
+        if (projectData.target_audience) sections.push(`   Público-alvo: ${projectData.target_audience}`);
+        if (projectData.short_description) sections.push(`   Descrição: ${projectData.short_description}`);
+        
+        // 🎨 SEÇÃO: IDENTIDADE VISUAL
+        sections.push('\n🎨 **IDENTIDADE VISUAL:**');
+        if (hasLogo) {
+          sections.push(`   ✅ Logo anexado${projectData.use_logo_colors ? ' (usando cores do logo)' : ''}`);
+        } else {
+          sections.push(`   ❌ Sem logo`);
+        }
+        if (projectData.design_style) sections.push(`   Tema: ${projectData.design_style}`);
+        if (projectData.design_colors && Array.isArray(projectData.design_colors) && projectData.design_colors.length > 0) {
+          sections.push(`   Cores: ${projectData.design_colors.join(', ')}`);
+        }
+        if (projectData.font_style) sections.push(`   Fonte: ${projectData.font_style}`);
+        
+        // 🧱 SEÇÃO: ESTRUTURA E PÁGINAS
+        sections.push('\n🧱 **ESTRUTURA DO SITE:**');
+        if (projectData.pages_needed && Array.isArray(projectData.pages_needed) && projectData.pages_needed.length > 0) {
+          sections.push(`   Páginas: ${projectData.pages_needed.join(', ')}`);
+        }
+        // ✅ custom_page_titles está em content_needs
+        const customPages = contentNeeds.custom_page_titles as string[];
+        if (customPages && Array.isArray(customPages) && customPages.length > 0) {
+          sections.push(`   Páginas personalizadas: ${customPages.join(', ')}`);
+        }
+        if (projectData.site_structure) sections.push(`   Estrutura: ${projectData.site_structure}`);
+        
+        // ⚙️ SEÇÃO: FUNCIONALIDADES
+        if (projectData.functionalities && Array.isArray(projectData.functionalities) && projectData.functionalities.length > 0) {
+          sections.push('\n⚙️ **FUNCIONALIDADES:**');
+          sections.push(`   ${projectData.functionalities.slice(0, 5).join(', ')}${projectData.functionalities.length > 5 ? ` + ${projectData.functionalities.length - 5} mais` : ''}`);
+        }
+        
+        // ✍️ SEÇÃO: CONTEÚDO E TEXTO
+        sections.push('\n✍️ **CONTEÚDO:**');
+        // ✅ tone está em content_needs
+        const tone = (contentNeeds.tone as string) || projectData.tone;
+        if (tone) sections.push(`   Tom de voz: ${tone}`);
+        if (projectData.cta_text) sections.push(`   CTA: "${projectData.cta_text}"`);
+        if (projectData.has_ai_generated_text !== undefined) {
+          sections.push(`   Gerar textos com IA: ${projectData.has_ai_generated_text ? 'Sim' : 'Não'}`);
+        }
+        
+        // 🌟 SEÇÃO: PREFERÊNCIAS EXTRAS
+        // ✅ inspiration_sites e additional_prompt estão em content_needs
+        const inspirationSites = (contentNeeds.inspiration_sites as string) || projectData.inspiration_sites;
+        const additionalPrompt = (contentNeeds.additional_prompt as string) || projectData.additional_prompt;
+        if (inspirationSites || additionalPrompt || projectData.animation_level) {
+          sections.push('\n🌟 **PREFERÊNCIAS ADICIONAIS:**');
+          if (inspirationSites) sections.push(`   Sites de inspiração: ${inspirationSites}`);
+          if (additionalPrompt) sections.push(`   Observações: ${additionalPrompt}`);
+          if (projectData.animation_level) sections.push(`   Nível de animação: ${projectData.animation_level}`);
+        }
+        
+        const fullSummary = sections.join('\n');
+        
+        response = `📋 **CONFIRMAÇÃO DO FORMULÁRIO COMPLETO**
 
 Revisei TODAS as informações que você preencheu:
 
@@ -187,9 +219,10 @@ ${fullSummary}
 
 ---
 ✅ **Está tudo correto?** Se sim, vou usar essas informações para criar seu site e fazer apenas questionamentos sobre detalhes adicionais que podem melhorar o resultado final.`;
-      
-      suggestedOptions = ['✅ Sim, está tudo certo', '📝 Quero ajustar algo'];
-      nextStage = 2;
+        
+        suggestedOptions = ['✅ Sim, está tudo certo', '📝 Quero ajustar algo'];
+        nextStage = 2;
+      }
     } 
     // ✅ 2. NOVO FLUXO DE DIÁLOGO POR FASES (Stage 2+)
     else if (stage >= 2) {

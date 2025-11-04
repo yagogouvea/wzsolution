@@ -110,3 +110,46 @@ export function getWhatsAppUrl(projectId: number, phoneNumber: string = '5511947
   return `https://wa.me/${phoneNumber}?text=${message}`;
 }
 
+/**
+ * Busca conversationId a partir de um projectId
+ * Como projectId é um hash do conversationId, pode haver múltiplos matches
+ * Retorna o primeiro encontrado que tenha site gerado
+ */
+export async function findConversationByProjectId(projectId: number): Promise<string | null> {
+  try {
+    const { DatabaseService } = await import('./supabase');
+    const supabase = DatabaseService.supabase;
+    
+    // Buscar todas as conversas que têm site_versions (mais eficiente)
+    const { data: siteVersions, error } = await supabase
+      .from('site_versions')
+      .select('conversation_id')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('❌ Erro ao buscar site_versions:', error);
+      return null;
+    }
+    
+    // Obter conversationIds únicos
+    const uniqueConversationIds = [...new Set(siteVersions.map(sv => sv.conversation_id))];
+    
+    console.log(`🔍 [findConversationByProjectId] Verificando ${uniqueConversationIds.length} conversas com sites...`);
+    
+    // Verificar cada conversationId para encontrar o que gera o projectId desejado
+    for (const conversationId of uniqueConversationIds) {
+      const calculatedProjectId = generateProjectId(conversationId);
+      if (calculatedProjectId === projectId) {
+        console.log(`✅ [findConversationByProjectId] Encontrado! conversationId: ${conversationId}, projectId: ${projectId}`);
+        return conversationId;
+      }
+    }
+    
+    console.log(`❌ [findConversationByProjectId] Nenhuma conversa encontrada para projectId: ${projectId}`);
+    return null;
+  } catch (error) {
+    console.error('❌ Erro ao buscar conversationId por projectId:', error);
+    return null;
+  }
+}
+

@@ -162,3 +162,5 @@ export function getPlaceholderImage(
   return `https://via.placeholder.com/${width}x${height}/${bgColor}/${textColor}?text=${encodeURIComponent(text)}`;
 }
 
+
+

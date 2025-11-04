@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Mail, Phone, Send, CheckCircle } from 'lucide-react';
 import { useGoogleAnalytics } from '@/components/GoogleAnalytics';
+import Link from 'next/link';
 
 const budgetSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
@@ -64,6 +65,10 @@ export default function Budget() {
   });
 
   const onSubmit = async (data: BudgetFormData) => {
+    console.log('🚀 === FORMULÁRIO SUBMETIDO ===');
+    console.log('📋 Dados do formulário:', data);
+    console.log('⏰ Timestamp:', new Date().toISOString());
+    
     setIsSubmitting(true);
     
     // Track form submission start
@@ -73,6 +78,8 @@ export default function Budget() {
     });
     
     try {
+      console.log('📤 Enviando requisição para /api/send-email...');
+      
       // Tentar API principal primeiro
       const response = await fetch('/api/send-email', {
         method: 'POST',
@@ -80,6 +87,13 @@ export default function Budget() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(data),
+      });
+
+      console.log('📥 Resposta recebida:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
       });
 
       console.log('Response status:', response.status);
@@ -106,24 +120,7 @@ export default function Budget() {
         return;
       }
 
-      // Se der erro 503, mostrar erro sem redirecionar
-      if (response.status === 503) {
-        console.log('Erro 503 detectado - API indisponível');
-        const errorData = await response.json();
-        console.error('Detalhes do erro 503:', errorData);
-        
-        // Track API error
-        trackEvent('form_submit_error', {
-          form_name: 'budget_request',
-          error_type: 'api_unavailable',
-          error_code: 503,
-        });
-        
-        alert(`Serviço de email temporariamente indisponível.\n\nEntre em contato conosco diretamente:\n📧 contact@wzsolutions.com.br\n📱 +55 11 94729-3221`);
-        return;
-      }
-
-      // Se chegou aqui, houve erro
+      // Tratar diferentes tipos de erro
       const errorData = await response.json();
       console.error('Erro ao enviar email:', errorData);
       
@@ -135,14 +132,27 @@ export default function Budget() {
         error_message: errorData.error,
       });
       
-      // Tratamento específico para erro 503 (serviço indisponível)
-      if (response.status === 503) {
-        alert(`Serviço de email temporariamente indisponível.\n\nEntre em contato conosco diretamente:\n📧 ${errorData.contact?.email || 'contact@wzsolutions.com.br'}\n📱 ${errorData.contact?.whatsapp || '+55 11 94729-3221'}`);
+      // Mensagens de erro específicas
+      let errorMessage = '';
+      
+      if (response.status === 400 && errorData.error?.includes('Email não verificado')) {
+        errorMessage = `⚠️ Email não verificado no AWS SES\n\n${errorData.message || ''}\n\n${errorData.details?.suggestion || ''}\n\nEnquanto isso, entre em contato diretamente:\n📧 ${errorData.contact?.email || 'contact@wzsolutions.com.br'}\n📱 ${errorData.contact?.whatsapp || '+55 11 94729-3221'}`;
+      } else if (response.status === 400 && errorData.error?.includes('Sandbox')) {
+        errorMessage = `⚠️ AWS SES em modo Sandbox\n\n${errorData.message || ''}\n\n${errorData.details?.suggestion || ''}\n\nEnquanto isso, entre em contato diretamente:\n📧 ${errorData.contact?.email || 'contact@wzsolutions.com.br'}\n📱 ${errorData.contact?.whatsapp || '+55 11 94729-3221'}`;
+      } else if (response.status === 429) {
+        errorMessage = `⚠️ Quota de envio excedida\n\n${errorData.message || ''}\n\nEntre em contato diretamente:\n📧 ${errorData.contact?.email || 'contact@wzsolutions.com.br'}\n📱 ${errorData.contact?.whatsapp || '+55 11 94729-3221'}`;
+      } else if (response.status === 503) {
+        errorMessage = `⚠️ Serviço de email temporariamente indisponível\n\n${errorData.message || 'Entre em contato conosco diretamente.'}\n\n📧 ${errorData.contact?.email || 'contact@wzsolutions.com.br'}\n📱 ${errorData.contact?.whatsapp || '+55 11 94729-3221'}`;
       } else {
-        alert(`Erro ao enviar solicitação: ${errorData.error || 'Tente novamente.'}`);
+        errorMessage = `Erro ao enviar solicitação: ${errorData.error || errorData.message || 'Tente novamente.'}\n\nEntre em contato diretamente:\n📧 ${errorData.contact?.email || 'contact@wzsolutions.com.br'}\n📱 ${errorData.contact?.whatsapp || '+55 11 94729-3221'}`;
       }
+      
+      alert(errorMessage);
     } catch (error) {
-      console.error('Erro ao enviar email:', error);
+      console.error('❌ Erro capturado no catch:', error);
+      console.error('❌ Tipo do erro:', typeof error);
+      console.error('❌ Mensagem do erro:', error instanceof Error ? error.message : String(error));
+      console.error('❌ Stack do erro:', error instanceof Error ? error.stack : 'No stack');
       
       // Track network error
       trackEvent('form_submit_error', {
@@ -151,8 +161,9 @@ export default function Budget() {
         error_message: error instanceof Error ? error.message : 'Unknown error',
       });
       
-      alert('Erro ao enviar solicitação. Tente novamente.');
+      alert('Erro ao enviar solicitação. Tente novamente.\n\nDetalhes: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
+      console.log('🏁 Finalizando submit (finally)');
       setIsSubmitting(false);
     }
   };
@@ -233,7 +244,20 @@ export default function Budget() {
         >
           {/* Form */}
           <motion.div variants={itemVariants} className="glass rounded-2xl p-8">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <form 
+              onSubmit={handleSubmit(
+                (data) => {
+                  console.log('✅ Validação passou, chamando onSubmit');
+                  onSubmit(data);
+                },
+                (errors) => {
+                  console.error('❌ Erros de validação:', errors);
+                  console.error('❌ Formulário não será submetido devido a erros de validação');
+                }
+              )}
+              className="space-y-6"
+              noValidate
+            >
               <div>
                 <label className="block text-white font-semibold mb-2">
                   Nome completo
@@ -305,6 +329,19 @@ export default function Budget() {
                 {errors.description && (
                   <p className="error-message">{errors.description.message}</p>
                 )}
+              </div>
+
+              <div className="text-sm text-slate-400">
+                Ao enviar este formulário, você concorda com nossa{' '}
+                <Link 
+                  href="/pt/politica-privacidade" 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan-400 hover:text-cyan-300 underline transition-colors"
+                >
+                  Política de Privacidade
+                </Link>
+                .
               </div>
 
                      <button

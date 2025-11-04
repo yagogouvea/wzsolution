@@ -212,7 +212,7 @@ function renderBlock(
 
   // Componentes especiais
   if (block.component?.name === 'WhatsAppButton') {
-    const phone = (block.properties?.phoneNumber as string) || '5511999999999';
+    const phone = (block.properties?.phoneNumber as string) || '5511947293221';
     const buttonText = (block.properties?.buttonText as string) || 'Fale Conosco';
     const buttonColor = (block.properties?.buttonColor as string) || '#25D366';
     

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ArrowRight, Code, Smartphone, Globe } from 'lucide-react';
+import { ArrowRight, Code } from 'lucide-react';
 import { useGoogleAnalytics } from '@/components/GoogleAnalytics';
 
 export default function Hero() {
@@ -35,28 +35,8 @@ export default function Hero() {
   };
 
   return (
-    <section id="home" className="min-h-screen flex items-center justify-center relative overflow-hidden pt-20">
-      {/* Video Background */}
-      <div className="absolute inset-0 w-full h-full video-container flex items-center justify-center">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          className="w-full h-full object-cover"
-        >
-          <source src="/video/wz_video_background.mp4" type="video/mp4" />
-        </video>
-        {/* Overlay for better text readability */}
-        <div className="absolute inset-0 bg-black/40" />
-      </div>
-      
-      {/* Background Gradient - Reduced opacity for video */}
-      <div className="absolute inset-0 bg-gradient-primary opacity-30" />
-      <div className="absolute inset-0 bg-gradient-secondary opacity-20" />
-      
-      {/* Animated Background Elements */}
+    <section id="home" className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
           animate={{
@@ -86,121 +66,102 @@ export default function Hero() {
         />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="space-y-8"
-        >
-          {/* Logo - Temporarily removed for video test */}
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          {/* Left Column - Text Content */}
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="space-y-8"
+          >
+            {/* Main Heading */}
+            <motion.div variants={itemVariants} className="space-y-4">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight">
+                Transformamos Ideias em{' '}
+                <span className="text-gradient">Soluções Digitais</span>
+              </h1>
+              <p className="text-lg sm:text-xl text-slate-300 leading-relaxed">
+                Desenvolvimento de sites, aplicativos, softwares e sistemas empresariais sob medida. Tecnologia de ponta para impulsionar seu negócio no mundo digital.
+              </p>
+            </motion.div>
 
-          {/* Main Heading */}
-          <motion.div variants={itemVariants} className="space-y-4">
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-white leading-tight">
-              Transformamos suas{' '}
-              <span className="text-gradient">ideias</span> em{' '}
-              <span className="text-gradient">realidade digital</span>
-            </h1>
-            <p className="text-xl sm:text-2xl text-slate-300 max-w-4xl mx-auto leading-relaxed">
-              Desenvolvemos soluções digitais inovadoras que impulsionam seu negócio
-              para o futuro. Apps mobile, web apps e sites institucionais de alta qualidade.
-            </p>
+            {/* CTA Buttons */}
+            <motion.div
+              variants={itemVariants}
+              className="flex flex-col sm:flex-row gap-4"
+            >
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  trackEvent('cta_click', {
+                    button_name: 'solicitar_orcamento',
+                    location: 'hero_section',
+                  });
+                  document.getElementById('budget')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="btn-primary inline-flex items-center justify-center text-lg px-8 py-4"
+              >
+                Solicitar Orçamento
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  trackEvent('cta_click', {
+                    button_name: 'conhecer_servicos',
+                    location: 'hero_section',
+                  });
+                  document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="btn-secondary text-lg px-8 py-4"
+              >
+                Nossos Serviços
+              </motion.button>
+            </motion.div>
+
+            {/* Statistics */}
+            <motion.div
+              variants={itemVariants}
+              className="grid grid-cols-3 gap-6 pt-8"
+            >
+              <div className="text-center">
+                <div className="text-3xl sm:text-4xl font-bold text-cyan-400 mb-2">500+</div>
+                <div className="text-sm text-slate-400">Projetos Entregues</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl sm:text-4xl font-bold text-blue-400 mb-2">98%</div>
+                <div className="text-sm text-slate-400">Satisfação</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl sm:text-4xl font-bold text-purple-400 mb-2">24/7</div>
+                <div className="text-sm text-slate-400">Suporte</div>
+              </div>
+            </motion.div>
           </motion.div>
 
-          {/* CTA Buttons */}
+          {/* Right Column - Image/Illustration */}
           <motion.div
             variants={itemVariants}
-            className="flex flex-col sm:flex-row gap-4 justify-center items-center"
+            initial="hidden"
+            animate="visible"
+            className="hidden lg:block"
           >
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                trackEvent('cta_click', {
-                  button_name: 'solicitar_orcamento',
-                  location: 'hero_section',
-                });
-                document.getElementById('budget')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="btn-primary inline-flex items-center text-lg px-8 py-4"
-            >
-              Solicitar Orçamento
-              <ArrowRight className="ml-2 w-5 h-5" />
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                trackEvent('cta_click', {
-                  button_name: 'conhecer_servicos',
-                  location: 'hero_section',
-                });
-                document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="btn-secondary text-lg px-8 py-4"
-            >
-              Conhecer Serviços
-            </motion.button>
+            <div className="relative">
+              <div className="w-full h-96 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-2xl flex items-center justify-center">
+                <div className="text-center space-y-4">
+                  <div className="w-32 h-32 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-2xl mx-auto flex items-center justify-center">
+                    <Code className="w-16 h-16 text-white" />
+                  </div>
+                  <p className="text-slate-300 text-lg">Soluções Digitais</p>
+                </div>
+              </div>
+            </div>
           </motion.div>
-
-          {/* Feature Icons */}
-          <motion.div
-            variants={itemVariants}
-            className="flex justify-center items-center space-x-8 sm:space-x-12 pt-8"
-          >
-            <motion.div
-              variants={iconVariants}
-              className="flex flex-col items-center space-y-2"
-            >
-              <div className="w-16 h-16 bg-cyan-500/20 rounded-2xl flex items-center justify-center">
-                <Smartphone className="w-8 h-8 text-cyan-400" />
-              </div>
-              <span className="text-sm text-slate-400">Apps Mobile</span>
-            </motion.div>
-            
-            <motion.div
-              variants={iconVariants}
-              className="flex flex-col items-center space-y-2"
-            >
-              <div className="w-16 h-16 bg-blue-500/20 rounded-2xl flex items-center justify-center">
-                <Globe className="w-8 h-8 text-blue-400" />
-              </div>
-              <span className="text-sm text-slate-400">Web Apps</span>
-            </motion.div>
-            
-            <motion.div
-              variants={iconVariants}
-              className="flex flex-col items-center space-y-2"
-            >
-              <div className="w-16 h-16 bg-purple-500/20 rounded-2xl flex items-center justify-center">
-                <Code className="w-8 h-8 text-purple-400" />
-              </div>
-              <span className="text-sm text-slate-400">Sites Institucionais</span>
-            </motion.div>
-          </motion.div>
-        </motion.div>
+        </div>
       </div>
-
-      {/* Scroll Indicator */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 2, duration: 0.8 }}
-        className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
-      >
-        <motion.div
-          animate={{ y: [0, 10, 0] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center"
-        >
-          <motion.div
-            animate={{ y: [0, 12, 0] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className="w-1 h-3 bg-white/60 rounded-full mt-2"
-          />
-        </motion.div>
-      </motion.div>
     </section>
   );
 }

@@ -96,11 +96,88 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET para verificar se a API está funcionando
-export async function GET() {
-  return NextResponse.json({
-    message: 'API de Pesquisa Beta ativa',
-    version: '1.0.0'
-  });
+// GET para consultar todas as respostas da pesquisa
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get('limit') || '100');
+    const offset = parseInt(searchParams.get('offset') || '0');
+    
+    const supabase = DatabaseService.supabase;
+    
+    // Buscar respostas ordenadas por data mais recente
+    const { data, error, count } = await supabase
+      .from('beta_surveys')
+      .select('*', { count: 'exact' })
+      .order('submitted_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+    
+    if (error) {
+      console.error('Erro ao buscar pesquisas:', error);
+      return NextResponse.json(
+        { error: 'Erro ao buscar pesquisas', details: error.message },
+        { status: 500 }
+      );
+    }
+    
+    // Calcular estatísticas básicas
+    if (data && data.length > 0) {
+      const stats = {
+        total: count || 0,
+        siteCreated: data.filter(r => r.site_created).length,
+        siteNotCreated: data.filter(r => !r.site_created).length,
+        avgOverallScore: data.filter(r => r.overall_score !== null)
+          .reduce((sum, r) => sum + (r.overall_score || 0), 0) / 
+          data.filter(r => r.overall_score !== null).length || 0,
+        avgNPS: data.filter(r => r.would_recommend !== null)
+          .reduce((sum, r) => sum + (r.would_recommend || 0), 0) / 
+          data.filter(r => r.would_recommend !== null).length || 0,
+        deviceUsage: {
+          pc: data.filter(r => r.device_used === 'pc').length,
+          tablet: data.filter(r => r.device_used === 'tablet').length,
+          celular: data.filter(r => r.device_used === 'celular').length
+        }
+      };
+      
+      return NextResponse.json({
+        success: true,
+        data,
+        stats,
+        pagination: {
+          limit,
+          offset,
+          total: count || 0
+        }
+      });
+    }
+    
+    return NextResponse.json({
+      success: true,
+      data: [],
+      stats: {
+        total: 0,
+        siteCreated: 0,
+        siteNotCreated: 0,
+        avgOverallScore: 0,
+        avgNPS: 0,
+        deviceUsage: { pc: 0, tablet: 0, celular: 0 }
+      },
+      pagination: {
+        limit,
+        offset,
+        total: 0
+      }
+    });
+    
+  } catch (error) {
+    console.error('Erro ao processar GET:', error);
+    return NextResponse.json(
+      { 
+        error: 'Erro interno do servidor',
+        details: error instanceof Error ? error.message : 'Erro desconhecido'
+      },
+      { status: 500 }
+    );
+  }
 }
 

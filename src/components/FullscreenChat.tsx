@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Minimize2, Maximize2, User, Bot, Image as ImageIcon, Monitor, Eye } from 'lucide-react';
+import { X, Send, Minimize2, Maximize2, User, Bot, Image as ImageIcon, Monitor, Eye, Copy, Check, XCircle } from 'lucide-react';
 import PreviewIframe from './PreviewIframe';
 import ConsoleBlocker from './ConsoleBlocker';
 import { moderateMessage, getRedirectMessage } from '@/lib/message-moderation';
@@ -39,6 +39,7 @@ export default function FullscreenChat({
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false); // ✅ Proteção contra múltiplas chamadas
   const [isMinimized, setIsMinimized] = useState(false);
   const [currentSiteCode, setCurrentSiteCode] = useState<string>('');
   const [conversationInitialized, setConversationInitialized] = useState(false);
@@ -47,14 +48,21 @@ export default function FullscreenChat({
   const [projectId, setProjectId] = useState<number | null>(null);
   const [modificationsUsed, setModificationsUsed] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [hasEndedManually, setHasEndedManually] = useState(false); // ✅ Novo estado para rastrear encerramento manual
   // ✅ Estado para modal de preview
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   // ✅ Estado para detectar teclado no mobile
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [generationStartTime, setGenerationStartTime] = useState<Date | null>(null); // ✅ Tempo de início da geração
+  const [elapsedTime, setElapsedTime] = useState(0); // ✅ Tempo decorrido em segundos
+  const [activeRequestsCount, setActiveRequestsCount] = useState(0); // ✅ Contador de requisições ativas
+  const [copiedId, setCopiedId] = useState(false); // ✅ Estado para copiar ID da conversa
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputContainerRef = useRef<HTMLDivElement>(null);
+  const generationLockRef = useRef(false); // ✅ Lock para prevenir múltiplas gerações simultâneas
+  const abortControllersRef = useRef<AbortController[]>([]); // ✅ Controllers para cancelar requisições
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -63,6 +71,21 @@ export default function FullscreenChat({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // ✅ Atualizar tempo decorrido em tempo real quando estiver gerando
+  useEffect(() => {
+    if (!generationStartTime) {
+      setElapsedTime(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((new Date().getTime() - generationStartTime.getTime()) / 1000);
+      setElapsedTime(elapsed);
+    }, 1000); // Atualizar a cada segundo
+
+    return () => clearInterval(interval);
+  }, [generationStartTime]);
 
   useEffect(() => {
     if (isOpen && !isMinimized) {
@@ -98,7 +121,7 @@ export default function FullscreenChat({
     if (window.visualViewport) {
       const handleViewportChange = () => {
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
-        if (isMobile) {
+        if (isMobile && window.visualViewport) {
           const viewportHeight = window.visualViewport.height;
           const windowHeight = window.innerHeight;
           // Se a altura da viewport diminuiu significativamente, o teclado está aberto
@@ -174,9 +197,27 @@ Guarde este número! Você precisará dele caso queira adquirir seu site complet
     }
   };
 
-  const getBlockedMessage = (projectId: number, modificationsUsed: number): string => {
+  const getBlockedMessage = (projectId: number, modificationsUsed: number, endedManually: boolean = false): string => {
     const whatsappUrl = getWhatsAppUrl(projectId);
-    return `🚫 **Limite de Modificações Gratuitas Atingido**
+    
+    if (endedManually) {
+      return `✅ **Modificações Encerradas**
+
+Você optou por encerrar as modificações gratuitas.
+
+Clique no link abaixo para entrar em contato com a equipe WZ:
+
+🔢 **Seu ID de Projeto:** \`${projectId}\`
+
+[Contatar Equipe WZ Solution](${whatsappUrl})
+
+**Serviços disponíveis:**
+• Mais modificações personalizadas
+• Receber seu código
+• Publicar seu site`;
+    }
+    
+    return `🚫 **Suas Modificações Gratuitas Encerraram**
 
 Você utilizou todas as ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas do seu projeto.
 
@@ -184,20 +225,16 @@ Você utilizou todas as ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas
 • Prompt inicial: ✅ Usado
 • Modificações: ${modificationsUsed}/${PROJECT_LIMITS.MODIFICATIONS} utilizadas
 
-💼 **Próximos Passos:**
-
-Para continuar desenvolvendo seu site, você pode:
-
-✅ **Adquirir o código fonte completo**
-✅ **Solicitar modificações adicionais**
-✅ **Implementar ferramentas avançadas** (formulários, integrações, etc.)
-✅ **Colocar seu site no ar** (hospedagem e domínio)
+Clique no link abaixo para:
 
 🔢 **Seu ID de Projeto:** \`${projectId}\`
 
-Entre em contato com nossa equipe através do WhatsApp e informe este ID. Nossa equipe vai localizar seu projeto e te ajudar com tudo que precisar!
+[Contatar Equipe WZ Solution](${whatsappUrl})
 
-[Contatar Equipe WZ Solution](${whatsappUrl})`;
+**Serviços disponíveis:**
+• Mais modificações personalizadas
+• Receber seu código
+• Publicar seu site`;
   };
 
   const initializeConversation = async () => {
@@ -209,24 +246,130 @@ Entre em contato com nossa equipe através do WhatsApp e informe este ID. Nossa 
     }
   };
 
+  // ✅ Função para copiar ID da conversa
+  const copyConversationId = async () => {
+    try {
+      await navigator.clipboard.writeText(conversationId);
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
+    } catch (error) {
+      console.error('Erro ao copiar ID:', error);
+    }
+  };
+
+  // ✅ Função para cancelar todas as requisições em andamento
+  const cancelAllRequests = () => {
+    const count = abortControllersRef.current.length;
+    console.log(`🛑 Cancelando ${count} requisição(ões) em andamento...`);
+    
+    abortControllersRef.current.forEach((controller, index) => {
+      try {
+        controller.abort();
+        console.log(`✅ Requisição ${index + 1} cancelada`);
+      } catch (error) {
+        console.error(`❌ Erro ao cancelar requisição ${index + 1}:`, error);
+      }
+    });
+    
+    abortControllersRef.current = [];
+    setActiveRequestsCount(0);
+    setIsLoading(false);
+    setIsGenerating(false);
+    generationLockRef.current = false;
+    setGenerationStartTime(null);
+    setElapsedTime(0);
+    
+    const cancelMessage: Message = {
+      id: crypto.randomUUID(),
+      sender: 'ai',
+      content: `🛑 **Todas as requisições foram canceladas**
+
+Você pode iniciar uma nova geração ou modificação quando quiser.`,
+      timestamp: new Date(),
+      type: 'text'
+    };
+    setMessages(prev => [...prev, cancelMessage]);
+  };
+
   const generateSitePreview = async (prompt: string) => {
+    // ✅ Proteção contra múltiplas chamadas simultâneas
+    if (isGenerating || generationLockRef.current) {
+      console.warn('⚠️ [generateSitePreview] Geração já em andamento, ignorando chamada duplicada');
+      return;
+    }
+    
+    setIsGenerating(true);
+    generationLockRef.current = true;
     setIsLoading(true);
+    setGenerationStartTime(new Date());
 
     // Adicionar mensagem de boas-vindas apenas na primeira vez
     if (messages.length === 0) {
+      // Extrair informações do prompt para exibir de forma mais clara
+      const fullPrompt = initialData.additionalPrompt || prompt || '';
+      
+      // Limpar o prompt de comandos comuns para mostrar apenas o essencial
+      let displayText = fullPrompt;
+      
+      if (fullPrompt) {
+        const cleanedPrompt = fullPrompt
+          .replace(/^(crie|quero criar|preciso de|faça|gere)\s+(um\s+)?(site|site\s+para)\s+/i, '')
+          .replace(/^(para\s+)?(minha|a|uma|minha\s+)?/i, '')
+          .trim();
+        
+        if (cleanedPrompt && cleanedPrompt.length > 3 && cleanedPrompt !== fullPrompt) {
+          displayText = cleanedPrompt;
+        } else if (fullPrompt.length > 0) {
+          displayText = fullPrompt;
+        }
+      }
+      
+      if (!displayText || displayText === 'Meu Negócio') {
+        if (initialData.companyName && initialData.companyName !== 'Meu Negócio') {
+          displayText = initialData.companyName;
+        } else {
+          displayText = 'seu projeto';
+        }
+      }
+      
+      if (displayText.length > 100) {
+        displayText = displayText.substring(0, 100) + '...';
+      }
+      
       const welcomeMessage: Message = {
         id: crypto.randomUUID(),
         sender: 'ai',
         content: `🚀 **Bem-vindo ao gerador de sites da WZ Solution!**
 
-Vou criar um site incrível para: **${initialData.companyName}**
+📋 **ID da Solicitação:** \`${conversationId}\`
 
-Gerando seu site personalizado...`,
+💡 **Seu Prompt:** ${fullPrompt || displayText}
+
+---
+
+⚙️ **STATUS: PROCESSANDO SUA SOLICITAÇÃO**
+
+✅ **Confirmado:** Seu site está sendo gerado agora!
+
+🔄 **O que está acontecendo:**
+• Analisando seu prompt e requisitos
+• Criando estrutura HTML/CSS personalizada
+• Aplicando design responsivo e moderno
+• Otimizando para diferentes dispositivos
+
+⏱️ **Tempo estimado:** 30-60 segundos
+
+💡 **Não feche esta página!** O processo está em andamento e você será notificado quando estiver pronto.`,
         timestamp: new Date(),
         type: 'text'
       };
       setMessages([welcomeMessage]);
     }
+
+    // ✅ Criar AbortController para esta requisição (fora do try para estar disponível no catch)
+    const abortController = new AbortController();
+    abortControllersRef.current.push(abortController);
+    setActiveRequestsCount(abortControllersRef.current.length);
 
     try {
       const response = await fetch('/api/generate-ai-site', {
@@ -237,8 +380,13 @@ Gerando seu site personalizado...`,
           prompt,
           companyName: initialData.companyName,
           businessSector: initialData.businessSector || initialData.businessSector || 'Negócios'
-        })
+        }),
+        signal: abortController.signal // ✅ Permitir cancelamento
       });
+
+      // ✅ Remover controller da lista após completar
+      abortControllersRef.current = abortControllersRef.current.filter(c => c !== abortController);
+      setActiveRequestsCount(abortControllersRef.current.length);
 
       const data = await response.json();
 
@@ -267,18 +415,33 @@ Criei um site profissional e responsivo baseado nas suas especificações.
 
 **👆 Veja o preview à direita!** 
 
-Quer fazer alguma modificação? É só me dizer! 🚀`,
+Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis. Quer fazer alguma modificação? É só me dizer! 🚀`,
           timestamp: new Date(),
           type: 'site_preview',
-          siteCodeId: data.versionId || previewId
+          siteCodeId: data.versionId || previewId,
+          metadata: { showEndButton: true } // ✅ Marcar para mostrar botão de encerrar
         };
 
         setMessages(prev => [...prev, previewMessage]);
       }
-    } catch (error) {
+    } catch (error: any) {
+      // ✅ Remover controller da lista mesmo em caso de erro
+      abortControllersRef.current = abortControllersRef.current.filter(c => c !== abortController);
+      setActiveRequestsCount(abortControllersRef.current.length);
+      
+      // ✅ Se foi cancelado, não mostrar erro
+      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
+        console.log('ℹ️ Requisição cancelada pelo usuário');
+        return;
+      }
+      
       console.error('❌ Erro ao gerar preview:', error);
     } finally {
       setIsLoading(false);
+      setIsGenerating(false);
+      generationLockRef.current = false;
+      setGenerationStartTime(null);
+      setElapsedTime(0);
     }
   };
 
@@ -316,6 +479,12 @@ Digite seu prompt primeiro para gerar o site.`,
     }
 
     setIsLoading(true);
+    setGenerationStartTime(new Date());
+
+    // ✅ Criar AbortController para esta requisição (fora do try para estar disponível no catch)
+    const abortController = new AbortController();
+    abortControllersRef.current.push(abortController);
+    setActiveRequestsCount(abortControllersRef.current.length);
 
     try {
       const response = await fetch('/api/modify-ai-site', {
@@ -326,8 +495,13 @@ Digite seu prompt primeiro para gerar o site.`,
           modification,
           currentVersionId: currentSiteCode,
           imageData: imageData || null // Enviar dados da imagem se houver
-        })
+        }),
+        signal: abortController.signal // ✅ Permitir cancelamento
       });
+
+      // ✅ Remover controller da lista após completar
+      abortControllersRef.current = abortControllersRef.current.filter(c => c !== abortController);
+      setActiveRequestsCount(abortControllersRef.current.length);
 
       const data = await response.json();
 
@@ -348,14 +522,14 @@ Digite seu prompt primeiro para gerar o site.`,
         setProjectId(updatedLimits.projectId);
         
         // Verificar se atingiu limite após esta modificação
-        if (!updatedLimits.allowed) {
+        if (!updatedLimits.allowed && !hasEndedManually) {
           setIsBlocked(true);
           
           // Adicionar mensagem de bloqueio após última modificação
           const blockedMessage: Message = {
             id: crypto.randomUUID(),
             sender: 'ai',
-            content: getBlockedMessage(updatedLimits.projectId, updatedLimits.modificationsUsed),
+            content: getBlockedMessage(updatedLimits.projectId, updatedLimits.modificationsUsed, false),
             timestamp: new Date(),
             type: 'text'
           };
@@ -377,7 +551,8 @@ ${updatedLimits.modificationsRemaining > 0 ? `\n💡 Você ainda tem ${updatedLi
 Gostou do resultado? Você pode pedir mais modificações a qualquer momento! 🎨`,
           timestamp: new Date(),
           type: 'site_preview',
-          siteCodeId: data.previewId || currentSiteCode // ✅ Usar previewId fixo em vez de versionId
+          siteCodeId: data.previewId || currentSiteCode, // ✅ Usar previewId fixo em vez de versionId
+          metadata: { showEndButton: true } // ✅ Mostrar botão de encerrar após cada modificação
         };
 
         setMessages(prev => [...prev, updateMessage]);
@@ -393,6 +568,19 @@ Gostou do resultado? Você pode pedir mais modificações a qualquer momento! �
         throw new Error(data.error || 'Erro ao modificar');
       }
     } catch (error: any) {
+      // ✅ Remover controller da lista mesmo em caso de erro
+      abortControllersRef.current = abortControllersRef.current.filter(c => c !== abortController);
+      setActiveRequestsCount(abortControllersRef.current.length);
+      
+      // ✅ Se foi cancelado, não mostrar erro
+      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
+        console.log('ℹ️ Requisição cancelada pelo usuário');
+        setIsLoading(false);
+        setGenerationStartTime(null);
+        setElapsedTime(0);
+        return;
+      }
+      
       console.error('❌ Erro ao modificar site:', error);
       const errorMessage: Message = {
         id: crypto.randomUUID(),
@@ -405,11 +593,14 @@ Tente ser mais específico. Por exemplo:
 - "Adicionar botão do WhatsApp"
 - "Mudar cor de fundo para azul"`,
         timestamp: new Date(),
-        type: 'text'
+        type: 'text',
+        metadata: { showEndButton: true } // ✅ Mostrar botão mesmo em caso de erro
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      setGenerationStartTime(null);
+      setElapsedTime(0);
     }
   };
 
@@ -442,11 +633,11 @@ Tente ser mais específico. Por exemplo:
     const promptToSend = imagePrompt.trim() || 'Adicione esta imagem ao site';
     
     // 🔒 VERIFICAR SE ESTÁ BLOQUEADO
-    if (isBlocked) {
+    if (isBlocked || hasEndedManually) {
       const blockedMsg: Message = {
         id: crypto.randomUUID(),
         sender: 'ai',
-        content: getBlockedMessage(projectId || generateProjectId(conversationId), modificationsUsed),
+        content: getBlockedMessage(projectId || generateProjectId(conversationId), modificationsUsed, hasEndedManually),
         timestamp: new Date(),
         type: 'text'
       };
@@ -461,6 +652,23 @@ Tente ser mais específico. Por exemplo:
     
     // 🔒 VERIFICAR LIMITES ANTES DE ENVIAR IMAGEM COM PROMPT
     if (currentSiteCode) {
+      if (hasEndedManually) {
+        const blockedMsg: Message = {
+          id: crypto.randomUUID(),
+          sender: 'ai',
+          content: getBlockedMessage(projectId || generateProjectId(conversationId), modificationsUsed, true),
+          timestamp: new Date(),
+          type: 'text'
+        };
+        setMessages(prev => [...prev, blockedMsg]);
+        setPendingImage(null);
+        setImagePrompt('');
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
+      
       const limits = await canMakeModification(conversationId);
       if (!limits.allowed) {
         setIsBlocked(true);
@@ -470,7 +678,7 @@ Tente ser mais específico. Por exemplo:
         const blockedMsg: Message = {
           id: crypto.randomUUID(),
           sender: 'ai',
-          content: getBlockedMessage(limits.projectId, limits.modificationsUsed),
+          content: getBlockedMessage(limits.projectId, limits.modificationsUsed, hasEndedManually),
           timestamp: new Date(),
           type: 'text'
         };
@@ -578,16 +786,130 @@ Mas primeiro preciso gerar o site inicial. Por favor, descreva o que você quer 
     }
   };
 
+  // ✅ Função para encerrar modificações manualmente
+  const endModifications = () => {
+    console.log('🛑 [endModifications] Chamada - projectId:', projectId, 'modificationsUsed:', modificationsUsed);
+    
+    // Garantir que temos projectId
+    let finalProjectId = projectId;
+    if (!finalProjectId) {
+      // Buscar projectId se ainda não estiver disponível
+      finalProjectId = generateProjectId(conversationId);
+      setProjectId(finalProjectId);
+      console.log('🛑 [endModifications] ProjectId gerado:', finalProjectId);
+    }
+    
+    // Buscar limites atualizados se necessário
+    canMakeModification(conversationId).then(limits => {
+      const endMessage: Message = {
+        id: crypto.randomUUID(),
+        sender: 'ai',
+        content: getBlockedMessage(finalProjectId || limits.projectId, limits.modificationsUsed || modificationsUsed, true),
+        timestamp: new Date(),
+        type: 'text'
+      };
+      setMessages(prev => [...prev, endMessage]);
+      console.log('✅ [endModifications] Mensagem de encerramento adicionada');
+    }).catch(err => {
+      console.error('❌ [endModifications] Erro ao buscar limites:', err);
+      // Fallback: usar valores que já temos
+      const endMessage: Message = {
+        id: crypto.randomUUID(),
+        sender: 'ai',
+        content: getBlockedMessage(finalProjectId || generateProjectId(conversationId), modificationsUsed, true),
+        timestamp: new Date(),
+        type: 'text'
+      };
+      setMessages(prev => [...prev, endMessage]);
+    });
+    
+    setHasEndedManually(true);
+    setIsBlocked(true);
+    setInputMessage('');
+    console.log('✅ [endModifications] Estado atualizado - hasEndedManually: true, isBlocked: true');
+  };
+
+  // ✅ Função para detectar se usuário quer encerrar modificações
+  const shouldEndModifications = (message: string): boolean => {
+    const lowerMessage = message.toLowerCase().trim();
+    const endPhrases = [
+      'não quero mais modificações',
+      'não quero mais modificaçoes',
+      'não quero mais modifica',
+      'encerrar modificações',
+      'encerrar modifica',
+      'finalizar modificações',
+      'finalizar modifica',
+      'parar modificações',
+      'parar modifica',
+      'sem mais modificações',
+      'sem mais modifica',
+      'quero encerrar',
+      'encerrar agora',
+      'finalizar agora',
+      'parar agora',
+      'está bom assim',
+      'já está bom',
+      'está perfeito',
+      'não preciso de mais modificações',
+      'não preciso mais modificar',
+      'não preciso mais',
+      'finalizar',
+      'encerrar',
+      'concluir',
+      'terminar',
+      'basta',
+      'chega',
+      'não quero mais',
+      'está pronto',
+      'já está pronto',
+      'pronto',
+      'finalizado',
+      'concluído'
+    ];
+    
+    // Verificar se a mensagem contém alguma das frases
+    const hasEndPhrase = endPhrases.some(phrase => lowerMessage.includes(phrase));
+    
+    // Verificar também padrões mais gerais
+    const endPatterns = [
+      /^(encerrar|finalizar|parar|concluir|terminar)$/i,
+      /^(não quero|chega|basta|pronto|finalizado|concluído)$/i,
+      /está (bom|perfeito|pronto|ok)/i,
+      /já está (bom|perfeito|pronto|ok)/i
+    ];
+    
+    const matchesPattern = endPatterns.some(pattern => pattern.test(lowerMessage));
+    
+    return hasEndPhrase || matchesPattern;
+  };
+
   const sendMessage = async () => {
     const messageToSend = inputMessage.trim();
     if (!messageToSend || isLoading) return;
 
+    // ✅ Verificar se usuário quer encerrar modificações (DEVE SER PRIMEIRO, ANTES DE QUALQUER OUTRA VERIFICAÇÃO)
+    if (shouldEndModifications(messageToSend)) {
+      console.log('🛑 [FullscreenChat] Usuário solicitou encerramento de modificações');
+      endModifications();
+      // Adicionar mensagem do usuário para feedback visual
+      const userEndMessage: Message = {
+        id: crypto.randomUUID(),
+        sender: 'user',
+        content: messageToSend,
+        timestamp: new Date(),
+        type: 'text'
+      };
+      setMessages(prev => [...prev, userEndMessage]);
+      return;
+    }
+
     // 🔒 VERIFICAR SE ESTÁ BLOQUEADO
-    if (isBlocked) {
+    if (isBlocked || hasEndedManually) {
       const blockedMsg: Message = {
         id: crypto.randomUUID(),
         sender: 'ai',
-        content: getBlockedMessage(projectId || generateProjectId(conversationId), modificationsUsed),
+        content: getBlockedMessage(projectId || generateProjectId(conversationId), modificationsUsed, hasEndedManually),
         timestamp: new Date(),
         type: 'text'
       };
@@ -637,6 +959,19 @@ ${getRedirectMessage(messageToSend)}`,
       // ✅ CORREÇÃO: Se já tem site gerado, SEMPRE usar modify-ai-site
       if (currentSiteCode) {
         // 🔒 VERIFICAR LIMITES ANTES DE MODIFICAR
+        if (hasEndedManually) {
+          const blockedMsg: Message = {
+            id: crypto.randomUUID(),
+            sender: 'ai',
+            content: getBlockedMessage(projectId || generateProjectId(conversationId), modificationsUsed, true),
+            timestamp: new Date(),
+            type: 'text'
+          };
+          setMessages(prev => [...prev, blockedMsg]);
+          setIsLoading(false);
+          return;
+        }
+        
         const limits = await canMakeModification(conversationId);
         if (!limits.allowed) {
           setIsBlocked(true);
@@ -646,7 +981,7 @@ ${getRedirectMessage(messageToSend)}`,
           const blockedMsg: Message = {
             id: crypto.randomUUID(),
             sender: 'ai',
-            content: getBlockedMessage(limits.projectId, limits.modificationsUsed),
+            content: getBlockedMessage(limits.projectId, limits.modificationsUsed, hasEndedManually),
             timestamp: new Date(),
             type: 'text'
           };
@@ -686,10 +1021,10 @@ ${getRedirectMessage(messageToSend)}`,
     }
   };
 
-  const formatMessage = (content: string) => {
+  const formatMessage = (content: string): React.ReactNode => {
     // Extrair links markdown [text](url) e transformar em botões
     const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-    const parts: (string | JSX.Element)[] = [];
+    const parts: (string | React.ReactElement)[] = [];
     let lastIndex = 0;
     let match;
     let key = 0;
@@ -732,17 +1067,21 @@ ${getRedirectMessage(messageToSend)}`,
       parts.push(...formatTextWithBreaks(textAfter, key));
     }
 
-    return parts.length > 0 ? parts : formatTextWithBreaks(content, 0);
+    if (parts.length > 0) {
+      return <>{parts}</>;
+    }
+    const fallback = formatTextWithBreaks(content, 0);
+    return <>{fallback}</>;
   };
 
-  const formatTextWithBreaks = (text: string, startKey: number) => {
+  const formatTextWithBreaks = (text: string, startKey: number): React.ReactElement[] => {
     // Processar markdown básico: **texto** para negrito
     const lines = text.split('\n');
     return lines.map((line, index) => {
       const lineKey = startKey + index;
       // Processar negrito **texto**
       const boldRegex = /\*\*([^*]+)\*\*/g;
-      const lineParts: (string | JSX.Element)[] = [];
+      const lineParts: (string | React.ReactElement)[] = [];
       let lastIndex = 0;
       let match;
       let boldKey = 0;
@@ -778,6 +1117,7 @@ ${getRedirectMessage(messageToSend)}`,
       setConversationInitialized(false);
       setIsLoading(false);
       setCurrentSiteCode('');
+      setHasEndedManually(false); // ✅ Resetar estado ao fechar
     }
   }, [isOpen]);
   
@@ -800,16 +1140,47 @@ ${getRedirectMessage(messageToSend)}`,
             <Bot className="text-white" size={24} />
             <div>
               <h1 className="font-bold">IA Generator - {initialData.companyName}</h1>
-              <p className="text-sm opacity-80">
-                {projectId ? `🔢 ID: ${projectId} • ` : ''}
-                {modificationsUsed > 0 ? `${modificationsUsed}/${PROJECT_LIMITS.MODIFICATIONS} modificações` : 'Criando seu site perfeito'}
-                {isBlocked && ' • Limite atingido'}
-              </p>
+              <div className="flex items-center gap-3 text-sm opacity-90">
+                {/* ID da Conversa */}
+                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+                  <span className="text-xs">ID:</span>
+                  <code className="text-xs font-mono text-blue-200 font-semibold">
+                    {conversationId.substring(0, 8)}...
+                  </code>
+                  <button
+                    onClick={copyConversationId}
+                    className="p-0.5 hover:bg-white/20 rounded transition-colors text-white/80 hover:text-white"
+                    title="Copiar ID completo"
+                  >
+                    {copiedId ? (
+                      <Check size={12} className="text-green-300" />
+                    ) : (
+                      <Copy size={12} />
+                    )}
+                  </button>
+                </div>
+                {projectId && <span>• 🔢 Projeto: {projectId}</span>}
+                {modificationsUsed > 0 && <span>• {modificationsUsed}/{PROJECT_LIMITS.MODIFICATIONS} mods</span>}
+                {hasEndedManually && <span className="text-yellow-200">• Encerrado pelo usuário</span>}
+                {isBlocked && !hasEndedManually && <span className="text-red-200">• Limite atingido</span>}
+              </div>
             </div>
           </div>
         </div>
         
         <div className="flex items-center gap-2">
+          {/* Botão para cancelar requisições (apenas quando houver requisições em andamento) */}
+          {activeRequestsCount > 0 && (
+            <button
+              onClick={cancelAllRequests}
+              className="flex items-center gap-2 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-colors"
+              title="Cancelar todas as requisições em andamento"
+            >
+              <XCircle size={16} />
+              <span className="hidden sm:inline">Cancelar ({activeRequestsCount})</span>
+              <span className="sm:hidden">Cancelar</span>
+            </button>
+          )}
           <button
             onClick={() => setIsMinimized(!isMinimized)}
             className="p-2 hover:bg-white/20 rounded-lg transition-colors"
@@ -854,15 +1225,15 @@ ${getRedirectMessage(messageToSend)}`,
                     }`}
                   >
                     <div className="prose prose-invert max-w-none">
-                      {formatMessage(message.content)}
+                      {formatMessage(message.content) as React.ReactNode}
                     </div>
 
                     {/* Renderizar imagens enviadas */}
                     {message.type === 'image' && message.metadata?.imageUrl && (
                       <div className="mt-4">
                         <motion.img
-                          src={message.metadata.imageUrl}
-                          alt={message.metadata.fileName || 'Imagem enviada'}
+                          src={String(message.metadata.imageUrl)}
+                          alt={String(message.metadata.fileName || 'Imagem enviada')}
                           className="w-full max-w-md h-auto rounded-lg object-cover shadow-lg"
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
@@ -872,7 +1243,7 @@ ${getRedirectMessage(messageToSend)}`,
 
                     {/* Botão para ver preview quando site for criado */}
                     {message.type === 'site_preview' && message.siteCodeId && (
-                      <div className="mt-4">
+                      <div className="mt-4 space-y-2">
                         <button
                           onClick={() => {
                             setCurrentSiteCode(message.siteCodeId!);
@@ -888,19 +1259,38 @@ ${getRedirectMessage(messageToSend)}`,
                             href={`/preview/${message.siteCodeId}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="mt-2 w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                            className="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
                           >
                             <Monitor size={16} />
                             Abrir em Nova Aba
                           </a>
                         )}
+                        {/* ✅ Botão para encerrar modificações - SEMPRE mostrar quando há preview */}
+                        {!hasEndedManually && !isBlocked && (
+                          <button
+                            onClick={() => {
+                              console.log('🛑 [Botão] Clicado - hasEndedManually:', hasEndedManually, 'isBlocked:', isBlocked);
+                              endModifications();
+                            }}
+                            className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors mt-2"
+                          >
+                            <XCircle size={16} />
+                            Não quero mais modificações
+                          </button>
+                        )}
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-600/50">
-                      <span className="text-xs opacity-60">
-                        {message.timestamp.toLocaleTimeString()}
-                      </span>
+                    {/* Horário da mensagem */}
+                    <div className={`mt-2 text-xs ${
+                      message.sender === 'user'
+                        ? 'text-blue-100/80'
+                        : 'text-slate-400'
+                    }`}>
+                      {message.timestamp.toLocaleTimeString('pt-BR', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
                     </div>
                   </div>
 
@@ -919,23 +1309,54 @@ ${getRedirectMessage(messageToSend)}`,
                 animate={{ opacity: 1, y: 0 }}
                 className="flex gap-4 justify-start"
               >
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 animate-pulse">
                   <Bot className="text-white" size={20} />
                 </div>
-                <div className="bg-slate-800 border border-slate-700 p-4 rounded-2xl">
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                <div className="bg-gradient-to-r from-slate-800 to-slate-700 border-2 border-blue-500/50 p-4 sm:p-5 rounded-2xl shadow-lg shadow-blue-500/20">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex gap-1.5 items-center">
+                        <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                        <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      </div>
+                      <span className="text-base font-semibold text-blue-300">⚙️ Gerando seu site...</span>
                     </div>
-                    <span className="text-sm">IA gerando...</span>
+                    <div className="text-xs sm:text-sm text-slate-400 space-y-1">
+                      <p>✅ Processo confirmado e em andamento</p>
+                      {generationStartTime && elapsedTime > 0 && (
+                        <p className="text-blue-400 font-medium">
+                          ⏱️ Tempo decorrido: {elapsedTime}s
+                        </p>
+                      )}
+                      <p className="text-slate-500 italic">Por favor, aguarde... não feche esta página.</p>
+                    </div>
                   </div>
                 </div>
               </motion.div>
             )}
 
             <div ref={messagesEndRef} />
+            
+            {/* ✅ Botão fixo de encerramento quando há site gerado */}
+            {/* Verificar se há pelo menos uma mensagem de preview */}
+            {messages.some(m => m.type === 'site_preview') && !hasEndedManually && !isBlocked && (
+              <div className="sticky bottom-4 mt-4 flex justify-center z-10">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-lg"
+                >
+                  <button
+                    onClick={endModifications}
+                    className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <XCircle size={18} />
+                    Não quero mais modificações
+                  </button>
+                </motion.div>
+              </div>
+            )}
           </div>
 
           {/* Input */}
@@ -973,8 +1394,8 @@ ${getRedirectMessage(messageToSend)}`,
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder={isBlocked ? "Limite atingido. Entre em contato para continuar..." : "Digite sua mensagem..."}
-                  disabled={isLoading || isBlocked}
+                  placeholder={isBlocked || hasEndedManually ? "Modificações encerradas. Entre em contato para continuar..." : "Digite sua mensagem..."}
+                  disabled={isLoading || isBlocked || hasEndedManually}
                   className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-slate-800 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors pr-10 sm:pr-12 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <div className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none">
@@ -983,9 +1404,9 @@ ${getRedirectMessage(messageToSend)}`,
               </div>
               <button
                 onClick={() => sendMessage()}
-                disabled={!inputMessage.trim() || isLoading || isBlocked}
+                disabled={!inputMessage.trim() || isLoading || isBlocked || hasEndedManually}
                 className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium transition-all text-sm sm:text-base flex-shrink-0 ${
-                  inputMessage.trim() && !isLoading && !isBlocked
+                  inputMessage.trim() && !isLoading && !isBlocked && !hasEndedManually
                     ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700'
                     : 'bg-slate-700 text-slate-400 cursor-not-allowed'
                 }`}

@@ -69,7 +69,20 @@ export async function POST(request: NextRequest) {
 
     // Gerar primeira resposta da IA (pode falhar se OpenAI não estiver configurada)
     let aiResponse;
-    let initialResponse = 'Olá! Vamos criar seu site. Me conte mais sobre seu projeto.';
+    // ✅ Mensagem padrão já inclui ID e prompt quando a IA não estiver disponível
+    let initialResponse = `🚀 **Bem-vindo ao gerador de sites da WZ Solution!**
+
+📋 **ID da Solicitação:** \`${conversation.id}\`
+
+💡 **Seu Prompt:** ${initialPrompt}
+
+---
+
+⚙️ **STATUS: Gerando seu site agora...**
+
+🔄 Estou criando um site profissional e responsivo baseado na sua solicitação. Isso pode levar alguns segundos.
+
+⏳ Por favor, aguarde enquanto preparo seu site personalizado...`;
     
     try {
       aiResponse = await generateAIResponse(

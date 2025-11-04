@@ -120,159 +120,131 @@ export default function AIGeneratorSection() {
 
   return (
     <>
-      <section className="py-20 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 relative overflow-hidden">
-        {/* Background Effects */}
-        <div className="absolute inset-0">
-          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl" />
-          <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-500/5 rounded-full blur-3xl" />
-        </div>
-
-        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.3 }}
-            className="text-center mb-12"
-          >
-            {/* Header */}
-            <motion.div variants={itemVariants} className="mb-8">
-              <div className="inline-flex items-center px-4 py-2 bg-gradient-primary/20 rounded-full border border-cyan-400/30 mb-6">
-                <Brain className="w-5 h-5 text-cyan-400 mr-2" />
-                <span className="text-cyan-400 text-sm font-medium">IA de Projetos</span>
-              </div>
-              
-              <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
-                Descreva sua <span className="text-gradient">ideia</span>
-              </h2>
-              <p className="text-xl text-slate-300 max-w-3xl mx-auto">
-                Nossa IA vai conversar com você para detalhar e aperfeiçoar seu projeto
-              </p>
+      <section id="ia-site" className="py-20 bg-gradient-to-br from-slate-50 to-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left Column - Text */}
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, amount: 0.3 }}
+              className="space-y-6"
+            >
+              <motion.div variants={itemVariants}>
+                <div className="inline-flex items-center px-3 py-1 bg-purple-100 rounded-full mb-4">
+                  <span className="text-purple-600 text-sm font-medium">🤖 TECNOLOGIA IA</span>
+                </div>
+                <h2 className="text-4xl sm:text-5xl font-bold text-slate-900 mb-4">
+                  Crie Seu Site com Inteligência Artificial
+                </h2>
+                <p className="text-lg text-slate-600">
+                  Descreva sua ideia e nossa IA gera um site profissional em minutos. Tecnologia de ponta ao seu alcance.
+                </p>
+              </motion.div>
             </motion.div>
 
-            {/* Project Types */}
-            <motion.div variants={itemVariants} className="mb-8">
-              <p className="text-slate-400 mb-4">Que tipo de projeto você tem em mente?</p>
-              <div className="flex flex-wrap justify-center gap-3 mb-8">
-                {projectTypes.map((type) => {
-                  const Icon = type.icon;
-                  const isSelected = selectedType === type.id;
-                  
-                  return (
-                    <motion.button
-                      key={type.id}
-                      onClick={() => {
-                        if (!type.available) {
+            {/* Right Column - Form */}
+            <motion.div
+              variants={itemVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className="bg-white rounded-2xl p-8 border border-slate-200 shadow-xl"
+            >
+              <div className="space-y-6">
+                {/* Description Field */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Descreva seu projeto
+                  </label>
+                  <textarea
+                    value={idea}
+                    onChange={(e) => setIdea(e.target.value)}
+                    placeholder="Ex: Preciso de um site para minha clínica odontológica com agendamento online, galeria de tratamentos e blog. Cores azul e branco, design moderno e clean..."
+                    className="w-full h-32 p-4 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+                    maxLength={2000}
+                  />
+                </div>
+
+                {/* Type and Email */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Tipo de Site
+                    </label>
+                    <select
+                      value={selectedType}
+                      onChange={(e) => {
+                        if (e.target.value !== 'site') {
                           alert('Esta funcionalidade estará disponível em breve! 🚀\nPor enquanto, estamos focando em sites institucionais.');
                           return;
                         }
-                        setSelectedType(type.id);
+                        setSelectedType(e.target.value);
                       }}
-                      whileHover={{ scale: type.available ? 1.05 : 1.02 }}
-                      whileTap={{ scale: type.available ? 0.95 : 0.98 }}
-                      className={`relative flex items-center px-4 py-3 rounded-xl border-2 transition-all duration-200 ${
-                        !type.available 
-                          ? 'border-slate-700 bg-slate-800/30 text-slate-600 opacity-60 cursor-not-allowed'
-                          : isSelected
-                            ? `${type.border} ${type.bg} ${type.color}`
-                            : 'border-slate-600 hover:border-slate-500 text-slate-300 hover:text-white'
-                      }`}
+                      className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     >
-                      <Icon className={`w-5 h-5 mr-2 ${!type.available ? 'text-slate-600' : ''}`} />
-                      <div className="text-left">
-                        <div className="font-medium">{type.label}</div>
-                        <div className="text-xs opacity-75">{type.description}</div>
-                      </div>
-                      
-                      {!type.available && (
-                        <div className="absolute -top-2 -right-2 bg-yellow-500 text-black text-xs px-2 py-1 rounded-full font-bold">
-                          Em breve
-                        </div>
-                      )}
-                      
-                      {type.available && type.id === 'site' && (
-                        <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">
-                          Disponível
-                        </div>
-                      )}
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </motion.div>
-
-            {/* Input */}
-            <motion.div variants={itemVariants} className="max-w-2xl mx-auto mb-8">
-              <textarea
-                value={idea}
-                onChange={(e) => setIdea(e.target.value)}
-                placeholder="Descreva sua ideia em detalhes... Ex: Site para minha barbearia com agendamento online, galeria de cortes, sistema de avaliações e integração com WhatsApp"
-                className="w-full h-32 p-4 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 resize-none"
-                maxLength={2000}
-              />
-              <div className="text-right text-sm text-slate-500 mt-1">
-                {idea.length}/2000 caracteres
-              </div>
-            </motion.div>
-
-            {/* CTA */}
-            <motion.div variants={itemVariants}>
-              <motion.button
-                onClick={handleSubmit}
-                disabled={!selectedType || !idea.trim() || isAnimating}
-                whileHover={{ scale: selectedType && idea.trim() ? 1.05 : 1 }}
-                whileTap={{ scale: 0.95 }}
-                className="btn-primary text-lg px-8 py-4 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center"
-              >
-                {isAnimating ? (
-                  <>
-                    <div className="spinner mr-3" />
-                    Processando sua ideia...
-                  </>
-                ) : (
-                  <>
-                    <Brain className="w-5 h-5 mr-3" />
-                    Conversar com IA
-                    <ArrowRight className="w-5 h-5 ml-3" />
-                  </>
-                )}
-              </motion.button>
-            </motion.div>
-
-            {/* Benefits */}
-            <motion.div 
-              variants={itemVariants}
-              className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto"
-            >
-              <div className="text-center">
-                <div className="w-12 h-12 bg-cyan-500/20 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  💬
+                      <option value="">Selecione...</option>
+                      <option value="site">Institucional</option>
+                      <option value="ecommerce" disabled>E-commerce</option>
+                      <option value="landing" disabled>Landing Page</option>
+                      <option value="blog" disabled>Blog/Portal</option>
+                      <option value="portfolio" disabled>Portfólio</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Seu E-mail
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="seu@email.com"
+                      className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
                 </div>
-                <h4 className="font-semibold text-white mb-2">Conversação Natural</h4>
-                <p className="text-sm text-slate-400">A IA faz perguntas inteligentes para entender melhor sua ideia</p>
+
+                {/* Submit Button */}
+                <motion.button
+                  onClick={handleSubmit}
+                  disabled={!selectedType || !idea.trim() || isAnimating}
+                  whileHover={{ scale: selectedType && idea.trim() ? 1.02 : 1 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-4 rounded-xl font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center"
+                >
+                  {isAnimating ? (
+                    <>
+                      <div className="spinner mr-3" />
+                      Gerando...
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="w-5 h-5 mr-2" />
+                      Gerar Site com IA
+                    </>
+                  )}
+                </motion.button>
               </div>
 
-              <div className="text-center">
-                <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  🎨
+              {/* Stats */}
+              <div className="mt-8 grid grid-cols-3 gap-4 pt-6 border-t border-slate-200">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-slate-900">2min</div>
+                  <div className="text-sm text-slate-600">Tempo Médio</div>
                 </div>
-                <h4 className="font-semibold text-white mb-2">Design Personalizado</h4>
-                <p className="text-sm text-slate-400">Visual criado exclusivamente para seu negócio</p>
-              </div>
-
-              <div className="text-center">
-                <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  📊
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-slate-900">100%</div>
+                  <div className="text-sm text-slate-600">Personalizável</div>
                 </div>
-                <h4 className="font-semibold text-white mb-2">Orçamento Preciso</h4>
-                <p className="text-sm text-slate-400">Estimativas realistas de custo, prazo e recursos necessários</p>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-slate-900">24h</div>
+                  <div className="text-sm text-slate-600">Suporte</div>
+                </div>
               </div>
             </motion.div>
-          </motion.div>
+          </div>
         </div>
       </section>
-
-      {/* Chat agora é uma página dedicada em /chat/[conversationId] */}
     </>
   );
 }
