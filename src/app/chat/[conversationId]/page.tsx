@@ -269,51 +269,180 @@ function ChatPageContent() {
   }, [conversationId, currentSiteCode]);
 
   // ✅ Page Visibility API - Detectar quando usuário sai/volta da tela (iPhone/iOS)
+  // ✅ SOLUÇÃO ROBUSTA: Polling quando volta ao foco para recuperar geração interrompida
   useEffect(() => {
-    const handleVisibilityChange = () => {
+    let pollingInterval: NodeJS.Timeout | null = null;
+    let checkTimeout: NodeJS.Timeout | null = null;
+
+    const checkGenerationStatus = async () => {
+      try {
+        console.log('🔍 [PageVisibility] Verificando status de geração...');
+        const response = await fetch(`/api/generation-status?conversationId=${conversationId}`);
+        const data = await response.json();
+
+        console.log('📊 [PageVisibility] Status:', data);
+
+        // Se geração completou enquanto estava em background
+        if (data.hasCompleted && data.latestVersion && !currentSiteCode) {
+          console.log('✅ [PageVisibility] Geração completou enquanto estava em background! Recuperando...');
+          
+          // Buscar código do site
+          const previewResponse = await fetch(`/api/preview-html/${conversationId}`);
+          if (previewResponse.ok) {
+            const previewData = await previewResponse.json();
+            if (previewData.html) {
+              // Atualizar estado como se tivesse completado normalmente
+              setCurrentSiteCode(conversationId);
+              setIsGenerating(false);
+              setIsLoading(false);
+              generationLockRef.current = false;
+              generationStateRef.current = null;
+
+              // Adicionar mensagem de sucesso
+              const successMessage: Message = {
+                id: crypto.randomUUID(),
+                sender: 'ai',
+                content: `🎉 **Seu site foi gerado com sucesso pela WZ Solutions IA!**
+
+Criei um site profissional e responsivo baseado nas suas especificações.
+
+✅ **Empresa:** ${initialData.companyName}
+✅ **Setor:** ${initialData.businessSector}
+📝 **Seu prompt:** ${initialData.additionalPrompt.length > 500 
+  ? `${initialData.additionalPrompt.substring(0, 500)}...` 
+  : initialData.additionalPrompt}
+
+**👆 Veja o preview abaixo!** 
+
+Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis. Quer fazer alguma modificação? É só me dizer! 🚀`,
+                timestamp: new Date(),
+                type: 'site_preview',
+                siteCodeId: conversationId,
+                metadata: { showEndButton: true }
+              };
+
+              setMessages(prev => {
+                // Evitar duplicatas
+                const alreadyExists = prev.some(m => 
+                  m.type === 'site_preview' && m.siteCodeId === conversationId
+                );
+                if (alreadyExists) return prev;
+                return [...prev, successMessage];
+              });
+
+              console.log('✅ [PageVisibility] Geração recuperada com sucesso!');
+              return true; // Sucesso - parar polling
+            }
+          }
+        }
+
+        // Se ainda está gerando, continuar verificando
+        if (data.isGenerating || data.recentlyCompleted) {
+          console.log('⏳ [PageVisibility] Geração ainda em andamento ou acabou de completar...');
+          return false; // Continuar polling
+        }
+
+        return false;
+      } catch (error) {
+        console.error('❌ [PageVisibility] Erro ao verificar status:', error);
+        return false;
+      }
+    };
+
+    const handleVisibilityChange = async () => {
       const isVisible = !document.hidden;
       isPageVisibleRef.current = isVisible;
       
       console.log('👁️ [PageVisibility] Mudança de visibilidade:', {
         isVisible,
         isGenerating,
-        hasGenerationState: !!generationStateRef.current
+        hasGenerationState: !!generationStateRef.current,
+        currentSiteCode: !!currentSiteCode
       });
       
-      // ✅ Se página voltou a ficar visível e havia geração em andamento, verificar status
-      if (isVisible && isGenerating && generationStateRef.current) {
-        console.log('🔄 [PageVisibility] Página voltou a ficar visível durante geração. Verificando status...');
-        // A requisição fetch deve continuar automaticamente, mas podemos verificar se houve erro
-        // O navegador geralmente retoma requisições quando a página volta ao foco
+      // ✅ Se página voltou a ficar visível e havia geração em andamento
+      if (isVisible && (isGenerating || generationStateRef.current) && !currentSiteCode) {
+        console.log('🔄 [PageVisibility] Página voltou a ficar visível durante geração. Iniciando polling...');
+        
+        // Verificar imediatamente
+        const completed = await checkGenerationStatus();
+        
+        if (!completed) {
+          // Se não completou, fazer polling a cada 2 segundos (máximo 30 segundos = 15 tentativas)
+          let attempts = 0;
+          const maxAttempts = 15;
+          
+          pollingInterval = setInterval(async () => {
+            attempts++;
+            console.log(`🔄 [PageVisibility] Polling tentativa ${attempts}/${maxAttempts}...`);
+            
+            const completed = await checkGenerationStatus();
+            
+            if (completed || attempts >= maxAttempts) {
+              if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+              }
+              if (attempts >= maxAttempts) {
+                console.warn('⚠️ [PageVisibility] Polling esgotado. Geração pode ter falhado ou ainda está em andamento.');
+                // Resetar estado para permitir nova tentativa
+                setIsGenerating(false);
+                setIsLoading(false);
+                generationLockRef.current = false;
+              }
+            }
+          }, 2000); // Polling a cada 2 segundos
+        }
       }
       
       // ✅ Se página ficou invisível durante geração, salvar estado
-      if (!isVisible && isGenerating && !generationStateRef.current) {
+      if (!isVisible && isGenerating && !generationStateRef.current && !currentSiteCode) {
         generationStateRef.current = {
           conversationId,
-          prompt: 'Geração em andamento...'
+          prompt: initialData.additionalPrompt || 'Geração em andamento...'
         };
         console.log('💾 [PageVisibility] Estado de geração salvo (página em background)');
+      }
+
+      // ✅ Parar polling se página ficou invisível novamente
+      if (!isVisible && pollingInterval) {
+        console.log('⏸️ [PageVisibility] Parando polling (página em background)');
+        clearInterval(pollingInterval);
+        pollingInterval = null;
       }
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // ✅ Verificar estado inicial quando componente monta
+    if (!document.hidden && (isGenerating || generationStateRef.current) && !currentSiteCode) {
+      console.log('🔍 [PageVisibility] Verificando status inicial...');
+      checkTimeout = setTimeout(() => {
+        checkGenerationStatus();
+      }, 1000);
+    }
     
     // ✅ Verificar estado inicial
     isPageVisibleRef.current = !document.hidden;
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+      if (checkTimeout) {
+        clearTimeout(checkTimeout);
+      }
     };
-  }, [conversationId, isGenerating]);
+  }, [conversationId, isGenerating, currentSiteCode, initialData]);
   
   // ✅ Limpar estado de geração quando completar
   useEffect(() => {
-    if (!isGenerating && generationStateRef.current) {
+    if (!isGenerating && generationStateRef.current && currentSiteCode) {
       console.log('✅ [PageVisibility] Geração completada, limpando estado persistido');
       generationStateRef.current = null;
     }
-  }, [isGenerating]);
+  }, [isGenerating, currentSiteCode]);
 
   const checkLimits = async () => {
     try {
@@ -562,11 +691,18 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
         businessSector: initialData.businessSector
       });
 
-      // ✅ Salvar estado de geração antes de iniciar
+      // ✅ Salvar estado de geração antes de iniciar (para recuperação no iOS)
       generationStateRef.current = {
         conversationId,
         prompt
       };
+      
+      console.log('🌐 [generateSitePreview] Iniciando requisição para /api/generate-ai-site...');
+      console.log('📤 [generateSitePreview] Dados:', {
+        conversationId,
+        prompt: prompt.substring(0, 100) + '...',
+        companyName: initialData.companyName
+      });
       
       const response = await fetch('/api/generate-ai-site', {
         method: 'POST',
@@ -578,9 +714,12 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
           businessSector: initialData.businessSector || 'Negócios'
         }),
         signal: abortController.signal, // ✅ Permitir cancelamento
-        // ✅ Manter requisição ativa mesmo quando página vai para background (iOS)
-        keepalive: true // Isso ajuda, mas não garante 100% no iOS
+        // ⚠️ iOS pode pausar requisições longas mesmo com keepalive
+        // Solução: Polling via /api/generation-status quando volta ao foco
+        keepalive: true // Ajuda, mas não garante 100% no iOS
       });
+      
+      console.log('📥 [generateSitePreview] Resposta recebida:', response.status, response.ok);
 
       // ✅ Remover controller da lista após completar
       abortControllersRef.current = abortControllersRef.current.filter(c => c !== abortController);
