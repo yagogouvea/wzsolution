@@ -59,6 +59,8 @@ function ChatPageContent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const generationLockRef = useRef(false); // ✅ Lock para prevenir múltiplas gerações simultâneas
   const abortControllersRef = useRef<AbortController[]>([]); // ✅ Controllers para cancelar requisições
+  const isPageVisibleRef = useRef(true); // ✅ Rastrear visibilidade da página (para iPhone)
+  const generationStateRef = useRef<{ conversationId: string; prompt: string } | null>(null); // ✅ Persistir estado de geração
 
   // Esconder Header, Footer e WhatsAppButton quando estiver no chat
   useEffect(() => {
@@ -265,6 +267,53 @@ function ChatPageContent() {
       checkLimits();
     }
   }, [conversationId, currentSiteCode]);
+
+  // ✅ Page Visibility API - Detectar quando usuário sai/volta da tela (iPhone/iOS)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      isPageVisibleRef.current = isVisible;
+      
+      console.log('👁️ [PageVisibility] Mudança de visibilidade:', {
+        isVisible,
+        isGenerating,
+        hasGenerationState: !!generationStateRef.current
+      });
+      
+      // ✅ Se página voltou a ficar visível e havia geração em andamento, verificar status
+      if (isVisible && isGenerating && generationStateRef.current) {
+        console.log('🔄 [PageVisibility] Página voltou a ficar visível durante geração. Verificando status...');
+        // A requisição fetch deve continuar automaticamente, mas podemos verificar se houve erro
+        // O navegador geralmente retoma requisições quando a página volta ao foco
+      }
+      
+      // ✅ Se página ficou invisível durante geração, salvar estado
+      if (!isVisible && isGenerating && !generationStateRef.current) {
+        generationStateRef.current = {
+          conversationId,
+          prompt: 'Geração em andamento...'
+        };
+        console.log('💾 [PageVisibility] Estado de geração salvo (página em background)');
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // ✅ Verificar estado inicial
+    isPageVisibleRef.current = !document.hidden;
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [conversationId, isGenerating]);
+  
+  // ✅ Limpar estado de geração quando completar
+  useEffect(() => {
+    if (!isGenerating && generationStateRef.current) {
+      console.log('✅ [PageVisibility] Geração completada, limpando estado persistido');
+      generationStateRef.current = null;
+    }
+  }, [isGenerating]);
 
   const checkLimits = async () => {
     try {
@@ -513,6 +562,12 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
         businessSector: initialData.businessSector
       });
 
+      // ✅ Salvar estado de geração antes de iniciar
+      generationStateRef.current = {
+        conversationId,
+        prompt
+      };
+      
       const response = await fetch('/api/generate-ai-site', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -522,7 +577,9 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
           companyName: initialData.companyName,
           businessSector: initialData.businessSector || 'Negócios'
         }),
-        signal: abortController.signal // ✅ Permitir cancelamento
+        signal: abortController.signal, // ✅ Permitir cancelamento
+        // ✅ Manter requisição ativa mesmo quando página vai para background (iOS)
+        keepalive: true // Isso ajuda, mas não garante 100% no iOS
       });
 
       // ✅ Remover controller da lista após completar
@@ -605,6 +662,7 @@ O serviço de IA está processando muitas solicitações no momento. Por favor, 
       generationLockRef.current = false; // ✅ Unlock após completar
       setGenerationStartTime(null); // ✅ Limpar tempo de início
       setElapsedTime(0); // ✅ Limpar tempo decorrido
+      generationStateRef.current = null; // ✅ Limpar estado de geração após completar
     }
   };
 

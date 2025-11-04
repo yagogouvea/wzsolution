@@ -487,20 +487,25 @@ export async function modifySiteWithClaude(
     console.log('🖼️ [Claude] Imagem incluída:', imageData.fileName || 'Imagem');
   }
   
-  // ✅ Detectar se é modificação incremental (mais econômica)
-  const isIncremental = isIncrementalModification(modification);
+  // ✅ DESABILITAR estratégia incremental - sempre retornar código completo
+  // Problema: estratégia incremental estava retornando apenas fragmentos e mesclagem não funcionava corretamente
+  // Solução: sempre usar estratégia completa para garantir código completo modificado
+  const isIncremental = false; // ✅ FORÇAR estratégia completa sempre
   const originalLength = currentCode?.length || 0;
   
-  if (isIncremental && originalLength > 15000) {
-    console.log('💰 [Claude] Modificação incremental detectada! Usando estratégia econômica...');
-    try {
-      // Usar estratégia incremental para economizar tokens
-      return await modifySiteIncremental(currentCode, modification, context, imageData, conversationContext);
-    } catch (incrementalError) {
-      console.warn('⚠️ [Claude] Estratégia incremental falhou, usando estratégia completa como fallback...');
-      // Continuar para estratégia completa abaixo
-    }
-  }
+  // ✅ Código comentado - estratégia incremental desabilitada temporariamente
+  // if (isIncremental && originalLength > 15000) {
+  //   console.log('💰 [Claude] Modificação incremental detectada! Usando estratégia econômica...');
+  //   try {
+  //     // Usar estratégia incremental para economizar tokens
+  //     return await modifySiteIncremental(currentCode, modification, context, imageData, conversationContext);
+  //   } catch (incrementalError) {
+  //     console.warn('⚠️ [Claude] Estratégia incremental falhou, usando estratégia completa como fallback...');
+  //     // Continuar para estratégia completa abaixo
+  //   }
+  // }
+  
+  console.log('📄 [Claude] Usando estratégia completa (incremental desabilitada) - sempre retornar código completo');
   
   // Para modificações grandes ou códigos pequenos, usar estratégia completa
   console.log('📄 [Claude] Usando estratégia completa (modificação grande ou código pequeno)');
