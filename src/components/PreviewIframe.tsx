@@ -69,20 +69,46 @@ export default function PreviewIframe({
   // ✅ Adicionar listener para forçar atualização quando uma nova versão for salva
   useEffect(() => {
     // Escutar eventos de atualização do preview (disparados após modificações)
-    const handlePreviewUpdate = () => {
-      console.log('🔄 [PreviewIframe] Evento de atualização recebido, recarregando preview...');
+    const handlePreviewUpdate = (event: CustomEvent) => {
+      const eventSiteId = event.detail?.siteId;
+      const force = event.detail?.force;
+      
+      // ✅ Só atualizar se for para este siteId ou se for forçado
+      if (eventSiteId && eventSiteId !== siteId && !force) {
+        console.log(`⏭️ [PreviewIframe] Evento ignorado - siteId diferente (${eventSiteId} !== ${siteId})`);
+        return;
+      }
+      
+      console.log('🔄 [PreviewIframe] Evento de atualização recebido, recarregando preview...', {
+        eventSiteId,
+        currentSiteId: siteId,
+        force,
+        timestamp: event.detail?.timestamp
+      });
+      
       // Forçar recarregamento adicionando timestamp ao siteId
       const fetchPreview = async () => {
         try {
           setLoading(true);
-          const cacheBuster = `?t=${Date.now()}`;
+          setError(null);
+          // ✅ Usar timestamp do evento ou gerar novo
+          const cacheBuster = `?t=${event.detail?.timestamp || Date.now()}&v=${event.detail?.versionNumber || 'latest'}`;
+          console.log(`📡 [PreviewIframe] Buscando preview atualizado: /api/preview-html/${siteId}${cacheBuster}`);
+          
           const response = await fetch(`/api/preview-html/${siteId}${cacheBuster}`);
           if (response.ok) {
             const data = await response.json();
             if (data.html) {
+              console.log(`✅ [PreviewIframe] Preview atualizado: ${data.html.length} chars`);
               setHtmlContent(data.html);
               setLoading(false);
+            } else {
+              console.warn('⚠️ [PreviewIframe] Preview atualizado mas sem HTML');
+              setLoading(false);
             }
+          } else {
+            console.error(`❌ [PreviewIframe] Erro ao buscar preview atualizado: ${response.status}`);
+            setLoading(false);
           }
         } catch (err) {
           console.error('❌ [PreviewIframe] Erro ao atualizar preview:', err);
@@ -92,8 +118,8 @@ export default function PreviewIframe({
       fetchPreview();
     };
     
-    window.addEventListener('preview-update', handlePreviewUpdate);
-    return () => window.removeEventListener('preview-update', handlePreviewUpdate);
+    window.addEventListener('preview-update', handlePreviewUpdate as EventListener);
+    return () => window.removeEventListener('preview-update', handlePreviewUpdate as EventListener);
   }, [siteId]);
 
   if (loading) {

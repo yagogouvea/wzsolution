@@ -667,15 +667,35 @@ Digite seu prompt primeiro para gerar o site.`,
       const data = await response.json();
 
       if (response.ok && data.ok) {
+        // ✅ Atualizar currentSiteCode (mesmo que seja o mesmo ID, força re-render)
         if (!currentSiteCode && data.previewId) {
           setCurrentSiteCode(data.previewId);
-        } else if (data.previewId && currentSiteCode !== data.previewId) {
+        } else if (data.previewId) {
+          // ✅ Sempre atualizar mesmo que seja o mesmo ID, para forçar re-render
           setCurrentSiteCode(data.previewId);
         }
         
-        const updatedLimits = await canMakeModification(conversationId);
+        // ✅ Aguardar um pouco antes de buscar limites atualizados (para garantir que versão foi commitada)
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // ✅ Retry na busca de limites (pode não estar commitado ainda)
+        let updatedLimits = await canMakeModification(conversationId);
+        let retries = 0;
+        while (retries < 3 && updatedLimits.modificationsUsed === modificationsUsed) {
+          console.log(`🔄 [modifySite] Aguardando atualização de limites (tentativa ${retries + 1}/3)...`);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          updatedLimits = await canMakeModification(conversationId);
+          retries++;
+        }
+        
         setModificationsUsed(updatedLimits.modificationsUsed);
         setProjectId(updatedLimits.projectId);
+        
+        console.log('✅ [modifySite] Limites atualizados:', {
+          modificationsUsed: updatedLimits.modificationsUsed,
+          remaining: updatedLimits.modificationsRemaining,
+          allowed: updatedLimits.allowed
+        });
         
         if (!updatedLimits.allowed && !hasEndedManually) {
           setIsBlocked(true);
@@ -706,14 +726,35 @@ Gostou do resultado? Você pode pedir mais modificações a qualquer momento! �
           timestamp: new Date(),
           type: 'site_preview',
           siteCodeId: data.previewId || currentSiteCode,
-          metadata: { showEndButton: true } // ✅ Mostrar botão de encerrar após cada modificação
+          metadata: { 
+            showEndButton: true,
+            versionNumber: data.versionNumber,
+            previewTimestamp: data.previewTimestamp || Date.now()
+          }
         };
 
         setMessages(prev => [...prev, updateMessage]);
         
+        // ✅ Disparar evento de atualização com detalhes completos
         window.dispatchEvent(new CustomEvent('preview-update', { 
-          detail: { siteId: data.previewId || currentSiteCode } 
+          detail: { 
+            siteId: data.previewId || currentSiteCode,
+            versionNumber: data.versionNumber,
+            timestamp: data.previewTimestamp || Date.now()
+          } 
         }));
+        
+        // ✅ Forçar atualização do preview após um pequeno delay
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('preview-update', { 
+            detail: { 
+              siteId: data.previewId || currentSiteCode,
+              versionNumber: data.versionNumber,
+              timestamp: Date.now(),
+              force: true
+            } 
+          }));
+        }, 1000);
       } else {
         throw new Error(data.error || 'Erro ao modificar');
       }

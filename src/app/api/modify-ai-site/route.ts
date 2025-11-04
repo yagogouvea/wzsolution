@@ -303,6 +303,9 @@ export async function POST(req: Request) {
       // A API /preview-html/[siteId] já busca automaticamente a última versão quando não encontra pelo ID exato
       // Isso permite que o preview seja atualizado sem mudar o link
       const previewId = conversationId; // Sempre usar conversationId como preview ID fixo
+      
+      // ✅ Adicionar timestamp para forçar atualização do preview
+      const previewTimestamp = Date.now();
 
       return NextResponse.json({
         ok: true,
@@ -310,8 +313,10 @@ export async function POST(req: Request) {
         siteCode: modifiedCode,
         code: modifiedCode,
         versionId: versionData?.id || null, // Manter para histórico
-        previewId: previewId, // ✅ NOVO: ID fixo do preview (sempre o mesmo)
+        previewId: previewId, // ✅ ID fixo do preview (sempre o mesmo)
+        previewTimestamp: previewTimestamp, // ✅ Timestamp para forçar atualização
         previewUrl: `/preview/${previewId}`, // ✅ SEMPRE o mesmo link
+        versionNumber: versionNumber, // ✅ Número da versão para referência
       });
     } catch (saveError) {
       console.error("❌ [modify-ai-site] Erro ao salvar no banco:", saveError);

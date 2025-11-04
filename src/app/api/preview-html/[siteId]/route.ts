@@ -26,7 +26,7 @@ export async function GET(
     // Tentativa 1: Buscar pelo ID exato (se for UUID de versão específica)
     const { data: byIdData, error: byIdError } = await supabase
       .from("site_versions")
-      .select("site_code, conversation_id")
+      .select("site_code, conversation_id, version_number")
       .eq("id", siteId)
       .maybeSingle();
 
@@ -37,7 +37,7 @@ export async function GET(
       // Tentativa 2: Se não encontrou pelo ID, tratar como conversationId e buscar última versão
       const { data: byConvData, error: byConvError } = await supabase
         .from("site_versions")
-        .select("site_code, conversation_id")
+        .select("site_code, conversation_id, version_number")
         .eq("conversation_id", siteId)
         .order("version_number", { ascending: false })
         .limit(1)
@@ -83,12 +83,16 @@ export async function GET(
     return NextResponse.json({
       html: fullHtml,
       siteId: siteId,
+      version: versionData?.version_number || 'latest',
+      timestamp: Date.now(),
     }, {
       headers: {
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'SAMEORIGIN',
         'X-XSS-Protection': '1; mode=block',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
       }
     });
   } catch (error: any) {

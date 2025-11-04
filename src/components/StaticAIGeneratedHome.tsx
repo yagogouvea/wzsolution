@@ -199,10 +199,10 @@ export default function StaticAIGeneratedHome() {
         
         // CONEXÃO COM IA
         
-        // 10. Modificar link "IA Site" no header para redirecionar para /ia-criador-site-v3
+        // 10. Modificar link "IA Site" no header para fazer scroll suave até a seção #ia-site na própria página
         processedHTML = processedHTML.replace(
           /href=["']#ia-site["']/gi,
-          'href="/ia-criador-site-v3" onclick="event.preventDefault(); window.location.href=\'/ia-criador-site-v3\'; return false;"'
+          'href="#ia-site" onclick="event.preventDefault(); const section = document.getElementById(\'ia-site\'); if(section) { const headerHeight = 80; const elementPosition = section.getBoundingClientRect().top + window.pageYOffset; const offsetPosition = elementPosition - headerHeight; window.scrollTo({ top: offsetPosition, behavior: \'smooth\' }); } return false;"'
         );
         
         // 11. Reformular completamente a seção IA - substituir por versão melhorada
@@ -499,16 +499,22 @@ export default function StaticAIGeneratedHome() {
               };
               
               function connectIAChat() {
-                // Interceptar links "IA Site" no header e navegação
+                // Interceptar links "IA Site" no header e navegação para fazer scroll suave
                 const iaLinks = document.querySelectorAll('a[href="#ia-site"]');
                 iaLinks.forEach(link => {
                   link.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    // Scroll suave até a seção IA
+                    // Scroll suave até a seção IA considerando altura do header
                     const iaSection = document.getElementById('ia-site');
                     if (iaSection) {
-                      iaSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      const headerHeight = 80;
+                      const elementPosition = iaSection.getBoundingClientRect().top + window.pageYOffset;
+                      const offsetPosition = elementPosition - headerHeight;
+                      window.scrollTo({
+                        top: offsetPosition,
+                        behavior: 'smooth'
+                      });
                     }
                     return false;
                   });
