@@ -676,16 +676,76 @@ Digite seu prompt primeiro para gerar o site.`,
         }
         
         // ✅ Aguardar um pouco antes de buscar limites atualizados (para garantir que versão foi commitada)
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         // ✅ Retry na busca de limites (pode não estar commitado ainda)
         let updatedLimits = await canMakeModification(conversationId);
+        const initialCount = modificationsUsed;
         let retries = 0;
-        while (retries < 3 && updatedLimits.modificationsUsed === modificationsUsed) {
-          console.log(`🔄 [modifySite] Aguardando atualização de limites (tentativa ${retries + 1}/3)...`);
-          await new Promise(resolve => setTimeout(resolve, 500));
+        const maxRetries = 5; // Aumentar tentativas
+        
+        console.log('🔍 [modifySite] Verificando contagem inicial:', {
+          initialCount,
+          newCount: updatedLimits.modificationsUsed,
+          versionsLength: 'verificando...'
+        });
+        
+        // Buscar versões diretamente para debug
+        try {
+          const { DatabaseService } = await import('@/lib/supabase');
+          const versions = await DatabaseService.getSiteVersions(conversationId);
+          console.log('📊 [modifySite] Versões no banco:', {
+            total: versions?.length || 0,
+            versions: versions?.map(v => ({ version: v.version_number, id: v.id?.substring(0, 8) }))
+          });
+        } catch (err) {
+          console.error('❌ [modifySite] Erro ao buscar versões:', err);
+        }
+        
+        while (retries < maxRetries && updatedLimits.modificationsUsed === initialCount) {
+          console.log(`🔄 [modifySite] Aguardando atualização de limites (tentativa ${retries + 1}/${maxRetries})...`);
+          console.log(`📊 [modifySite] Contagem atual: ${updatedLimits.modificationsUsed}, esperada: ${initialCount + 1}`);
+          
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Aumentar delay
           updatedLimits = await canMakeModification(conversationId);
+          
+          // Debug: verificar versões novamente
+          try {
+            const { DatabaseService } = await import('@/lib/supabase');
+            const versions = await DatabaseService.getSiteVersions(conversationId);
+            console.log(`📊 [modifySite] Versões após tentativa ${retries + 1}:`, versions?.length || 0);
+          } catch (err) {
+            // Ignorar erro de debug
+          }
+          
           retries++;
+        }
+        
+        // ✅ Se ainda não atualizou após retries, tentar forçar contagem
+        if (updatedLimits.modificationsUsed === initialCount) {
+          console.warn('⚠️ [modifySite] Contagem não atualizou após retries. Tentando contar diretamente...');
+          try {
+            const { DatabaseService } = await import('@/lib/supabase');
+            const versions = await DatabaseService.getSiteVersions(conversationId);
+            const directCount = versions && versions.length > 0 ? versions.length - 1 : 0;
+            console.log('🔍 [modifySite] Contagem direta:', {
+              versionsLength: versions?.length || 0,
+              directCount,
+              previousCount: initialCount
+            });
+            
+            if (directCount > initialCount) {
+              updatedLimits = {
+                ...updatedLimits,
+                modificationsUsed: directCount,
+                modificationsRemaining: Math.max(0, PROJECT_LIMITS.MODIFICATIONS - directCount),
+                allowed: directCount < PROJECT_LIMITS.MODIFICATIONS
+              };
+              console.log('✅ [modifySite] Contagem corrigida manualmente:', directCount);
+            }
+          } catch (err) {
+            console.error('❌ [modifySite] Erro ao contar diretamente:', err);
+          }
         }
         
         setModificationsUsed(updatedLimits.modificationsUsed);
@@ -694,7 +754,8 @@ Digite seu prompt primeiro para gerar o site.`,
         console.log('✅ [modifySite] Limites atualizados:', {
           modificationsUsed: updatedLimits.modificationsUsed,
           remaining: updatedLimits.modificationsRemaining,
-          allowed: updatedLimits.allowed
+          allowed: updatedLimits.allowed,
+          retriesUsed: retries
         });
         
         if (!updatedLimits.allowed && !hasEndedManually) {

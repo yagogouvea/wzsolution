@@ -34,7 +34,17 @@ export function generateProjectId(conversationId: string): number {
  */
 export async function countModifications(conversationId: string): Promise<number> {
   try {
+    console.log('🔍 [countModifications] Contando modificações para:', conversationId);
     const versions = await DatabaseService.getSiteVersions(conversationId);
+    
+    console.log('📊 [countModifications] Versões encontradas:', {
+      total: versions?.length || 0,
+      versions: versions?.map(v => ({
+        version: v.version_number,
+        id: v.id?.substring(0, 8),
+        created: v.created_at
+      }))
+    });
     
     // Contar versões após a primeira (que é a geração inicial)
     // Se tem 1 versão = geração inicial (0 modificações)
@@ -44,15 +54,19 @@ export async function countModifications(conversationId: string): Promise<number
     // Se tem 5+ versões = excedeu limite
     
     if (!versions || versions.length === 0) {
+      console.log('📊 [countModifications] Nenhuma versão encontrada, retornando 0');
       return 0; // Nenhuma versão ainda
     }
     
     // Versão 1 = geração inicial, versões 2+ = modificações
     const modifications = Math.max(0, versions.length - 1);
     
+    console.log('✅ [countModifications] Total de modificações:', modifications, `(${versions.length} versões - 1 inicial)`);
+    
     return modifications;
   } catch (error) {
     console.error('❌ Erro ao contar modificações:', error);
+    console.error('❌ Stack:', error instanceof Error ? error.stack : 'N/A');
     return 0;
   }
 }
