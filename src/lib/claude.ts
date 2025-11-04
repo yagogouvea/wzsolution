@@ -49,7 +49,7 @@ export async function generateSiteWithClaude(prompt: string): Promise<string> {
   const systemPrompt = `Você é um desenvolvedor web sênior da WZ Solution...`;
   const fullPrompt = systemPrompt + `\n\n💡 PEDIDO DO CLIENTE:\n${prompt}`;
   const estimatedInputTokens = estimateTokens(fullPrompt);
-  const estimatedMaxOutputTokens = 6000; // ✅ Configurado para 6k tokens
+  const estimatedMaxOutputTokens = 15000; // ✅ Configurado para 15k tokens
   const estimatedCost = calculateCost(estimatedInputTokens, estimatedMaxOutputTokens, 'sonnet');
   
   console.log(`💰 [Claude-Generate] Custo estimado (Sonnet): $${estimatedCost.toFixed(4)}`);
@@ -64,7 +64,7 @@ export async function generateSiteWithClaude(prompt: string): Promise<string> {
     try {
       const response = await anthropic.messages.create({
         model: process.env.CLAUDE_MODEL || "claude-sonnet-4-5-20250929",
-        max_tokens: 6000, // ✅ Configurado para 6k tokens
+        max_tokens: 15000, // ✅ Configurado para 15k tokens
         temperature: 0.6,
         stream: true, // ✅ Streaming habilitado (melhor performance)
         messages: [
