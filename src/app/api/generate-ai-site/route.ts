@@ -3,6 +3,7 @@ import { generateSiteWithClaude } from "@/lib/claude";
 import { DatabaseService } from "@/lib/supabase";
 import { moderateMessage } from "@/lib/message-moderation";
 import { logger } from "@/lib/logger";
+import { generateProjectId } from "@/lib/project-limits";
 
 export async function POST(req: Request) {
   const startTime = Date.now();
@@ -29,6 +30,15 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    // ✅ Log com IDs do projeto para facilitar busca
+    const projectId = generateProjectId(conversationId);
+    console.log("🆔 [generate-ai-site] IDs do projeto:", {
+      projectId: projectId,
+      conversationId: conversationId,
+      previewUrl: `/preview/${conversationId}`,
+      chatUrl: `/chat/${conversationId}`
+    });
 
     // Construir prompt detalhado com TODOS os dados do formulário
     let prompt = '';
@@ -144,7 +154,14 @@ export async function POST(req: Request) {
         ]);
 
         savedVersionId = siteVersion.id;
-        console.log(`✅ [generate-ai-site] Versão ${newVersion} salva com ID: ${savedVersionId}`);
+        const projectIdForLog = generateProjectId(conversationId);
+        console.log(`✅ [generate-ai-site] Versão ${newVersion} salva com sucesso!`, {
+          versionId: savedVersionId,
+          versionNumber: newVersion,
+          projectId: projectIdForLog,
+          conversationId: conversationId,
+          previewUrl: `/preview/${conversationId}`
+        });
       } catch (dbError) {
         console.error("⚠️ [generate-ai-site] Erro ao salvar no Supabase:", dbError);
         // Não bloquear - código já foi gerado

@@ -34,10 +34,16 @@ export function generateProjectId(conversationId: string): number {
  */
 export async function countModifications(conversationId: string): Promise<number> {
   try {
-    console.log('🔍 [countModifications] Contando modificações para:', conversationId);
+    const projectId = generateProjectId(conversationId);
+    console.log('🔍 [countModifications] Contando modificações:', {
+      projectId: projectId,
+      conversationId: conversationId
+    });
     const versions = await DatabaseService.getSiteVersions(conversationId);
     
     console.log('📊 [countModifications] Versões encontradas:', {
+      projectId: projectId,
+      conversationId: conversationId,
       total: versions?.length || 0,
       versions: versions?.map(v => ({
         version: v.version_number,
@@ -54,14 +60,24 @@ export async function countModifications(conversationId: string): Promise<number
     // Se tem 5+ versões = excedeu limite
     
     if (!versions || versions.length === 0) {
-      console.log('📊 [countModifications] Nenhuma versão encontrada, retornando 0');
+      console.log('📊 [countModifications] Nenhuma versão encontrada, retornando 0', {
+        projectId: projectId,
+        conversationId: conversationId
+      });
       return 0; // Nenhuma versão ainda
     }
     
     // Versão 1 = geração inicial, versões 2+ = modificações
     const modifications = Math.max(0, versions.length - 1);
     
-    console.log('✅ [countModifications] Total de modificações:', modifications, `(${versions.length} versões - 1 inicial)`);
+    console.log('✅ [countModifications] Total de modificações:', {
+      projectId: projectId,
+      conversationId: conversationId,
+      modifications: modifications,
+      totalVersions: versions.length,
+      previewUrl: `/preview/${conversationId}`,
+      chatUrl: `/chat/${conversationId}`
+    });
     
     return modifications;
   } catch (error) {

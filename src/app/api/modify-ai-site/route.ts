@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { modifySiteWithClaude } from "@/lib/claude";
 import { DatabaseService } from "@/lib/supabase";
 import { moderateMessage } from "@/lib/message-moderation";
+import { generateProjectId } from "@/lib/project-limits";
 
 // ✅ Configurar timeout maior para modificações (streaming pode demorar)
 export const maxDuration = 60; // 60 segundos (Vercel permite até 60s em Pro)
@@ -29,6 +30,15 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    // ✅ Log com IDs do projeto para facilitar busca
+    const projectId = generateProjectId(conversationId);
+    console.log('🆔 [modify-ai-site] IDs do projeto:', {
+      projectId: projectId,
+      conversationId: conversationId,
+      previewUrl: `/preview/${conversationId}`,
+      chatUrl: `/chat/${conversationId}`
+    });
 
     // 🔒 VALIDAÇÃO E MODERAÇÃO NO BACKEND
     try {
@@ -277,6 +287,7 @@ export async function POST(req: Request) {
 
       const versionNumber = lastVersion ? lastVersion.version_number + 1 : 1;
       console.log('📝 [modify-ai-site] Nova versão será:', versionNumber);
+      console.log('📝 [modify-ai-site] Última versão encontrada:', lastVersion ? `v${lastVersion.version_number}` : 'nenhuma');
 
       const { data: versionData, error: saveError } = await supabase
         .from("site_versions")
@@ -286,18 +297,67 @@ export async function POST(req: Request) {
           site_code: modifiedCode,
           modification_description: modification
         })
-        .select("id")
+        .select("id, version_number, conversation_id, created_at")
         .single();
 
       if (saveError) {
         console.error("❌ [modify-ai-site] Erro ao salvar versão:", saveError);
+        console.error("❌ [modify-ai-site] Detalhes do erro:", {
+          code: saveError.code,
+          message: saveError.message,
+          details: saveError.details,
+          hint: saveError.hint
+        });
         return NextResponse.json(
           { ok: false, error: `Erro ao salvar versão: ${saveError.message}` },
           { status: 500 }
         );
       }
 
-      console.log('✅ [modify-ai-site] Versão salva com sucesso:', versionData?.id);
+      const projectIdForLog = generateProjectId(conversationId);
+      console.log('✅ [modify-ai-site] Versão salva com sucesso!', {
+        versionId: versionData?.id,
+        versionNumber: versionData?.version_number,
+        projectId: projectIdForLog,
+        conversationId: versionData?.conversation_id,
+        createdAt: versionData?.created_at,
+        previewUrl: `/preview/${conversationId}`,
+        chatUrl: `/chat/${conversationId}`
+      });
+
+      // ✅ VERIFICAR IMEDIATAMENTE APÓS SALVAR - Buscar todas as versões para confirmar
+      const { data: verifyVersions, error: verifyError } = await supabase
+        .from("site_versions")
+        .select("id, version_number, created_at")
+        .eq("conversation_id", conversationId)
+        .order("version_number", { ascending: true });
+
+      if (verifyError) {
+        console.error('⚠️ [modify-ai-site] Erro ao verificar versões após salvar:', verifyError);
+      } else {
+        const projectIdForVerify = generateProjectId(conversationId);
+        console.log('✅ [modify-ai-site] Verificação pós-salvamento:', {
+          projectId: projectIdForVerify,
+          conversationId: conversationId,
+          totalVersions: verifyVersions?.length || 0,
+          modificationsUsed: (verifyVersions?.length || 0) - 1,
+          versions: verifyVersions?.map(v => ({
+            version: v.version_number,
+            id: v.id?.substring(0, 8),
+            created: v.created_at
+          }))
+        });
+        
+        // ✅ Se não encontrou a versão recém-salva, há problema
+        const savedVersionFound = verifyVersions?.some(v => v.id === versionData?.id);
+        if (!savedVersionFound) {
+          console.error('❌ [modify-ai-site] CRÍTICO: Versão salva não encontrada na verificação imediata!');
+          console.error('❌ [modify-ai-site] Versão salva ID:', versionData?.id);
+          console.error('❌ [modify-ai-site] Versões encontradas:', verifyVersions?.map(v => v.id));
+        } else {
+          console.log('✅ [modify-ai-site] Versão confirmada na verificação pós-salvamento');
+        }
+      }
 
       // ✅ RETORNAR O MESMO PREVIEW ID (conversationId) PARA MANTER O MESMO LINK
       // A API /preview-html/[siteId] já busca automaticamente a última versão quando não encontra pelo ID exato

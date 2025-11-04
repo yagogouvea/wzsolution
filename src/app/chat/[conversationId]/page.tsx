@@ -656,7 +656,14 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
   };
 
   const generateSitePreview = async (prompt: string) => {
+    const projectId = generateProjectId(conversationId);
     console.log('🎯 [generateSitePreview] Iniciando geração do site...');
+    console.log('🆔 [generateSitePreview] IDs do projeto:', {
+      projectId: projectId,
+      conversationId: conversationId,
+      previewUrl: `/preview/${conversationId}`,
+      chatUrl: `/chat/${conversationId}`
+    });
     console.log('📝 [generateSitePreview] Prompt recebido:', prompt);
     console.log('🔒 [generateSitePreview] isGenerating:', isGenerating);
     console.log('🔒 [generateSitePreview] generationLockRef:', generationLockRef.current);
@@ -731,9 +738,17 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
       console.log('📥 [generateSitePreview] Dados da resposta:', data);
 
       if (response.ok && data.ok) {
+        const projectIdAfterGen = generateProjectId(conversationId);
         console.log('✅ [generateSitePreview] Site gerado com sucesso!');
+        console.log('🆔 [generateSitePreview] IDs após geração:', {
+          projectId: projectIdAfterGen,
+          conversationId: conversationId,
+          versionId: data.versionId,
+          previewId: data.previewId || conversationId,
+          previewUrl: `/preview/${conversationId}`,
+          chatUrl: `/chat/${conversationId}`
+        });
         const previewId = data.previewId || conversationId || data.versionId || 'preview';
-        console.log('🆔 [generateSitePreview] Preview ID:', previewId);
         setCurrentSiteCode(previewId);
         
         const fullPrompt = initialData.additionalPrompt || prompt;
@@ -806,6 +821,15 @@ O serviço de IA está processando muitas solicitações no momento. Por favor, 
   };
 
   const modifySite = async (modification: string, imageData?: { imageUrl?: string; fileName?: string }) => {
+    const projectId = generateProjectId(conversationId);
+    console.log('🔧 [modifySite] Iniciando modificação...');
+    console.log('🆔 [modifySite] IDs do projeto:', {
+      projectId: projectId,
+      conversationId: conversationId,
+      previewUrl: `/preview/${conversationId}`,
+      chatUrl: `/chat/${conversationId}`
+    });
+    
     if (!currentSiteCode) {
       const errorMessage: Message = {
         id: crypto.randomUUID(),
@@ -821,6 +845,12 @@ Digite seu prompt primeiro para gerar o site.`,
     }
 
     const limits = await canMakeModification(conversationId);
+    console.log('📊 [modifySite] Limites antes da modificação:', {
+      projectId: projectId,
+      modificationsUsed: limits.modificationsUsed,
+      modificationsRemaining: limits.modificationsRemaining,
+      allowed: limits.allowed
+    });
     if (!limits.allowed) {
       setIsBlocked(true);
       setModificationsUsed(limits.modificationsUsed);
@@ -872,39 +902,71 @@ Digite seu prompt primeiro para gerar o site.`,
           setCurrentSiteCode(data.previewId);
         }
         
-        // ✅ Aguardar um pouco antes de buscar limites atualizados (para garantir que versão foi commitada)
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // ✅ NOVA ESTRATÉGIA: Usar versionNumber retornado pela API para contagem imediata
+        // A API já salvou e retornou o versionNumber, então podemos calcular diretamente
+        const expectedModifications = data.versionNumber ? data.versionNumber - 1 : modificationsUsed + 1;
         
-        // ✅ Retry na busca de limites (pode não estar commitado ainda)
-        let updatedLimits = await canMakeModification(conversationId);
+        console.log('🔍 [modifySite] Usando versionNumber da API para contagem:', {
+          versionNumber: data.versionNumber,
+          expectedModifications,
+          previousCount: modificationsUsed
+        });
+        
+        // ✅ Primeiro: Tentar usar contagem baseada no versionNumber retornado
+        // Isso é mais confiável que buscar do banco (evita problemas de cache/replicação)
+        let updatedLimits = {
+          modificationsUsed: expectedModifications,
+          modificationsRemaining: Math.max(0, PROJECT_LIMITS.MODIFICATIONS - expectedModifications),
+          allowed: expectedModifications < PROJECT_LIMITS.MODIFICATIONS,
+          projectId: generateProjectId(conversationId)
+        };
+        
+        // ✅ Verificar no banco para confirmar (com retry para replicação)
         const initialCount = modificationsUsed;
         let retries = 0;
-        const maxRetries = 5; // Aumentar tentativas
+        const maxRetries = 8; // Aumentar para 8 tentativas (até 8 segundos)
         
-        console.log('🔍 [modifySite] Verificando contagem inicial:', {
-          initialCount,
-          newCount: updatedLimits.modificationsUsed,
-          versionsLength: 'verificando...'
+        console.log('🔍 [modifySite] Verificando contagem no banco para confirmar:', {
+          expectedFromAPI: expectedModifications,
+          previousCount: initialCount
         });
         
         // Buscar versões diretamente para debug
         try {
           const { DatabaseService } = await import('@/lib/supabase');
           const versions = await DatabaseService.getSiteVersions(conversationId);
-          console.log('📊 [modifySite] Versões no banco:', {
+          console.log('📊 [modifySite] Versões no banco (primeira verificação):', {
             total: versions?.length || 0,
             versions: versions?.map(v => ({ version: v.version_number, id: v.id?.substring(0, 8) }))
           });
+          
+          // Se encontrou mais versões do que esperado, usar a contagem do banco
+          const dbCount = versions && versions.length > 0 ? versions.length - 1 : 0;
+          if (dbCount >= expectedModifications) {
+            updatedLimits.modificationsUsed = dbCount;
+            updatedLimits.modificationsRemaining = Math.max(0, PROJECT_LIMITS.MODIFICATIONS - dbCount);
+            updatedLimits.allowed = dbCount < PROJECT_LIMITS.MODIFICATIONS;
+            console.log('✅ [modifySite] Usando contagem do banco (mais atualizada):', dbCount);
+          }
         } catch (err) {
           console.error('❌ [modifySite] Erro ao buscar versões:', err);
         }
         
-        while (retries < maxRetries && updatedLimits.modificationsUsed === initialCount) {
-          console.log(`🔄 [modifySite] Aguardando atualização de limites (tentativa ${retries + 1}/${maxRetries})...`);
-          console.log(`📊 [modifySite] Contagem atual: ${updatedLimits.modificationsUsed}, esperada: ${initialCount + 1}`);
+        // ✅ Retry apenas se a contagem ainda não bateu (problema de replicação)
+        while (retries < maxRetries) {
+          const dbLimits = await canMakeModification(conversationId);
           
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Aumentar delay
-          updatedLimits = await canMakeModification(conversationId);
+          // Se a contagem do banco bateu ou é maior que a esperada, usar ela
+          if (dbLimits.modificationsUsed >= expectedModifications) {
+            updatedLimits = dbLimits;
+            console.log(`✅ [modifySite] Contagem confirmada no banco (tentativa ${retries + 1}):`, dbLimits.modificationsUsed);
+            break;
+          }
+          
+          console.log(`🔄 [modifySite] Aguardando replicação (tentativa ${retries + 1}/${maxRetries})...`);
+          console.log(`📊 [modifySite] Contagem banco: ${dbLimits.modificationsUsed}, esperada: ${expectedModifications}`);
+          
+          await new Promise(resolve => setTimeout(resolve, 1000));
           
           // Debug: verificar versões novamente
           try {
@@ -918,41 +980,31 @@ Digite seu prompt primeiro para gerar o site.`,
           retries++;
         }
         
-        // ✅ Se ainda não atualizou após retries, tentar forçar contagem
-        if (updatedLimits.modificationsUsed === initialCount) {
-          console.warn('⚠️ [modifySite] Contagem não atualizou após retries. Tentando contar diretamente...');
-          try {
-            const { DatabaseService } = await import('@/lib/supabase');
-            const versions = await DatabaseService.getSiteVersions(conversationId);
-            const directCount = versions && versions.length > 0 ? versions.length - 1 : 0;
-            console.log('🔍 [modifySite] Contagem direta:', {
-              versionsLength: versions?.length || 0,
-              directCount,
-              previousCount: initialCount
-            });
-            
-            if (directCount > initialCount) {
-              updatedLimits = {
-                ...updatedLimits,
-                modificationsUsed: directCount,
-                modificationsRemaining: Math.max(0, PROJECT_LIMITS.MODIFICATIONS - directCount),
-                allowed: directCount < PROJECT_LIMITS.MODIFICATIONS
-              };
-              console.log('✅ [modifySite] Contagem corrigida manualmente:', directCount);
-            }
-          } catch (err) {
-            console.error('❌ [modifySite] Erro ao contar diretamente:', err);
-          }
+        // ✅ Se ainda não bateu após retries, usar a contagem baseada no versionNumber
+        // Isso garante que sempre atualiza mesmo com problemas de replicação
+        if (updatedLimits.modificationsUsed < expectedModifications) {
+          console.warn('⚠️ [modifySite] Contagem do banco não atualizou, usando contagem baseada em versionNumber');
+          updatedLimits = {
+            modificationsUsed: expectedModifications,
+            modificationsRemaining: Math.max(0, PROJECT_LIMITS.MODIFICATIONS - expectedModifications),
+            allowed: expectedModifications < PROJECT_LIMITS.MODIFICATIONS,
+            projectId: generateProjectId(conversationId)
+          };
         }
         
         setModificationsUsed(updatedLimits.modificationsUsed);
         setProjectId(updatedLimits.projectId);
         
         console.log('✅ [modifySite] Limites atualizados:', {
+          projectId: updatedLimits.projectId,
+          conversationId: conversationId,
           modificationsUsed: updatedLimits.modificationsUsed,
           remaining: updatedLimits.modificationsRemaining,
           allowed: updatedLimits.allowed,
-          retriesUsed: retries
+          retriesUsed: retries,
+          versionNumber: data.versionNumber,
+          previewUrl: `/preview/${conversationId}`,
+          chatUrl: `/chat/${conversationId}`
         });
         
         if (!updatedLimits.allowed && !hasEndedManually) {
