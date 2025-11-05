@@ -70,9 +70,14 @@ export async function generateAIResponse(
       // Tornar mais restritivo - apenas mensagens curtas e diretas de confirmação
       const trimmedMessage = userMessage.trim().toLowerCase();
       const isShortConfirmation = trimmedMessage.length < 50; // Confirmações são curtas
-      const confirmationPattern = /^(gerar|sim|ok|pode gerar|pronto|está bom|está ok|confirmo|confirmado|pode criar|pode fazer|pode começar|tudo certo|pode ir|vamos lá)$/i;
       
-      userConfirmed = isShortConfirmation && confirmationPattern.test(trimmedMessage);
+      // ✅ Padrão específico para confirmações explícitas (incluindo "ok ok")
+      const exactConfirmationPattern = /^(gerar|sim|ok|pode gerar|pronto|está bom|está ok|confirmo|confirmado|pode criar|pode fazer|pode começar|tudo certo|pode ir|vamos lá|ok ok|okay|okay okay)$/i;
+      
+      // ✅ Detectar confirmações repetidas (ex: "ok ok", "sim sim")
+      const repeatedConfirmation = /^(ok|sim|gerar|pronto|pode)\s+(ok|sim|gerar|pronto|pode)$/i.test(trimmedMessage);
+      
+      userConfirmed = isShortConfirmation && (exactConfirmationPattern.test(trimmedMessage) || repeatedConfirmation);
       
       // ✅ Também verificar se a mensagem contém palavras de confirmação no contexto de uma frase curta
       if (!userConfirmed && isShortConfirmation) {
@@ -86,7 +91,8 @@ export async function generateAIResponse(
       isFirstUserResponse,
       userMessage: userMessage.substring(0, 50),
       userConfirmed,
-      messageLength: userMessage.length
+      messageLength: userMessage.length,
+      trimmedMessage: userMessage.trim().toLowerCase()
     });
     const isSecondUserResponse = userMessagesCount === 2;
     
@@ -296,13 +302,41 @@ Mensagem atual do usuário: ${userMessage}
     // 4. Se usuário enviou alterações → RECOMPILAR E PEDIR CONFIRMAÇÃO NOVAMENTE
     
     // ✅ Verificar se usuário está enviando alterações/adicionais (não é confirmação)
+    // IMPORTANTE: Se userConfirmed é true, NÃO é adição de informações
     const isUserAddingInfo = !userConfirmed && !isFirstUserResponse && userMessage.length > 20;
+    
+    // ✅ Verificar se a IA já compilou anteriormente (procurar por "COMPILAÇÃO" no histórico)
+    const hasPreviousCompilation = conversationHistory.some(msg => 
+      msg.sender_type === 'ai' && 
+      (msg.content.includes('COMPILAÇÃO') || 
+       msg.content.includes('compilação') ||
+       msg.content.includes('Confirme se está tudo correto'))
+    );
+    
+    console.log('🔍 [Claude-Chat] Estado da conversa:', {
+      hasCompleteProjectData,
+      userConfirmed,
+      isUserAddingInfo,
+      hasPreviousCompilation,
+      conversationLength: conversationHistory.length
+    });
     
     if (hasCompleteProjectData && userConfirmed) {
       // ✅ CASO 1: Tem tudo E usuário confirmou → GERAR AGORA
       nextStage = 2;
       shouldGeneratePreview = true;
       console.log('✅ [Claude-Chat] Dados completos + confirmação explícita - GERANDO AGORA!', {
+        company_name: projectData.company_name,
+        business_type: projectData.business_type,
+        pages_count: Array.isArray(projectData.pages_needed) ? projectData.pages_needed.length : 0,
+        has_style: !!projectData.design_style,
+        hasPreviousCompilation
+      });
+    } else if (hasCompleteProjectData && !userConfirmed && hasPreviousCompilation) {
+      // ✅ CASO ESPECIAL: Tem tudo, já compilou antes, mas usuário ainda não confirmou → PEDIR CONFIRMAÇÃO (NÃO GERAR)
+      nextStage = 1;
+      shouldGeneratePreview = false;
+      console.log('📋 [Claude-Chat] Dados completos + já compilou antes - aguardando confirmação (NÃO gerar ainda)', {
         company_name: projectData.company_name,
         business_type: projectData.business_type,
         pages_count: Array.isArray(projectData.pages_needed) ? projectData.pages_needed.length : 0,

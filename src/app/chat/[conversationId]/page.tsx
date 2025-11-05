@@ -1748,8 +1748,13 @@ ${getRedirectMessage(messageToSend)}`,
           
           // ✅ Se a IA indicar que deve gerar preview (shouldGeneratePreview), gerar agora
           // ✅ TAMBÉM verificar se a mensagem do usuário é uma confirmação e a resposta indica geração
-          const userMessageIsConfirmation = /^(gerar|sim|ok|pode gerar|pronto|pode|vamos|está bom|está ok|vai|confirmo|confirmado|pode criar|pode fazer|pode começar)$/i.test(messageToSend.trim()) ||
-                                             /(gerar|sim|ok|pode gerar|pronto|pode|vamos|está bom|está ok|vai|confirmo|confirmado|pode criar|pode fazer|pode começar)/i.test(messageToSend);
+          const trimmedMessage = messageToSend.trim().toLowerCase();
+          const exactConfirmationPattern = /^(gerar|sim|ok|pode gerar|pronto|pode|vamos|está bom|está ok|vai|confirmo|confirmado|pode criar|pode fazer|pode começar|ok ok|okay|okay okay)$/i;
+          const repeatedConfirmation = /^(ok|sim|gerar|pronto|pode)\s+(ok|sim|gerar|pronto|pode)$/i.test(trimmedMessage);
+          
+          const userMessageIsConfirmation = exactConfirmationPattern.test(trimmedMessage) || 
+                                             repeatedConfirmation ||
+                                             (trimmedMessage.length < 50 && /(sim|ok|gerar|pronto|pode|confirmo|tudo certo)/i.test(trimmedMessage) && !/(não|nao|nada|cancelar|desistir|parar)/i.test(trimmedMessage));
           
           const responseIndicatesGeneration = chatData.response && (
             chatData.response.includes('Gerando seu site') ||
@@ -1757,11 +1762,26 @@ ${getRedirectMessage(messageToSend)}`,
             chatData.response.includes('criando um site') ||
             chatData.response.includes('preparo seu site') ||
             chatData.response.includes('vou gerar') ||
-            chatData.response.includes('gerando agora')
+            chatData.response.includes('gerando agora') ||
+            chatData.response.includes('INICIANDO A GERAÇÃO') ||
+            chatData.response.includes('iniciando agora') ||
+            chatData.response.includes('Iniciando agora') ||
+            chatData.response.includes('Estou iniciando') ||
+            chatData.response.includes('estou iniciando') ||
+            chatData.response.includes('iniciando a criação') ||
+            chatData.response.includes('Iniciando a criação')
           );
           
           const shouldGenerate = chatData.shouldGeneratePreview === true || 
                                  (userMessageIsConfirmation && responseIndicatesGeneration);
+          
+          console.log('🔍 [sendMessage] Análise de geração:', {
+            shouldGeneratePreviewFlag: chatData.shouldGeneratePreview,
+            userMessageIsConfirmation,
+            responseIndicatesGeneration,
+            shouldGenerate,
+            responseSnippet: chatData.response?.substring(0, 150)
+          });
           
           if (shouldGenerate) {
             console.log('✅ [sendMessage] Condições atendidas para gerar preview:', {
