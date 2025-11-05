@@ -32,13 +32,19 @@ export default function Header() {
     let subscription: { unsubscribe: () => void } | null = null;
     
     try {
-      const authState = supabaseAuth.auth.onAuthStateChange((_event: string, session: any) => {
-        console.log('🔄 [Header] Mudança de autenticação:', _event, session?.user?.email || 'sem usuário');
-        setUser(session?.user ?? null);
-      });
-      subscription = authState.data.subscription;
+      // ✅ Verificar se auth está disponível antes de usar
+      if (supabaseAuth && supabaseAuth.auth && typeof supabaseAuth.auth.onAuthStateChange === 'function') {
+        const authState = supabaseAuth.auth.onAuthStateChange((_event: string, session: any) => {
+          console.log('🔄 [Header] Mudança de autenticação:', _event, session?.user?.email || 'sem usuário');
+          setUser(session?.user ?? null);
+        });
+        subscription = authState?.data?.subscription || null;
+      }
     } catch (error) {
-      console.warn('⚠️ [Header] Erro ao configurar observador de autenticação:', error);
+      // Não logar em produção para evitar spam de logs
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ [Header] Erro ao configurar observador de autenticação:', error);
+      }
       // Não fazer nada - botão já está visível
     }
 

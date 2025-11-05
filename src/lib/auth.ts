@@ -8,6 +8,9 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+// ✅ Verificar se as variáveis estão configuradas
+const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
+
 // ✅ Cliente Supabase lazy-loaded para evitar erros de inicialização
 let _supabaseAuthInstance: SupabaseClient | null = null;
 
@@ -16,7 +19,7 @@ function getSupabaseAuth(): SupabaseClient {
     return _supabaseAuthInstance;
   }
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!isSupabaseConfigured) {
     throw new Error('Supabase URL e Anon Key são obrigatórios');
   }
 
@@ -38,9 +41,41 @@ function getSupabaseAuth(): SupabaseClient {
   return _supabaseAuthInstance;
 }
 
+// ✅ Objeto auth fake para quando Supabase não está configurado
+const fakeAuth = {
+  onAuthStateChange: () => ({
+    data: {
+      subscription: {
+        unsubscribe: () => {}
+      }
+    }
+  }),
+  signInWithPassword: () => Promise.resolve({ data: null, error: { message: 'Supabase não configurado' } }),
+  signUp: () => Promise.resolve({ data: null, error: { message: 'Supabase não configurado' } }),
+  signOut: () => Promise.resolve({ error: null }),
+  getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+  getUser: () => Promise.resolve({ data: { user: null }, error: { message: 'Supabase não configurado' } }),
+  refreshSession: () => Promise.resolve({ data: null, error: { message: 'Supabase não configurado' } }),
+  resend: () => Promise.resolve({ error: { message: 'Supabase não configurado' } }),
+  resetPasswordForEmail: () => Promise.resolve({ error: { message: 'Supabase não configurado' } }),
+  updateUser: () => Promise.resolve({ error: { message: 'Supabase não configurado' } })
+};
+
 // Export para compatibilidade - usando Proxy seguro
 export const supabaseAuth = new Proxy({} as SupabaseClient, {
   get(_target, prop) {
+    // ✅ Se Supabase não está configurado, retornar objeto fake
+    if (!isSupabaseConfigured) {
+      if (prop === 'auth') {
+        return fakeAuth;
+      }
+      // Retornar função vazia para outros métodos
+      if (typeof prop === 'string' && prop.startsWith('on')) {
+        return () => ({ data: { subscription: { unsubscribe: () => {} } } });
+      }
+      return undefined;
+    }
+
     try {
       const client = getSupabaseAuth();
       const value = (client as any)[prop];
@@ -54,9 +89,13 @@ export const supabaseAuth = new Proxy({} as SupabaseClient, {
       return value;
     } catch (error) {
       console.error('❌ [Auth] Erro ao acessar propriedade:', prop, error);
+      // Retornar objeto fake auth se houver erro
+      if (prop === 'auth') {
+        return fakeAuth;
+      }
       // Retornar função vazia se houver erro para evitar crashes
       if (typeof prop === 'string' && prop.startsWith('on')) {
-        return () => {};
+        return () => ({ data: { subscription: { unsubscribe: () => {} } } });
       }
       return undefined;
     }
@@ -74,6 +113,14 @@ export interface User {
  */
 export async function signIn(email: string, password: string) {
   try {
+    // ✅ Verificar se Supabase está configurado
+    if (!isSupabaseConfigured) {
+      return {
+        success: false,
+        error: 'Serviço de autenticação não configurado. Entre em contato com o suporte.'
+      };
+    }
+
     const { data, error } = await getSupabaseAuth().auth.signInWithPassword({
       email,
       password
@@ -153,6 +200,14 @@ export async function checkEmailExists(email: string): Promise<boolean> {
  */
 export async function signUp(email: string, password: string, name?: string) {
   try {
+    // ✅ Verificar se Supabase está configurado
+    if (!isSupabaseConfigured) {
+      return {
+        success: false,
+        error: 'Serviço de autenticação não configurado. Entre em contato com o suporte.'
+      };
+    }
+
     // ✅ Validar formato de email antes de enviar
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const normalizedEmail = email.toLowerCase().trim();
@@ -291,8 +346,11 @@ export async function getCurrentUser() {
     }
 
     // ✅ Verificar se as variáveis de ambiente estão configuradas
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('❌ [Auth] Variáveis de ambiente do Supabase não configuradas!');
+    if (!isSupabaseConfigured) {
+      // Não logar como erro em produção - apenas avisar silenciosamente
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ [Auth] Variáveis de ambiente do Supabase não configuradas!');
+      }
       return null;
     }
 
