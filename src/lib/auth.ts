@@ -5,12 +5,20 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+// ✅ Cache para configurações obtidas via API (fallback)
+let cachedConfig: { url?: string; key?: string } | null = null;
+let configFetchPromise: Promise<{ url?: string; key?: string }> | null = null;
+
 // ✅ Ler variáveis em runtime para garantir que sejam atualizadas
 // Isso permite que as variáveis sejam lidas mesmo se não estiverem disponíveis no build
 function getSupabaseUrl(): string | undefined {
   if (typeof window !== 'undefined') {
     // No cliente, tentar ler do window se disponível (fallback)
-    return (window as any).__NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const fromWindow = (window as any).__NEXT_PUBLIC_SUPABASE_URL;
+    const fromEnv = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const fromCache = cachedConfig?.url;
+    
+    return fromWindow || fromEnv || fromCache;
   }
   return process.env.NEXT_PUBLIC_SUPABASE_URL;
 }
@@ -18,9 +26,51 @@ function getSupabaseUrl(): string | undefined {
 function getSupabaseAnonKey(): string | undefined {
   if (typeof window !== 'undefined') {
     // No cliente, tentar ler do window se disponível (fallback)
-    return (window as any).__NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const fromWindow = (window as any).__NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const fromEnv = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const fromCache = cachedConfig?.key;
+    
+    return fromWindow || fromEnv || fromCache;
   }
   return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+}
+
+// ✅ Função para buscar configuração via API se não estiver disponível
+async function fetchSupabaseConfig(): Promise<{ url?: string; key?: string }> {
+  if (configFetchPromise) {
+    return configFetchPromise;
+  }
+
+  configFetchPromise = (async () => {
+    try {
+      const response = await fetch('/api/supabase-config');
+      const data = await response.json();
+      
+      if (data.success && data.config) {
+        cachedConfig = {
+          url: data.config.url,
+          key: data.config.anonKey
+        };
+        
+        // Armazenar no window para acesso futuro
+        if (typeof window !== 'undefined') {
+          (window as any).__NEXT_PUBLIC_SUPABASE_URL = data.config.url;
+          (window as any).__NEXT_PUBLIC_SUPABASE_ANON_KEY = data.config.anonKey;
+        }
+        
+        return cachedConfig;
+      }
+      
+      return {};
+    } catch (error) {
+      console.error('❌ [Auth] Erro ao buscar configuração Supabase via API:', error);
+      return {};
+    } finally {
+      configFetchPromise = null;
+    }
+  })();
+
+  return configFetchPromise;
 }
 
 // ✅ Verificar se as variáveis estão configuradas (em runtime)
@@ -37,22 +87,41 @@ function checkSupabaseConfigured(): boolean {
       ? Object.keys(process.env).filter(k => k.includes('SUPABASE') || k.startsWith('NEXT_PUBLIC_'))
       : [];
     
-    console.warn('⚠️ [Auth] Supabase não configurado. Diagnóstico:', {
-      url: url ? '✅' : '❌',
-      key: key ? '✅' : '❌',
-      urlLength: url?.length || 0,
-      keyLength: key?.length || 0,
-      urlPrefix: url?.substring(0, 30) || 'undefined',
-      envKeysFound: envKeys,
-      isClient: typeof window !== 'undefined',
-      // Tentar ler diretamente do process.env para debug
-      directUrl: typeof process !== 'undefined' && process.env 
-        ? process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30) || 'undefined'
-        : 'process.env não disponível',
-      directKey: typeof process !== 'undefined' && process.env
-        ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? `***${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.length} chars***` : 'undefined'
-        : 'process.env não disponível'
-    });
+    // ✅ Log expandido para ver todos os detalhes
+    console.group('⚠️ [Auth] Supabase não configurado - Diagnóstico Detalhado');
+    console.log('URL:', url ? `✅ ${url.substring(0, 50)}...` : '❌ undefined');
+    console.log('Key:', key ? `✅ ${key.length} caracteres` : '❌ undefined');
+    console.log('URL Length:', url?.length || 0);
+    console.log('Key Length:', key?.length || 0);
+    console.log('Env Keys Found:', envKeys);
+    console.log('Is Client:', typeof window !== 'undefined');
+    console.log('Cached Config:', cachedConfig ? '✅ Disponível' : '❌ Não disponível');
+    
+    // Tentar ler diretamente do process.env
+    if (typeof process !== 'undefined' && process.env) {
+      console.log('process.env.NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 50) || 'undefined');
+      console.log('process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? `${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.length} chars` : 'undefined');
+      console.log('Todas as variáveis NEXT_PUBLIC_*:', Object.keys(process.env).filter(k => k.startsWith('NEXT_PUBLIC_')));
+    } else {
+      console.log('process.env não disponível neste contexto');
+    }
+    
+    // ✅ IMPORTANTE: Verificar se as variáveis foram injetadas no build
+    console.warn('🔍 DIAGNÓSTICO: Se as variáveis estão undefined acima, elas NÃO foram injetadas durante o BUILD do Next.js.');
+    console.warn('📝 SOLUÇÃO: Configure as variáveis no Railway ANTES de fazer o build e faça um novo deploy.');
+    console.warn('💡 FALLBACK: Tentando buscar configuração via API...');
+    console.groupEnd();
+    
+    // ✅ Tentar buscar via API se estiver no cliente e não tiver cache
+    if (typeof window !== 'undefined' && !cachedConfig && !configFetchPromise) {
+      fetchSupabaseConfig().then(config => {
+        if (config.url && config.key) {
+          console.log('✅ [Auth] Configuração Supabase obtida via API fallback');
+        } else {
+          console.error('❌ [Auth] Não foi possível obter configuração Supabase via API');
+        }
+      });
+    }
   }
   
   return isConfigured;
@@ -194,10 +263,22 @@ export interface User {
 export async function signIn(email: string, password: string) {
   try {
     // ✅ Verificar se Supabase está configurado (sempre em runtime)
-    if (!checkSupabaseConfigured()) {
+    let isConfigured = checkSupabaseConfigured();
+    
+    // ✅ Se não estiver configurado e estiver no cliente, tentar buscar via API
+    if (!isConfigured && typeof window !== 'undefined') {
+      console.log('🔄 [Auth] Tentando obter configuração Supabase via API...');
+      const config = await fetchSupabaseConfig();
+      if (config.url && config.key) {
+        console.log('✅ [Auth] Configuração obtida via API, tentando novamente...');
+        isConfigured = checkSupabaseConfigured();
+      }
+    }
+    
+    if (!isConfigured) {
       const url = getSupabaseUrl();
       const key = getSupabaseAnonKey();
-      console.error('❌ [Auth] Supabase não configurado:', {
+      console.error('❌ [Auth] Supabase não configurado após tentativas:', {
         hasUrl: !!url,
         hasKey: !!key,
         urlLength: url?.length || 0,
@@ -294,10 +375,22 @@ export async function checkEmailExists(email: string): Promise<boolean> {
 export async function signUp(email: string, password: string, name?: string) {
   try {
     // ✅ Verificar se Supabase está configurado (sempre em runtime)
-    if (!checkSupabaseConfigured()) {
+    let isConfigured = checkSupabaseConfigured();
+    
+    // ✅ Se não estiver configurado e estiver no cliente, tentar buscar via API
+    if (!isConfigured && typeof window !== 'undefined') {
+      console.log('🔄 [Auth] Tentando obter configuração Supabase via API...');
+      const config = await fetchSupabaseConfig();
+      if (config.url && config.key) {
+        console.log('✅ [Auth] Configuração obtida via API, tentando novamente...');
+        isConfigured = checkSupabaseConfigured();
+      }
+    }
+    
+    if (!isConfigured) {
       const url = getSupabaseUrl();
       const key = getSupabaseAnonKey();
-      console.error('❌ [Auth] Supabase não configurado:', {
+      console.error('❌ [Auth] Supabase não configurado após tentativas:', {
         hasUrl: !!url,
         hasKey: !!key,
         urlLength: url?.length || 0,
