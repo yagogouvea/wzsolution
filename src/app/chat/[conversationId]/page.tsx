@@ -1744,6 +1744,9 @@ ${getRedirectMessage(messageToSend)}`,
         await modifySite(messageToSend, imageData);
       } else {
         // ✅ Não tem site ainda - enviar para IA perguntar ou gerar preview
+        console.log('📨 [sendMessage] ============================================');
+        console.log('📨 [sendMessage] ENVIANDO MENSAGEM PARA IA');
+        console.log('📨 [sendMessage] ============================================');
         console.log('📨 [sendMessage] Enviando mensagem para IA (sem site gerado ainda)...');
         console.log('📤 [sendMessage] Enviando requisição para /api/chat:', {
           conversationId,
@@ -1779,6 +1782,9 @@ ${getRedirectMessage(messageToSend)}`,
         
         const chatData = await chatResponse.json();
         
+        console.log('📥 [sendMessage] ============================================');
+        console.log('📥 [sendMessage] JSON PARSEADO - VERIFICAR AQUI!');
+        console.log('📥 [sendMessage] ============================================');
         console.log('📥 [sendMessage] JSON parseado:', {
           success: chatData.success,
           hasResponse: !!chatData.response,
@@ -1787,7 +1793,8 @@ ${getRedirectMessage(messageToSend)}`,
           shouldGeneratePreviewRaw: chatData.shouldGeneratePreviewRaw,
           nextStage: chatData.nextStage,
           responseLength: chatData.response?.length,
-          keys: Object.keys(chatData)
+          keys: Object.keys(chatData),
+          FULL_OBJECT: JSON.stringify(chatData, null, 2).substring(0, 1000)
         });
         
         if (chatData.success && chatData.response) {
@@ -1846,7 +1853,7 @@ ${getRedirectMessage(messageToSend)}`,
           
           if (isShouldGenerateTrue) {
             console.log('🚀 [sendMessage] ============================================');
-            console.log('🚀 [sendMessage] PRIORIDADE 1: shouldGeneratePreview é TRUE');
+            console.log('🚀 [sendMessage] ⚠️⚠️⚠️ CRÍTICO: shouldGeneratePreview é TRUE ⚠️⚠️⚠️');
             console.log('🚀 [sendMessage] GERANDO AGORA!');
             console.log('🚀 [sendMessage] ============================================');
             console.log('📊 [sendMessage] Detalhes:', {
@@ -1859,40 +1866,56 @@ ${getRedirectMessage(messageToSend)}`,
               messagePreview: messageToSend.substring(0, 100)
             });
             
-            // ✅ FUNÇÃO ASSÍNCRONA para garantir que a execução não seja bloqueada
-            const startGeneration = async () => {
+            // ✅ CRÍTICO: Salvar o prompt em uma variável local para garantir que não seja perdido
+            const promptToUse = messageToSend;
+            const conversationIdToUse = conversationId;
+            
+            // ✅ VERIFICAR se generateSitePreview existe
+            if (typeof generateSitePreview !== 'function') {
+              console.error('❌ [sendMessage] ERRO CRÍTICO: generateSitePreview não é uma função!');
+              console.error('❌ [sendMessage] Tipo:', typeof generateSitePreview);
+              alert('ERRO: generateSitePreview não encontrado! Verifique o console.');
+            } else {
+              console.log('✅ [sendMessage] generateSitePreview é uma função válida');
+            }
+            
+            // ✅ Chamar generateSitePreview diretamente após um pequeno delay
+            // Usar setTimeout com uma função arrow para garantir que o contexto seja preservado
+            console.log('⏳ [sendMessage] Configurando setTimeout para chamar generateSitePreview em 500ms...');
+            setTimeout(() => {
+              console.log('⏳ [sendMessage] ============================================');
+              console.log('⏳ [sendMessage] Delay de 500ms concluído - INICIANDO GERAÇÃO');
+              console.log('⏳ [sendMessage] ============================================');
+              console.log('📝 [sendMessage] Prompt que será usado:', promptToUse?.substring(0, 100) || 'SEM PROMPT');
+              console.log('🆔 [sendMessage] ConversationId:', conversationIdToUse);
+              console.log('🎯 [sendMessage] Chamando generateSitePreview diretamente...');
+              
+              // ✅ Chamar a função diretamente e tratar erros
               try {
-                console.log('⏳ [sendMessage] Aguardando 500ms antes de iniciar geração...');
-                await new Promise(resolve => setTimeout(resolve, 500));
+                const result = generateSitePreview(promptToUse);
+                console.log('✅ [sendMessage] generateSitePreview foi chamado, resultado:', result);
                 
-                console.log('⏳ [sendMessage] Delay concluído, verificando estado antes de gerar...');
-                console.log('📊 [sendMessage] Estado atual:', {
-                  isGenerating,
-                  generationLockRef: generationLockRef.current
-                });
-                
-                console.log('📝 [sendMessage] Prompt que será usado:', messageToSend.substring(0, 100));
-                console.log('🎯 [sendMessage] Chamando generateSitePreview agora...');
-                
-                await generateSitePreview(messageToSend);
-                
-                console.log('✅ [sendMessage] generateSitePreview RETORNOU com sucesso!');
-              } catch (error) {
-                console.error('❌ [sendMessage] ERRO ao gerar preview:', error);
-                console.error('❌ [sendMessage] Tipo do erro:', typeof error);
-                console.error('❌ [sendMessage] Stack:', error instanceof Error ? error.stack : 'N/A');
-                console.error('❌ [sendMessage] Mensagem:', error instanceof Error ? error.message : String(error));
-                
-                // ✅ Não lançar erro aqui - apenas logar para não quebrar o fluxo
+                // Se retornar uma Promise, tratar com then/catch
+                if (result && typeof result.then === 'function') {
+                  result
+                    .then(() => {
+                      console.log('✅ [sendMessage] generateSitePreview RETORNOU com sucesso!');
+                    })
+                    .catch((error) => {
+                      console.error('❌ [sendMessage] ERRO ao gerar preview:', error);
+                      console.error('❌ [sendMessage] Tipo do erro:', typeof error);
+                      console.error('❌ [sendMessage] Stack:', error instanceof Error ? error.stack : 'N/A');
+                      console.error('❌ [sendMessage] Mensagem:', error instanceof Error ? error.message : String(error));
+                    });
+                }
+              } catch (syncError) {
+                console.error('❌ [sendMessage] ERRO SÍNCRONO ao chamar generateSitePreview:', syncError);
+                console.error('❌ [sendMessage] Stack:', syncError instanceof Error ? syncError.stack : 'N/A');
               }
-            };
+            }, 500);
             
-            // ✅ Iniciar geração imediatamente (não esperar)
-            startGeneration().catch(err => {
-              console.error('❌ [sendMessage] Erro crítico ao iniciar geração:', err);
-            });
-            
-            return; // ✅ IMPORTANTE: Retornar aqui para não executar código abaixo
+            // ✅ NÃO retornar aqui - deixar o código continuar normalmente
+            // O return foi removido para garantir que o código continue normalmente
           } else {
             console.log('⚠️ [sendMessage] shouldGeneratePreview NÃO é true:', {
               shouldGenerateValue,
