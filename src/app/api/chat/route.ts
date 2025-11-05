@@ -249,53 +249,99 @@ export async function POST(request: NextRequest) {
       message.includes('funcionalidades')
     );
 
-    if (isFirstMessage && isPromptComplete && stage === 1) {
-      console.log('🔍 [Chat] Prompt completo detectado, extraindo informações...');
+    // ✅ Extrair dados TANTO da primeira mensagem QUANTO de alterações subsequentes
+    const isModificationOrAddition = !isFirstMessage && message.length > 30 && (
+      message.toLowerCase().includes('alterar') ||
+      message.toLowerCase().includes('adicionar') ||
+      message.toLowerCase().includes('incluir') ||
+      message.toLowerCase().includes('quero') ||
+      message.toLowerCase().includes('preciso') ||
+      message.toLowerCase().includes('gostaria') ||
+      message.toLowerCase().includes('mudar') ||
+      message.toLowerCase().includes('trocar')
+    );
+    
+    const shouldExtract = (isFirstMessage && isPromptComplete && stage === 1) || isModificationOrAddition;
+    
+    if (shouldExtract) {
+      console.log('🔍 [Chat] Extraindo informações da mensagem...', {
+        isFirstMessage,
+        isModificationOrAddition,
+        messageLength: message.length
+      });
+      
       try {
         const extractedData = await extractDataFromPrompt(message, conversationId);
         
-        if (extractedData.has_complete_info && Object.keys(extractedData).length > 1) {
-          console.log('✅ [Chat] Dados extraídos do prompt completo:', {
+        // ✅ Extrair mesmo se não tiver has_complete_info - pode ter informações parciais valiosas
+        if (extractedData && Object.keys(extractedData).length > 1) {
+          console.log('✅ [Chat] Dados extraídos da mensagem:', {
             company_name: extractedData.company_name,
             business_type: extractedData.business_type,
             pages_count: extractedData.pages_needed?.length || 0,
             has_style: !!extractedData.design_style,
-            has_colors: !!extractedData.design_colors
+            has_colors: !!extractedData.design_colors,
+            has_complete_info: extractedData.has_complete_info
           });
 
-          // ✅ Mesclar dados extraídos com projectData existente (prompt tem prioridade)
+          // ✅ Mesclar dados extraídos com projectData existente
           // ✅ REMOVER has_complete_info (não existe na tabela project_data)
           const { has_complete_info, ...dataToMerge } = extractedData;
           
+          // ✅ Para alterações, mesclar de forma inteligente (preservar dados existentes que não foram mencionados)
           const mergedData: Record<string, unknown> = {
             ...(projectData || {}),
-            // Preservar dados existentes se não foram mencionados no prompt
-            company_name: dataToMerge.company_name || projectData?.company_name,
-            business_type: dataToMerge.business_type || dataToMerge.business_sector || projectData?.business_type,
-            business_sector: dataToMerge.business_sector || dataToMerge.business_type || projectData?.business_type,
-            pages_needed: dataToMerge.pages_needed || projectData?.pages_needed,
-            design_style: dataToMerge.design_style || projectData?.design_style,
-            design_colors: dataToMerge.design_colors || projectData?.design_colors,
-            functionalities: dataToMerge.functionalities || projectData?.functionalities,
-            target_audience: dataToMerge.target_audience || projectData?.target_audience,
-            business_objective: dataToMerge.business_objective || projectData?.business_objective,
-            short_description: dataToMerge.short_description || projectData?.short_description,
-            slogan: dataToMerge.slogan || projectData?.slogan,
-            cta_text: dataToMerge.cta_text || projectData?.cta_text,
-            site_structure: dataToMerge.site_structure || projectData?.site_structure,
+            // ✅ Sobrescrever apenas campos que foram mencionados na mensagem
+            ...(dataToMerge.company_name ? { company_name: dataToMerge.company_name } : {}),
+            ...(dataToMerge.business_type ? { business_type: dataToMerge.business_type } : {}),
+            ...(dataToMerge.business_sector ? { business_sector: dataToMerge.business_sector } : {}),
+            ...(dataToMerge.pages_needed && Array.isArray(dataToMerge.pages_needed) && dataToMerge.pages_needed.length > 0 
+              ? { pages_needed: dataToMerge.pages_needed } 
+              : {}),
+            ...(dataToMerge.design_style ? { design_style: dataToMerge.design_style } : {}),
+            ...(dataToMerge.design_colors && Array.isArray(dataToMerge.design_colors) && dataToMerge.design_colors.length > 0
+              ? { design_colors: dataToMerge.design_colors }
+              : {}),
+            ...(dataToMerge.functionalities && Array.isArray(dataToMerge.functionalities) && dataToMerge.functionalities.length > 0
+              ? { functionalities: dataToMerge.functionalities }
+              : {}),
+            ...(dataToMerge.target_audience ? { target_audience: dataToMerge.target_audience } : {}),
+            ...(dataToMerge.business_objective ? { business_objective: dataToMerge.business_objective } : {}),
+            ...(dataToMerge.short_description ? { short_description: dataToMerge.short_description } : {}),
+            ...(dataToMerge.slogan ? { slogan: dataToMerge.slogan } : {}),
+            ...(dataToMerge.cta_text ? { cta_text: dataToMerge.cta_text } : {}),
+            ...(dataToMerge.site_structure ? { site_structure: dataToMerge.site_structure } : {}),
           };
 
-          // Salvar dados extraídos no banco ANTES de chamar a IA
-          await DatabaseService.updateProjectData(conversationId, mergedData);
-          console.log('✅ [Chat] Dados extraídos salvos no banco de dados');
+          // ✅ Filtrar apenas campos válidos do project_data
+          const validFields = new Set([
+            'company_name', 'business_type', 'business_sector', 'business_objective',
+            'target_audience', 'short_description', 'slogan', 'cta_text',
+            'pages_needed', 'design_style', 'design_colors', 'functionalities',
+            'site_structure', 'logo_url', 'has_logo', 'use_logo_colors', 'logo_analysis',
+            'content_needs', 'font_style', 'has_ai_generated_text', 'animation_level', 'avoid_styles'
+          ]);
+          
+          const filtered: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(mergedData)) {
+            if (validFields.has(k) && v !== null && v !== undefined) {
+              filtered[k] = v;
+            }
+          }
 
-          // Atualizar projectData para usar na geração da resposta
-          projectData = mergedData as any;
+          // Salvar dados extraídos/atualizados no banco ANTES de chamar a IA
+          if (Object.keys(filtered).length > 0) {
+            await DatabaseService.updateProjectData(conversationId, filtered);
+            console.log('✅ [Chat] Dados extraídos/atualizados salvos no banco de dados:', Object.keys(filtered));
+
+            // Atualizar projectData para usar na geração da resposta
+            projectData = { ...(projectData || {}), ...filtered } as any;
+          }
         } else {
-          console.log('ℹ️ [Chat] Prompt não tem informações completas suficientes, continuando fluxo normal');
+          console.log('ℹ️ [Chat] Mensagem não tem informações estruturadas suficientes para extrair');
         }
       } catch (extractError) {
-        console.error('⚠️ [Chat] Erro ao extrair dados do prompt (não crítico):', extractError);
+        console.error('⚠️ [Chat] Erro ao extrair dados da mensagem (não crítico):', extractError);
         // Continuar sem os dados extraídos - a IA vai processar normalmente
       }
     }

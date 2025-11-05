@@ -5,6 +5,73 @@ import { moderateMessage } from "@/lib/message-moderation";
 import { logger } from "@/lib/logger";
 import { generateProjectId } from "@/lib/project-limits";
 
+// ✅ Função auxiliar para construir seção do histórico da conversa
+function buildConversationHistorySection(conversationHistory: any[]): string {
+  if (!conversationHistory || conversationHistory.length === 0) {
+    return '';
+  }
+
+  // ✅ Filtrar apenas mensagens relevantes (ignorar confirmações simples)
+  const relevantMessages = conversationHistory.filter(msg => {
+    const content = msg.content?.trim().toLowerCase() || '';
+    const isConfirmation = content.length < 20 && /^(gerar|sim|ok|pode gerar|pronto|pode|vamos|está bom|está ok|vai|confirmo|confirmado|pode criar|pode fazer|pode começar|tudo certo|pode ir|vamos lá)$/i.test(content);
+    return !isConfirmation;
+  });
+
+  if (relevantMessages.length === 0) {
+    return '';
+  }
+
+  const sections: string[] = [];
+  sections.push(`\n💬 **HISTÓRICO DA CONVERSA E ALTERAÇÕES SOLICITADAS:**`);
+
+  // ✅ Extrair mensagens do usuário com alterações/adicionais
+  const userMessages = relevantMessages
+    .filter(msg => msg.sender_type === 'user')
+    .map((msg, idx) => {
+      const content = msg.content || '';
+      // Pular a primeira mensagem se for apenas o prompt inicial
+      if (idx === 0 && content.toLowerCase().startsWith('quero criar:')) {
+        return null;
+      }
+      return `[Usuário]: ${content}`;
+    })
+    .filter(Boolean);
+
+  // ✅ Extrair respostas da IA que podem ter informações valiosas
+  const aiMessages = relevantMessages
+    .filter(msg => msg.sender_type === 'ai')
+    .map(msg => {
+      const content = msg.content || '';
+      // Se a mensagem da IA contém "COMPILAÇÃO" ou menciona alterações, incluir
+      if (content.includes('COMPILAÇÃO') ||
+          content.includes('compilação') ||
+          content.includes('alteração') ||
+          content.includes('alterar') ||
+          content.includes('ajustar')) {
+        return `[IA - Compilação/Confirmação]: ${content.substring(0, 500)}${content.length > 500 ? '...' : ''}`;
+      }
+      return null;
+    })
+    .filter(Boolean);
+
+  // ✅ Combinar mensagens relevantes
+  const allRelevantMessages = [...userMessages, ...aiMessages];
+
+  if (allRelevantMessages.length > 0) {
+    sections.push(`\n**Mensagens relevantes da conversa:**`);
+    allRelevantMessages.forEach((msg, idx) => {
+      if (msg) {
+        sections.push(`${idx + 1}. ${msg}`);
+      }
+    });
+
+    sections.push(`\n⚠️ **IMPORTANTE:** As alterações e informações adicionais mencionadas acima devem ser PRIORITÁRIAS sobre a solicitação original.`);
+  }
+
+  return sections.join('\n');
+}
+
 export async function POST(req: Request) {
   const startTime = Date.now();
   try {
@@ -59,15 +126,40 @@ export async function POST(req: Request) {
       console.warn('⚠️ [generate-ai-site] Erro ao buscar dados do banco:', dbError);
     }
 
-    // ✅ Construir prompt detalhado com TODOS os dados disponíveis
-    // Prioridade: dados do banco > dados do body > prompt simples
+    // ✅ Buscar histórico completo da conversa para incluir alterações
+    let conversationHistory: any[] = [];
+    try {
+      conversationHistory = await DatabaseService.getMessages(conversationId);
+      console.log('📚 [generate-ai-site] Histórico completo carregado:', conversationHistory.length, 'mensagens');
+    } catch (historyError) {
+      console.warn('⚠️ [generate-ai-site] Erro ao buscar histórico (continuando):', historyError);
+    }
+
+    // ✅ Construir prompt detalhado com TODOS os dados disponíveis + histórico
+    // Prioridade: dados do banco > histórico da conversa > dados do body > prompt simples
     let prompt = '';
     
     // Se tem prompt customizado no body (pode já estar estruturado)
-    if (body.prompt && body.prompt.includes('**DADOS') && body.prompt.includes('**IDENTIDADE')) {
-      // Prompt já está estruturado e completo - usar diretamente
+    if (body.prompt && body.prompt.includes('**HISTÓRICO') && body.prompt.includes('**DADOS')) {
+      // Prompt já está estruturado e completo COM histórico - usar diretamente
       prompt = body.prompt;
-      console.log('✅ [generate-ai-site] Usando prompt estruturado completo do body');
+      console.log('✅ [generate-ai-site] Usando prompt estruturado completo do body (com histórico)');
+    } else if (body.prompt && body.prompt.includes('**DADOS') && body.prompt.includes('**IDENTIDADE')) {
+      // Prompt está estruturado mas SEM histórico - adicionar histórico se houver
+      prompt = body.prompt;
+      
+      // ✅ Adicionar histórico se disponível e não estiver no prompt
+      if (conversationHistory && conversationHistory.length > 0 && !body.prompt.includes('**HISTÓRICO')) {
+        const historySection = buildConversationHistorySection(conversationHistory);
+        if (historySection) {
+          // Inserir histórico antes dos dados do projeto
+          const insertPosition = prompt.indexOf('**DADOS');
+          if (insertPosition > 0) {
+            prompt = prompt.substring(0, insertPosition) + historySection + '\n\n' + prompt.substring(insertPosition);
+            console.log('✅ [generate-ai-site] Histórico adicionado ao prompt estruturado');
+          }
+        }
+      }
     } else {
       // Construir prompt estruturado com TODAS as informações disponíveis
       const sections = [];
@@ -147,6 +239,20 @@ export async function POST(req: Request) {
       if (ctaText) {
         sections.push(`\n✍️ **CONTEÚDO:**`);
         sections.push(`- CTA: "${ctaText}"`);
+      }
+      
+      // ✅ Adicionar histórico da conversa ANTES dos dados do projeto
+      if (conversationHistory && conversationHistory.length > 0) {
+        const historySection = buildConversationHistorySection(conversationHistory);
+        if (historySection) {
+          // Inserir histórico após a solicitação original
+          const insertIndex = sections.findIndex(s => s.includes('**SOLICITAÇÃO ORIGINAL'));
+          if (insertIndex >= 0) {
+            sections.splice(insertIndex + 1, 0, historySection);
+          } else {
+            sections.unshift(historySection);
+          }
+        }
       }
       
       prompt = sections.join('\n');

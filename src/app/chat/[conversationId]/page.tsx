@@ -921,12 +921,23 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
         console.warn('⚠️ [generateSitePreview] Erro ao buscar dados do banco (continuando):', dbError);
       }
 
-      // ✅ Construir prompt completo com TODOS os dados disponíveis
-      // Prioridade: dados do banco > initialData > prompt simples
+      // ✅ Buscar histórico completo da conversa para incluir alterações
+      let conversationHistory: any[] = [];
+      try {
+        const { DatabaseService } = await import('@/lib/supabase');
+        conversationHistory = await DatabaseService.getMessages(conversationId);
+        console.log('📚 [generateSitePreview] Histórico completo carregado:', conversationHistory.length, 'mensagens');
+      } catch (historyError) {
+        console.warn('⚠️ [generateSitePreview] Erro ao buscar histórico (continuando):', historyError);
+      }
+
+      // ✅ Construir prompt completo com TODOS os dados disponíveis + histórico da conversa
+      // Prioridade: dados do banco > histórico da conversa > initialData > prompt simples
       const fullPrompt = buildCompletePrompt(
         prompt,
         projectDataFromDB,
-        initialData
+        initialData,
+        conversationHistory // ✅ Passar histórico completo incluindo alterações
       );
 
       console.log('🌐 [generateSitePreview] Fazendo requisição para /api/generate-ai-site...');
@@ -1791,19 +1802,72 @@ ${getRedirectMessage(messageToSend)}`,
   const buildCompletePrompt = (
     basePrompt: string,
     projectData: any,
-    initialData: any
+    initialData: any,
+    conversationHistory: any[] = [] // ✅ Novo parâmetro: histórico completo da conversa
   ): string => {
-    // Se não tem dados do banco e o prompt é simples, usar prompt original
-    if (!projectData || Object.keys(projectData).length === 0) {
-      return basePrompt || initialData.additionalPrompt || '';
-    }
-
-    // ✅ Construir prompt estruturado com TODOS os dados extraídos
+    // ✅ Construir prompt estruturado com TODOS os dados extraídos + histórico completo
     const sections: string[] = [];
     
     // Prompt original do usuário
     if (basePrompt || initialData.additionalPrompt) {
       sections.push(`💡 **SOLICITAÇÃO ORIGINAL:**\n${basePrompt || initialData.additionalPrompt}`);
+    }
+    
+    // ✅ IMPORTANTE: Incluir histórico completo da conversa (especialmente alterações)
+    if (conversationHistory && conversationHistory.length > 0) {
+      // ✅ Filtrar apenas mensagens relevantes (ignorar confirmações simples como "ok", "gerar")
+      const relevantMessages = conversationHistory.filter(msg => {
+        const content = msg.content?.trim().toLowerCase() || '';
+        // Ignorar mensagens muito curtas que são apenas confirmações
+        const isConfirmation = content.length < 20 && /^(gerar|sim|ok|pode gerar|pronto|pode|vamos|está bom|está ok|vai|confirmo|confirmado|pode criar|pode fazer|pode começar|tudo certo|pode ir|vamos lá)$/i.test(content);
+        return !isConfirmation;
+      });
+      
+      if (relevantMessages.length > 0) {
+        sections.push(`\n💬 **HISTÓRICO DA CONVERSA E ALTERAÇÕES SOLICITADAS:**`);
+        
+        // ✅ Extrair mensagens do usuário com alterações/adicionais
+        const userMessages = relevantMessages
+          .filter(msg => msg.sender_type === 'user')
+          .map((msg) => {
+            const content = msg.content || '';
+            // ✅ Incluir TODAS as mensagens do usuário (exceto confirmações muito curtas já filtradas)
+            // Não pular mensagens - todas podem conter informações importantes
+            return `[Usuário]: ${content}`;
+          })
+          .filter(Boolean);
+        
+        // ✅ Extrair respostas da IA que podem ter informações valiosas ou confirmações de alterações
+        const aiMessages = relevantMessages
+          .filter(msg => msg.sender_type === 'ai')
+          .map(msg => {
+            const content = msg.content || '';
+            // Se a mensagem da IA contém "COMPILAÇÃO" ou menciona alterações, incluir
+            if (content.includes('COMPILAÇÃO') || 
+                content.includes('compilação') || 
+                content.includes('alteração') ||
+                content.includes('alterar') ||
+                content.includes('ajustar')) {
+              return `[IA - Compilação/Confirmação]: ${content.substring(0, 500)}${content.length > 500 ? '...' : ''}`;
+            }
+            return null;
+          })
+          .filter(Boolean);
+        
+        // ✅ Combinar mensagens relevantes
+        const allRelevantMessages = [...userMessages, ...aiMessages];
+        
+        if (allRelevantMessages.length > 0) {
+          sections.push(`\n**Mensagens relevantes da conversa:**`);
+          allRelevantMessages.forEach((msg, idx) => {
+            if (msg) {
+              sections.push(`${idx + 1}. ${msg}`);
+            }
+          });
+          
+          sections.push(`\n⚠️ **IMPORTANTE:** As alterações e informações adicionais mencionadas acima devem ser PRIORITÁRIAS sobre a solicitação original.`);
+        }
+      }
     }
 
     // Dados da empresa

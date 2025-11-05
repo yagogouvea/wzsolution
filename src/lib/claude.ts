@@ -82,6 +82,12 @@ export async function generateSiteWithClaude(prompt: string): Promise<string> {
 🎯 SUA MISSÃO:
 Criar um site COMPLETO, FUNCIONAL e VISUALMENTE IMPRESSIONANTE baseado no pedido do cliente.
 
+⚠️ **PRIORIDADE DE INFORMAÇÕES:**
+- Se o prompt contém seção "**HISTÓRICO DA CONVERSA E ALTERAÇÕES SOLICITADAS:**", essas alterações são PRIORITÁRIAS
+- Alterações mencionadas no histórico devem SUBSTITUIR ou COMPLEMENTAR a solicitação original
+- Use TODAS as informações do histórico, especialmente mensagens do usuário com alterações
+- Se houver conflito entre solicitação original e alterações, SEMPRE priorize as alterações mais recentes
+
 📋 REQUISITOS TÉCNICOS OBRIGATÓRIOS:
 ✓ HTML5 puro + Tailwind CSS v3 (via CDN)
 ✓ ZERO JavaScript complexo, ZERO React, ZERO Framer Motion
@@ -172,6 +178,11 @@ Criar um site COMPLETO, FUNCIONAL e VISUALMENTE IMPRESSIONANTE baseado no pedido
 
 💡 PEDIDO DO CLIENTE:
 ${prompt}
+
+⚠️ **LEMBRE-SE:**
+- Se o prompt acima contém "**HISTÓRICO DA CONVERSA E ALTERAÇÕES SOLICITADAS:**", essas informações são PRIORITÁRIAS
+- Use TODAS as alterações e informações adicionais mencionadas no histórico
+- As alterações devem ser aplicadas ao site, não apenas mencionadas
 
 ⚠️ CRÍTICO: 
 - Retorne APENAS HTML COMPLETO (não JSX, não React)
