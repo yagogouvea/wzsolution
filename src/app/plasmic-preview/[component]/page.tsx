@@ -9,7 +9,7 @@
 // ✅ Forçar renderização dinâmica (não pré-renderizar)
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Loader2, Eye, Shield, AlertCircle } from 'lucide-react';
@@ -18,7 +18,7 @@ import { Loader2, Eye, Shield, AlertCircle } from 'lucide-react';
 // Para usar o SDK oficial do Plasmic, instale: npm install @plasmicapp/loader-nextjs
 // e use: import { PlasmicComponent, initPlasmicLoader } from '@plasmicapp/loader-nextjs'
 
-export default function PlasmicPreviewPage({ 
+function PlasmicPreviewContent({ 
   params 
 }: { 
   params: Promise<{ component: string }> 
@@ -224,6 +224,25 @@ export default function PlasmicPreviewPage({
         }
       `}</style>
     </div>
+  );
+}
+
+export default function PlasmicPreviewPage({ 
+  params 
+}: { 
+  params: Promise<{ component: string }> 
+}) {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-blue-400 animate-spin mx-auto mb-4" />
+          <p className="text-white text-lg">Carregando preview do Plasmic...</p>
+        </div>
+      </div>
+    }>
+      <PlasmicPreviewContent params={params} />
+    </Suspense>
   );
 }
 

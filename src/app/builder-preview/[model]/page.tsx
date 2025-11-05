@@ -3,7 +3,7 @@
 // ✅ Forçar renderização dinâmica (não pré-renderizar)
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Loader2, Shield, Eye } from 'lucide-react';
@@ -15,7 +15,7 @@ import { Loader2, Shield, Eye } from 'lucide-react';
  * Por questões de segurança, o Builder.io SDK não será carregado no cliente.
  * Em vez disso, renderizaremos o JSON como HTML usando uma transformação segura.
  */
-export default function BuilderPreviewPage({ params }: { params: Promise<{ model: string }> }) {
+function BuilderPreviewContent({ params }: { params: Promise<{ model: string }> }) {
   const searchParams = useSearchParams();
   const [content, setContent] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -194,6 +194,21 @@ export default function BuilderPreviewPage({ params }: { params: Promise<{ model
         }
       `}</style>
     </div>
+  );
+}
+
+export default function BuilderPreviewPage({ params }: { params: Promise<{ model: string }> }) {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-blue-400 animate-spin mx-auto mb-4" />
+          <p className="text-white text-lg">Carregando preview...</p>
+        </div>
+      </div>
+    }>
+      <BuilderPreviewContent params={params} />
+    </Suspense>
   );
 }
 
