@@ -9,6 +9,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Send, User, Bot, Image as ImageIcon, Monitor, Eye, X, XCircle, Copy, Check } from 'lucide-react';
 import PreviewIframe from '@/components/PreviewIframe';
 import ConsoleBlocker from '@/components/ConsoleBlocker';
+import AIThinkingIndicator from '@/components/AIThinkingIndicator';
 import { moderateMessage, getRedirectMessage } from '@/lib/message-moderation';
 import { canMakeModification, getWhatsAppUrl, generateProjectId, PROJECT_LIMITS } from '@/lib/project-limits';
 import Link from 'next/link';
@@ -98,6 +99,7 @@ function ChatPageContent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false); // ✅ Estado para inicialização inicial
   const [currentSiteCode, setCurrentSiteCode] = useState<string>('');
   const [conversationInitialized, setConversationInitialized] = useState(false);
   const [pendingImage, setPendingImage] = useState<{ file: File; imageUrl: string } | null>(null);
@@ -783,8 +785,14 @@ Ocorreu um erro ao iniciar a geração. Por favor, tente novamente ou digite "ge
           } else {
             console.error('❌ [initializeConversation] Erro na resposta da IA:', chatData);
           }
+          
+          // ✅ Desativar estado de inicialização após receber resposta
+          setIsInitializing(false);
+          setIsLoading(false);
         } catch (error) {
           console.error('❌ [initializeConversation] Erro ao inicializar conversa:', error);
+          setIsInitializing(false);
+          setIsLoading(false);
           const errorMessage: Message = {
             id: crypto.randomUUID(),
             sender: 'ai',
@@ -2018,6 +2026,42 @@ ${getRedirectMessage(messageToSend)}`,
         {/* Messages Area - Full Width, No Max Width */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 min-h-0 w-full overscroll-behavior-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
           <AnimatePresence>
+            {/* ✅ Mostrar indicador de "IA pensando" quando está inicializando ou carregando e não há mensagens ainda */}
+            {(isInitializing || isLoading) && messages.length === 0 && (
+              <motion.div
+                key="ai-thinking-initial"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="flex justify-start"
+              >
+                <div className="flex gap-4 max-w-[85%] sm:max-w-[75%]">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Bot className="text-white" size={16} />
+                  </div>
+                  <AIThinkingIndicator message="Analisando seu pedido e preparando a resposta..." />
+                </div>
+              </motion.div>
+            )}
+            
+            {/* ✅ Mostrar indicador de "IA pensando" quando está carregando após última mensagem do usuário */}
+            {isLoading && messages.length > 0 && messages[messages.length - 1]?.sender === 'user' && (
+              <motion.div
+                key="ai-thinking-response"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="flex justify-start"
+              >
+                <div className="flex gap-4 max-w-[85%] sm:max-w-[75%]">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Bot className="text-white" size={16} />
+                  </div>
+                  <AIThinkingIndicator message="Processando sua mensagem..." />
+                </div>
+              </motion.div>
+            )}
+            
             {messages.map((message) => (
               <motion.div
                 key={message.id}

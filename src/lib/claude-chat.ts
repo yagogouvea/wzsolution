@@ -58,13 +58,36 @@ export async function generateAIResponse(
     const { determineDialogPhase } = await import('./openai');
     const phase = determineDialogPhase(projectData, conversationHistory);
 
-    // ✅ Verificar confirmação do usuário PRIMEIRO (melhorar detecção)
-    const userConfirmed = /^(gerar|sim|ok|pode gerar|pronto|pode|vamos|está bom|está ok|vai|confirmo|confirmado|pode criar|pode fazer|pode começar)$/i.test(userMessage.trim()) ||
-                          /(gerar|sim|ok|pode gerar|pronto|pode|vamos|está bom|está ok|vai|confirmo|confirmado|pode criar|pode fazer|pode começar)/i.test(userMessage);
-    
     // ✅ Contar mensagens do usuário (incluindo a atual que está sendo processada)
     const userMessagesCount = conversationHistory.filter(msg => msg.sender_type === 'user').length + 1; // +1 porque ainda não foi adicionada ao histórico
     const isFirstUserResponse = userMessagesCount === 1;
+    
+    // ✅ Verificar confirmação do usuário - NUNCA considerar primeira mensagem como confirmação
+    // A primeira mensagem é sempre o prompt inicial, não uma confirmação
+    let userConfirmed = false;
+    if (!isFirstUserResponse) {
+      // ✅ Apenas após a primeira mensagem, verificar confirmação
+      // Tornar mais restritivo - apenas mensagens curtas e diretas de confirmação
+      const trimmedMessage = userMessage.trim().toLowerCase();
+      const isShortConfirmation = trimmedMessage.length < 50; // Confirmações são curtas
+      const confirmationPattern = /^(gerar|sim|ok|pode gerar|pronto|está bom|está ok|confirmo|confirmado|pode criar|pode fazer|pode começar|tudo certo|pode ir|vamos lá)$/i;
+      
+      userConfirmed = isShortConfirmation && confirmationPattern.test(trimmedMessage);
+      
+      // ✅ Também verificar se a mensagem contém palavras de confirmação no contexto de uma frase curta
+      if (!userConfirmed && isShortConfirmation) {
+        const hasConfirmationWords = /(sim|ok|gerar|pronto|pode|confirmo|tudo certo)/i.test(trimmedMessage);
+        const hasNegativeWords = /(não|nao|nada|cancelar|desistir|parar)/i.test(trimmedMessage);
+        userConfirmed = hasConfirmationWords && !hasNegativeWords;
+      }
+    }
+    
+    console.log('🔍 [Claude-Chat] Verificando confirmação:', {
+      isFirstUserResponse,
+      userMessage: userMessage.substring(0, 50),
+      userConfirmed,
+      messageLength: userMessage.length
+    });
     const isSecondUserResponse = userMessagesCount === 2;
     
     // ✅ Verificar se já teve resposta do usuário após as perguntas iniciais

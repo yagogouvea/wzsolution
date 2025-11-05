@@ -144,6 +144,7 @@ export default function AIGeneratorSection() {
 
     console.log('✅ [AIGenerator] Usuário logado, criando site...');
 
+    // ✅ Redirecionar IMEDIATAMENTE para evitar travamento na página inicial
     // Preparar dados básicos para o chat
     const basicData = {
       companyName: idea.split('para')[1]?.trim() || 'Meu Negócio',
@@ -183,9 +184,9 @@ export default function AIGeneratorSection() {
       queryParams.set('prompt', idea);
     }
     
-    // Redirecionar para a página de chat
+    // ✅ Redirecionar IMEDIATAMENTE - a página de chat mostrará o indicador de "IA pensando"
     const chatUrl = `/chat/${newConversationId}?${queryParams.toString()}`;
-    window.location.href = chatUrl;
+    router.push(chatUrl); // ✅ Usar router.push em vez de window.location.href para transição mais suave
   };
 
   // Função removida - chat agora é página dedicada
