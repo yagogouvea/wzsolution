@@ -115,9 +115,10 @@ export async function signIn(email: string, password: string) {
   try {
     // ✅ Verificar se Supabase está configurado
     if (!isSupabaseConfigured) {
+      console.error('❌ [Auth] Supabase não configurado. Verifique NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY');
       return {
         success: false,
-        error: 'Serviço de autenticação não configurado. Entre em contato com o suporte.'
+        error: 'Serviço de autenticação temporariamente indisponível. Nossa equipe foi notificada.'
       };
     }
 
@@ -202,9 +203,10 @@ export async function signUp(email: string, password: string, name?: string) {
   try {
     // ✅ Verificar se Supabase está configurado
     if (!isSupabaseConfigured) {
+      console.error('❌ [Auth] Supabase não configurado. Verifique NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY');
       return {
         success: false,
-        error: 'Serviço de autenticação não configurado. Entre em contato com o suporte.'
+        error: 'Serviço de autenticação temporariamente indisponível. Nossa equipe foi notificada.'
       };
     }
 
