@@ -22,8 +22,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Extrair conversationId
+    // Extrair conversationId e userId
     const conversationId = body.conversationId;
+    const userId = body.userId || null; // ✅ Obter userId do body
+    
     if (!conversationId) {
       return NextResponse.json(
         { ok: false, error: "conversationId é obrigatório" },
@@ -36,55 +38,119 @@ export async function POST(req: Request) {
     console.log("🆔 [generate-ai-site] IDs do projeto:", {
       projectId: projectId,
       conversationId: conversationId,
+      userId: userId || 'não logado',
       previewUrl: `/preview/${conversationId}`,
       chatUrl: `/chat/${conversationId}`
     });
 
-    // Construir prompt detalhado com TODOS os dados do formulário
+    // ✅ Buscar dados do projeto do banco para garantir que temos TODOS os dados
+    let projectDataFromDB: any = null;
+    try {
+      projectDataFromDB = await DatabaseService.getProjectData(conversationId);
+      console.log('📊 [generate-ai-site] Dados do projeto no banco:', {
+        company_name: projectDataFromDB?.company_name,
+        business_type: projectDataFromDB?.business_type,
+        design_style: projectDataFromDB?.design_style,
+        pages_needed: projectDataFromDB?.pages_needed,
+        design_colors: projectDataFromDB?.design_colors,
+        functionalities: projectDataFromDB?.functionalities
+      });
+    } catch (dbError) {
+      console.warn('⚠️ [generate-ai-site] Erro ao buscar dados do banco:', dbError);
+    }
+
+    // ✅ Construir prompt detalhado com TODOS os dados disponíveis
+    // Prioridade: dados do banco > dados do body > prompt simples
     let prompt = '';
     
-    if (body.additionalPrompt || body.prompt) {
-      // Se tem prompt customizado, usa ele
-      prompt = body.additionalPrompt || body.prompt;
+    // Se tem prompt customizado no body (pode já estar estruturado)
+    if (body.prompt && body.prompt.includes('**DADOS') && body.prompt.includes('**IDENTIDADE')) {
+      // Prompt já está estruturado e completo - usar diretamente
+      prompt = body.prompt;
+      console.log('✅ [generate-ai-site] Usando prompt estruturado completo do body');
     } else {
-      // Construir prompt estruturado com TODAS as informações
+      // Construir prompt estruturado com TODAS as informações disponíveis
       const sections = [];
       
-      sections.push(`📋 **DADOS DO PROJETO:**`);
-      if (body.companyName) sections.push(`- Empresa: ${body.companyName}`);
-      if (body.businessSector) sections.push(`- Setor/Ramo: ${body.businessSector}`);
-      if (body.businessObjective) sections.push(`- Objetivo: ${body.businessObjective}`);
-      if (body.designStyle) sections.push(`- Tema Visual: ${body.designStyle}`);
-      if (body.designColors && body.designColors.length > 0) {
-        sections.push(`- Cores: ${body.designColors.join(', ')}`);
+      // Prompt original (se houver)
+      if (body.prompt || body.additionalPrompt) {
+        sections.push(`💡 **SOLICITAÇÃO ORIGINAL:**\n${body.prompt || body.additionalPrompt}`);
       }
-      if (body.logoUrl) sections.push(`- Logo: Sim (URL disponível)`);
       
-      if (body.pagesNeeded && body.pagesNeeded.length > 0) {
+      sections.push(`\n📋 **DADOS DO PROJETO:**`);
+      // Prioridade: banco > body
+      const companyName = projectDataFromDB?.company_name || body.companyName;
+      const businessSector = projectDataFromDB?.business_type || projectDataFromDB?.business_sector || body.businessSector;
+      const businessObjective = projectDataFromDB?.business_objective || body.businessObjective;
+      const designStyle = projectDataFromDB?.design_style || body.designStyle;
+      const designColors = projectDataFromDB?.design_colors || body.designColors;
+      const pagesNeeded = projectDataFromDB?.pages_needed || body.pagesNeeded;
+      const functionalities = projectDataFromDB?.functionalities || body.functionalities;
+      const targetAudience = projectDataFromDB?.target_audience || body.targetAudience;
+      const shortDescription = projectDataFromDB?.short_description || body.shortDescription;
+      const slogan = projectDataFromDB?.slogan || body.slogan;
+      const ctaText = projectDataFromDB?.cta_text || body.ctaText;
+      const siteStructure = projectDataFromDB?.site_structure || body.siteStructure;
+
+      if (companyName) sections.push(`- Empresa: ${companyName}`);
+      if (businessSector) sections.push(`- Setor/Ramo: ${businessSector}`);
+      if (slogan) sections.push(`- Slogan: "${slogan}"`);
+      if (businessObjective) sections.push(`- Objetivo: ${businessObjective}`);
+      if (targetAudience) sections.push(`- Público-alvo: ${targetAudience}`);
+      if (shortDescription) sections.push(`- Descrição: ${shortDescription}`);
+      
+      if (designStyle || designColors) {
+        sections.push(`\n🎨 **IDENTIDADE VISUAL:**`);
+        if (designStyle) sections.push(`- Tema Visual: ${designStyle}`);
+        if (designColors && Array.isArray(designColors) && designColors.length > 0) {
+          sections.push(`- Cores: ${designColors.join(', ')}`);
+        }
+      }
+      
+      if (body.logoUrl || projectDataFromDB?.logo_url) {
+        sections.push(`- Logo: Sim (URL disponível)`);
+      }
+      
+      if (pagesNeeded && Array.isArray(pagesNeeded) && pagesNeeded.length > 0) {
         sections.push(`\n🏗️ **ESTRUTURA DO SITE:**`);
-        sections.push(`- Páginas/Seções: ${body.pagesNeeded.join(', ')}`);
+        sections.push(`- Páginas/Seções: ${pagesNeeded.join(', ')}`);
+        if (siteStructure) sections.push(`- Tipo: ${siteStructure}`);
       }
       
-      if (body.functionalities && body.functionalities.length > 0) {
+      if (functionalities && Array.isArray(functionalities) && functionalities.length > 0) {
         sections.push(`\n⚙️ **FUNCIONALIDADES:**`);
-        body.functionalities.forEach((func: string) => {
+        functionalities.forEach((func: string) => {
           sections.push(`- ${func}`);
         });
       }
       
-      if (body.logoAnalysis) {
+      if (body.logoAnalysis || projectDataFromDB?.logo_analysis) {
         sections.push(`\n🎨 **ANÁLISE DO LOGO:**`);
-        if (body.logoAnalysis.style) sections.push(`- Estilo: ${body.logoAnalysis.style}`);
-        if (body.logoAnalysis.colors?.dominant) {
-          sections.push(`- Cores dominantes: ${body.logoAnalysis.colors.dominant.join(', ')}`);
+        let logoAnalysis = body.logoAnalysis;
+        if (!logoAnalysis && projectDataFromDB?.logo_analysis) {
+          try {
+            logoAnalysis = typeof projectDataFromDB.logo_analysis === 'string'
+              ? JSON.parse(projectDataFromDB.logo_analysis)
+              : projectDataFromDB.logo_analysis;
+          } catch (e) {
+            // Ignorar erro
+          }
+        }
+        if (logoAnalysis) {
+          if (logoAnalysis.style) sections.push(`- Estilo: ${logoAnalysis.style}`);
+          if (logoAnalysis.colors?.dominant) {
+            sections.push(`- Cores dominantes: ${logoAnalysis.colors.dominant.join(', ')}`);
+          }
         }
       }
       
-      if (body.tone) {
-        sections.push(`\n✍️ **TOM DE VOZ:** ${body.tone}`);
+      if (ctaText) {
+        sections.push(`\n✍️ **CONTEÚDO:**`);
+        sections.push(`- CTA: "${ctaText}"`);
       }
       
       prompt = sections.join('\n');
+      console.log('📋 [generate-ai-site] Prompt estruturado construído:', prompt.substring(0, 500) + '...');
     }
 
     // 🔒 VALIDAÇÃO E MODERAÇÃO DO PROMPT INICIAL
@@ -129,9 +195,15 @@ export async function POST(req: Request) {
         if (!conversation) {
           await DatabaseService.createConversation({
             id: conversationId,
+            user_id: userId || undefined, // ✅ Associar ao usuário se fornecido
             initial_prompt: prompt,
             project_type: body.projectType || 'site',
             status: 'active'
+          });
+        } else if (userId && !conversation.user_id) {
+          // ✅ Se conversa existe mas não tem user_id, atualizar
+          await DatabaseService.updateConversation(conversationId, {
+            user_id: userId
           });
         }
         

@@ -29,12 +29,71 @@ function ChatPageContent() {
   const searchParams = useSearchParams();
   const conversationId = params.conversationId as string;
   
-  // Buscar dados iniciais dos query params ou sessionStorage
-  const [initialData, setInitialData] = useState({
-    companyName: searchParams.get('companyName') || 'Meu Negócio',
-    businessSector: searchParams.get('businessSector') || 'Negócios',
-    additionalPrompt: searchParams.get('prompt') || ''
-  });
+  // ✅ Buscar dados iniciais dos query params ou sessionStorage
+  // ✅ Para prompts longos, usar sessionStorage em vez de query params para evitar problemas de serialização
+  const getInitialData = () => {
+    // ✅ Valores padrão seguros
+    const defaultData = {
+      companyName: 'Meu Negócio',
+      businessSector: 'Negócios',
+      additionalPrompt: ''
+    };
+
+    // ✅ Se está no cliente, tentar buscar do sessionStorage primeiro
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = sessionStorage.getItem(`chat_data_${conversationId}`) || 
+                      sessionStorage.getItem(`chat_${conversationId}`);
+        
+        if (stored) {
+          try {
+            const data = JSON.parse(stored);
+            return {
+              companyName: data.companyName || searchParams.get('companyName') || defaultData.companyName,
+              businessSector: data.businessSector || searchParams.get('businessSector') || defaultData.businessSector,
+              additionalPrompt: data.additionalPrompt || data.prompt || ''
+            };
+          } catch (e) {
+            console.error('❌ Erro ao parsear sessionStorage:', e);
+          }
+        }
+      } catch (e) {
+        console.error('❌ Erro ao acessar sessionStorage:', e);
+      }
+    }
+    
+    // ✅ Se não tem no sessionStorage, tentar query params
+    // ✅ LIMITAR tamanho do prompt da URL para evitar problemas de serialização
+    const promptFromUrl = searchParams.get('prompt') || '';
+    const MAX_URL_PROMPT_LENGTH = 500; // ✅ Limite seguro para evitar problemas
+    
+    // ✅ Se o prompt for muito longo, tentar buscar do sessionStorage
+    if (promptFromUrl.length > MAX_URL_PROMPT_LENGTH && typeof window !== 'undefined') {
+      try {
+        const storedPrompt = sessionStorage.getItem(`prompt_${conversationId}`);
+        if (storedPrompt) {
+          return {
+            companyName: searchParams.get('companyName') || defaultData.companyName,
+            businessSector: searchParams.get('businessSector') || defaultData.businessSector,
+            additionalPrompt: storedPrompt
+          };
+        }
+      } catch (e) {
+        console.error('❌ Erro ao buscar prompt do sessionStorage:', e);
+      }
+    }
+    
+    return {
+      companyName: searchParams.get('companyName') || defaultData.companyName,
+      businessSector: searchParams.get('businessSector') || defaultData.businessSector,
+      // ✅ Truncar prompt da URL se muito longo para evitar problemas
+      additionalPrompt: promptFromUrl.length > MAX_URL_PROMPT_LENGTH 
+        ? promptFromUrl.substring(0, MAX_URL_PROMPT_LENGTH) + '... [Prompt truncado - muito longo para URL]'
+        : promptFromUrl
+    };
+  };
+
+  const [initialData, setInitialData] = useState(getInitialData());
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -92,30 +151,60 @@ function ChatPageContent() {
     };
   }, []);
 
-  // Buscar dados do sessionStorage se não vierem por query params
+  // ✅ Buscar dados do sessionStorage se não vierem por query params
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const stored = sessionStorage.getItem(`chat_${conversationId}`);
-      if (stored) {
-        try {
-          const data = JSON.parse(stored);
-          console.log('💾 [Chat] Dados carregados do sessionStorage:', data);
-          setInitialData(prev => {
-            const newData = {
-              ...prev,
-              ...data
-            };
-            console.log('💾 [Chat] InitialData atualizado:', newData);
-            return newData;
-          });
-        } catch (e) {
-          console.error('❌ Erro ao ler sessionStorage:', e);
+      try {
+        // ✅ Tentar múltiplas chaves para compatibilidade
+        const stored = sessionStorage.getItem(`chat_${conversationId}`) || 
+                      sessionStorage.getItem(`chat_data_${conversationId}`);
+        
+        if (stored) {
+          try {
+            const data = JSON.parse(stored);
+            console.log('💾 [Chat] Dados carregados do sessionStorage:', {
+              companyName: data.companyName,
+              businessSector: data.businessSector,
+              promptLength: data.additionalPrompt?.length || 0
+            });
+            
+            setInitialData(prev => {
+              const newData = {
+                companyName: data.companyName || prev.companyName,
+                businessSector: data.businessSector || prev.businessSector,
+                additionalPrompt: data.additionalPrompt || data.prompt || prev.additionalPrompt
+              };
+              console.log('💾 [Chat] InitialData atualizado:', {
+                companyName: newData.companyName,
+                businessSector: newData.businessSector,
+                promptLength: newData.additionalPrompt?.length || 0
+              });
+              return newData;
+            });
+          } catch (parseError) {
+            console.error('❌ Erro ao parsear sessionStorage:', parseError);
+          }
+        } else {
+          // ✅ Se não tem no sessionStorage mas tem prompt longo na URL, tentar salvar
+          const promptFromUrl = searchParams.get('prompt') || '';
+          if (promptFromUrl.length > 1000) {
+            console.log('💾 [Chat] Prompt longo detectado na URL, salvando no sessionStorage...');
+            try {
+              sessionStorage.setItem(`prompt_${conversationId}`, promptFromUrl);
+              setInitialData(prev => ({
+                ...prev,
+                additionalPrompt: promptFromUrl
+              }));
+            } catch (storageError) {
+              console.error('❌ Erro ao salvar prompt no sessionStorage:', storageError);
+            }
+          }
         }
-      } else {
-        console.log('💾 [Chat] Nenhum dado encontrado no sessionStorage');
+      } catch (error) {
+        console.error('❌ Erro ao acessar sessionStorage:', error);
       }
     }
-  }, [conversationId]);
+  }, [conversationId, searchParams]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -179,6 +268,48 @@ function ChatPageContent() {
         })));
         
         setMessages(formattedMessages);
+        
+        // ✅ Verificar se há um site gerado e definir currentSiteCode
+        // Primeiro tentar encontrar nas mensagens
+        const previewMessage = formattedMessages.find((msg: Message) => 
+          msg.type === 'site_preview' && msg.siteCodeId
+        );
+        
+        if (previewMessage && previewMessage.siteCodeId) {
+          console.log('✅ [loadExistingMessages] Site encontrado nas mensagens:', previewMessage.siteCodeId);
+          setCurrentSiteCode(previewMessage.siteCodeId);
+        } 
+        // Se não encontrou nas mensagens, verificar nos dados do projeto
+        else if (data.projectData) {
+          // Verificar se há versões do site geradas
+          try {
+            const { DatabaseService } = await import('@/lib/supabase');
+            const versions = await DatabaseService.getSiteVersions(conversationId);
+            if (versions && versions.length > 0) {
+              // Usar o conversationId como siteCodeId (padrão do sistema)
+              console.log('✅ [loadExistingMessages] Site encontrado nas versões:', conversationId);
+              setCurrentSiteCode(conversationId);
+            }
+          } catch (versionError) {
+            console.warn('⚠️ [loadExistingMessages] Erro ao buscar versões:', versionError);
+            // Se houver current_site_code ou preview_url nos dados do projeto, usar
+            if (data.projectData.current_site_code) {
+              console.log('✅ [loadExistingMessages] Site encontrado em projectData.current_site_code');
+              setCurrentSiteCode(data.projectData.current_site_code);
+            } else if (data.projectData.preview_url) {
+              // Extrair conversationId do preview_url se possível
+              const urlMatch = data.projectData.preview_url.match(/\/preview\/([^\/]+)/);
+              if (urlMatch && urlMatch[1]) {
+                console.log('✅ [loadExistingMessages] Site encontrado em projectData.preview_url');
+                setCurrentSiteCode(urlMatch[1]);
+              } else {
+                console.log('✅ [loadExistingMessages] Usando conversationId como fallback');
+                setCurrentSiteCode(conversationId);
+              }
+            }
+          }
+        }
+        
         console.log(`✅ Carregadas ${formattedMessages.length} mensagem(ns) existente(s)`);
         return { hasMessages: true, formattedMessages }; // Indica que havia mensagens
       }
@@ -205,6 +336,7 @@ function ChatPageContent() {
         setConversationInitialized(true);
         loadExistingMessages().then(({ hasMessages, formattedMessages }) => {
           console.log('📨 [Chat] Mensagens existentes:', hasMessages ? 'Sim' : 'Não');
+          console.log('📨 [Chat] Total de mensagens carregadas:', formattedMessages.length);
           
           // ✅ Verificar se já existe um site gerado usando as mensagens carregadas
           const hasSitePreview = formattedMessages.some((msg: Message) => 
@@ -216,34 +348,26 @@ function ChatPageContent() {
           console.log('🔍 [Chat] Site já gerado?', hasSitePreview);
           console.log('🔍 [Chat] Mensagens carregadas:', formattedMessages.length);
           
-          // ✅ Se tem mensagens mas NÃO tem preview gerado E tem prompt inicial, precisa gerar
-          if (hasMessages && !hasSitePreview && initialData.additionalPrompt && !generationLockRef.current) {
-            console.log('✅ [Chat] Mensagens encontradas mas site não gerado. Iniciando geração...');
-            generationLockRef.current = true;
-            initializeConversation().finally(() => {
-              generationLockRef.current = false;
-            });
-          } 
-          // ✅ Se não tinha mensagens e tem prompt, inicializar do zero
-          else if (!hasMessages && initialData.additionalPrompt && !generationLockRef.current) {
+          // ✅ Se tem mensagens existentes (vindo do painel do cliente), apenas exibir
+          if (hasMessages) {
+            console.log('✅ [Chat] Histórico completo carregado do banco de dados');
+            // Não precisa fazer mais nada, as mensagens já foram carregadas
+            // e o currentSiteCode já foi definido em loadExistingMessages
+            return;
+          }
+          
+          // ✅ Se não tinha mensagens e tem prompt inicial, inicializar do zero
+          if (!hasMessages && initialData.additionalPrompt && !generationLockRef.current) {
             console.log('✅ [Chat] Nenhuma mensagem encontrada. Iniciando geração do site...');
             generationLockRef.current = true;
             initializeConversation().finally(() => {
               generationLockRef.current = false;
             });
           } 
-          // ✅ Se já tem preview, só mostrar mensagens
-          else if (hasSitePreview) {
-            console.log('✅ [Chat] Site já foi gerado. Apenas exibindo mensagens.');
-          } 
-          // ✅ Se tem mensagens mas não precisa gerar
-          else if (hasMessages) {
-            console.log('✅ [Chat] Mensagens carregadas do banco de dados');
-          } 
-          else {
-            console.log('⚠️ [Chat] Nenhum prompt inicial encontrado. Verificando...');
-            console.log('⚠️ [Chat] additionalPrompt:', initialData.additionalPrompt);
-            console.log('⚠️ [Chat] generationLockRef:', generationLockRef.current);
+          // ✅ Se não tem mensagens nem prompt, mostrar mensagem informativa
+          else if (!hasMessages && !initialData.additionalPrompt) {
+            console.log('⚠️ [Chat] Nenhuma mensagem encontrada e sem prompt inicial.');
+            console.log('⚠️ [Chat] Aguardando interação do usuário...');
           }
         }).catch((error) => {
           console.error('❌ Erro ao carregar mensagens:', error);
@@ -541,6 +665,10 @@ Clique no link abaixo para:
           
           setMessages(prev => [...prev, localUserMessage]);
           
+          // ✅ Obter usuário logado para associar à conversa
+          const { getCurrentUser } = await import('@/lib/auth');
+          const currentUser = await getCurrentUser();
+          
           // ✅ Chamar API /api/chat POST para que a IA responda perguntando informações
           console.log('📨 [initializeConversation] Enviando mensagem para IA...');
           const chatResponse = await fetch('/api/chat', {
@@ -550,6 +678,7 @@ Clique no link abaixo para:
               conversationId,
               message: userMessageText,
               stage: 1,
+              userId: currentUser?.id || null, // ✅ Enviar userId no body
               formData: {
                 companyName: initialData.companyName,
                 businessSector: initialData.businessSector,
@@ -559,6 +688,14 @@ Clique no link abaixo para:
           });
           
           const chatData = await chatResponse.json();
+          
+          console.log('📥 [initializeConversation] Resposta da API:', {
+            success: chatData.success,
+            shouldGeneratePreview: chatData.shouldGeneratePreview,
+            hasCompleteData: chatData.hasCompleteData,
+            responseLength: chatData.response?.length || 0,
+            responsePreview: chatData.response?.substring(0, 100) || ''
+          });
           
           if (chatData.success && chatData.response) {
             // Adicionar resposta da IA
@@ -573,12 +710,60 @@ Clique no link abaixo para:
             setMessages(prev => [...prev, aiMessage]);
             
             // ✅ Se a IA indicar que deve gerar preview (shouldGeneratePreview), gerar agora
-            // Caso contrário, esperar o usuário responder às perguntas
-            if (chatData.shouldGeneratePreview) {
-              console.log('✅ [initializeConversation] IA indicou que deve gerar preview agora');
-              await generateSitePreview(initialData.additionalPrompt);
+            // ✅ TAMBÉM verificar se a mensagem indica que vai gerar (fallback para casos onde a flag não vem)
+            const responseIndicatesGeneration = chatData.response && (
+              chatData.response.includes('Gerando seu site') ||
+              chatData.response.includes('STATUS: Gerando') ||
+              chatData.response.includes('criando um site') ||
+              chatData.response.includes('preparo seu site')
+            );
+            
+            const shouldGenerate = chatData.shouldGeneratePreview === true || responseIndicatesGeneration;
+            
+            if (shouldGenerate) {
+              console.log('✅ [initializeConversation] IA indicou que deve gerar preview agora!');
+              console.log('📊 [initializeConversation] shouldGeneratePreview flag:', chatData.shouldGeneratePreview);
+              console.log('📊 [initializeConversation] responseIndicatesGeneration:', responseIndicatesGeneration);
+              console.log('⏳ [initializeConversation] Aguardando 500ms antes de iniciar geração...');
+              
+              // ✅ Usar setTimeout com verificação adicional
+              setTimeout(() => {
+                console.log('🚀 [initializeConversation] Chamando generateSitePreview agora...');
+                console.log('📝 [initializeConversation] Prompt:', initialData.additionalPrompt?.substring(0, 100));
+                console.log('🔒 [initializeConversation] Estado atual - isGenerating:', isGenerating, 'generationLockRef:', generationLockRef.current);
+                
+                // ✅ Verificar novamente se não está gerando antes de chamar
+                if (!isGenerating && !generationLockRef.current) {
+                  console.log('✅ [initializeConversation] Condições OK, iniciando geração...');
+                  generateSitePreview(initialData.additionalPrompt || '').catch((error) => {
+                    console.error('❌ [initializeConversation] Erro ao gerar preview:', error);
+                    // ✅ Adicionar mensagem de erro para o usuário
+                    const errorMessage: Message = {
+                      id: crypto.randomUUID(),
+                      sender: 'ai',
+                      content: `⚠️ **Erro ao gerar site**
+
+Ocorreu um erro ao iniciar a geração. Por favor, tente novamente ou digite "gerar" para tentar novamente.`,
+                      timestamp: new Date(),
+                      type: 'text'
+                    };
+                    setMessages(prev => [...prev, errorMessage]);
+                  });
+                } else {
+                  console.warn('⚠️ [initializeConversation] Geração já em andamento, pulando chamada duplicada');
+                }
+              }, 500);
             } else {
-              console.log('✅ [initializeConversation] IA vai fazer perguntas primeiro. Aguardando resposta do usuário...');
+              console.log('📝 [initializeConversation] IA vai fazer perguntas primeiro. Aguardando resposta do usuário...');
+              console.log('📊 [initializeConversation] shouldGeneratePreview:', chatData.shouldGeneratePreview);
+              console.log('📊 [initializeConversation] hasCompleteData:', chatData.hasCompleteData);
+              console.log('📊 [initializeConversation] responseIndicatesGeneration:', responseIndicatesGeneration);
+              
+              // ✅ Se não tem dados completos mas a IA disse que vai gerar, informar o que falta
+              if (!chatData.hasCompleteData && initialData.additionalPrompt && initialData.additionalPrompt.length > 100) {
+                console.log('⚠️ [initializeConversation] Prompt completo mas dados insuficientes - verificando o que falta...');
+                // A resposta da IA já deve ter informado o que falta, mas podemos verificar depois
+              }
             }
           } else {
             console.error('❌ [initializeConversation] Erro na resposta da IA:', chatData);
@@ -690,35 +875,76 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
     setActiveRequestsCount(abortControllersRef.current.length);
 
     try {
+      // ✅ Obter usuário logado para associar à conversa
+      const { getCurrentUser } = await import('@/lib/auth');
+      const currentUser = await getCurrentUser();
+      
+      // ✅ NOVO: Buscar dados do projeto do banco ANTES de gerar
+      // Isso garante que dados extraídos do prompt completo sejam usados
+      console.log('🔍 [generateSitePreview] Buscando dados do projeto no banco...');
+      let projectDataFromDB: any = null;
+      try {
+        const { DatabaseService } = await import('@/lib/supabase');
+        projectDataFromDB = await DatabaseService.getProjectData(conversationId);
+        console.log('✅ [generateSitePreview] Dados do projeto carregados:', {
+          company_name: projectDataFromDB?.company_name,
+          business_type: projectDataFromDB?.business_type,
+          design_style: projectDataFromDB?.design_style,
+          pages_needed: projectDataFromDB?.pages_needed,
+          design_colors: projectDataFromDB?.design_colors,
+          functionalities: projectDataFromDB?.functionalities
+        });
+      } catch (dbError) {
+        console.warn('⚠️ [generateSitePreview] Erro ao buscar dados do banco (continuando):', dbError);
+      }
+
+      // ✅ Construir prompt completo com TODOS os dados disponíveis
+      // Prioridade: dados do banco > initialData > prompt simples
+      const fullPrompt = buildCompletePrompt(
+        prompt,
+        projectDataFromDB,
+        initialData
+      );
+
       console.log('🌐 [generateSitePreview] Fazendo requisição para /api/generate-ai-site...');
       console.log('📤 [generateSitePreview] Dados enviados:', {
         conversationId,
-        prompt,
-        companyName: initialData.companyName,
-        businessSector: initialData.businessSector
+        prompt: fullPrompt.substring(0, 200) + '...',
+        companyName: projectDataFromDB?.company_name || initialData.companyName,
+        businessSector: projectDataFromDB?.business_type || projectDataFromDB?.business_sector || initialData.businessSector,
+        designStyle: projectDataFromDB?.design_style,
+        pagesNeeded: projectDataFromDB?.pages_needed,
+        designColors: projectDataFromDB?.design_colors,
+        functionalities: projectDataFromDB?.functionalities,
+        userId: currentUser?.id || 'não logado'
       });
 
       // ✅ Salvar estado de geração antes de iniciar (para recuperação no iOS)
       generationStateRef.current = {
         conversationId,
-        prompt
+        prompt: fullPrompt
       };
-      
-      console.log('🌐 [generateSitePreview] Iniciando requisição para /api/generate-ai-site...');
-      console.log('📤 [generateSitePreview] Dados:', {
-        conversationId,
-        prompt: prompt.substring(0, 100) + '...',
-        companyName: initialData.companyName
-      });
       
       const response = await fetch('/api/generate-ai-site', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversationId,
-          prompt,
-          companyName: initialData.companyName,
-          businessSector: initialData.businessSector || 'Negócios'
+          prompt: fullPrompt, // ✅ Usar prompt completo
+          userId: currentUser?.id || null, // ✅ Enviar userId no body
+          // ✅ Passar TODOS os dados extraídos para a API
+          companyName: projectDataFromDB?.company_name || initialData.companyName,
+          businessSector: projectDataFromDB?.business_type || projectDataFromDB?.business_sector || initialData.businessSector || 'Negócios',
+          designStyle: projectDataFromDB?.design_style,
+          pagesNeeded: projectDataFromDB?.pages_needed,
+          designColors: projectDataFromDB?.design_colors,
+          functionalities: projectDataFromDB?.functionalities,
+          businessObjective: projectDataFromDB?.business_objective,
+          targetAudience: projectDataFromDB?.target_audience,
+          shortDescription: projectDataFromDB?.short_description,
+          slogan: projectDataFromDB?.slogan,
+          ctaText: projectDataFromDB?.cta_text,
+          siteStructure: projectDataFromDB?.site_structure
         }),
         signal: abortController.signal, // ✅ Permitir cancelamento
         // ⚠️ iOS pode pausar requisições longas mesmo com keepalive
@@ -1486,12 +1712,36 @@ ${getRedirectMessage(messageToSend)}`,
           
           setMessages(prev => [...prev, aiMessage]);
           
-          // ✅ Se a IA indicar que deve gerar preview, gerar agora
-          if (chatData.shouldGeneratePreview) {
-            console.log('✅ [sendMessage] IA indicou que deve gerar preview. Iniciando geração...');
+          // ✅ Se a IA indicar que deve gerar preview (shouldGeneratePreview), gerar agora
+          // ✅ TAMBÉM verificar se a mensagem do usuário é uma confirmação e a resposta indica geração
+          const userMessageIsConfirmation = /^(gerar|sim|ok|pode gerar|pronto|pode|vamos|está bom|está ok|vai|confirmo|confirmado|pode criar|pode fazer|pode começar)$/i.test(messageToSend.trim()) ||
+                                             /(gerar|sim|ok|pode gerar|pronto|pode|vamos|está bom|está ok|vai|confirmo|confirmado|pode criar|pode fazer|pode começar)/i.test(messageToSend);
+          
+          const responseIndicatesGeneration = chatData.response && (
+            chatData.response.includes('Gerando seu site') ||
+            chatData.response.includes('STATUS: Gerando') ||
+            chatData.response.includes('criando um site') ||
+            chatData.response.includes('preparo seu site') ||
+            chatData.response.includes('vou gerar') ||
+            chatData.response.includes('gerando agora')
+          );
+          
+          const shouldGenerate = chatData.shouldGeneratePreview === true || 
+                                 (userMessageIsConfirmation && responseIndicatesGeneration);
+          
+          if (shouldGenerate) {
+            console.log('✅ [sendMessage] Condições atendidas para gerar preview:', {
+              shouldGeneratePreview: chatData.shouldGeneratePreview,
+              userMessageIsConfirmation,
+              responseIndicatesGeneration
+            });
+            console.log('🚀 [sendMessage] Iniciando geração do site...');
             await generateSitePreview(messageToSend);
           } else {
-            console.log('✅ [sendMessage] IA continua fazendo perguntas. Aguardando mais informações...');
+            console.log('📝 [sendMessage] IA continua fazendo perguntas ou aguardando confirmação. Aguardando mais informações...');
+            console.log('📊 [sendMessage] shouldGeneratePreview:', chatData.shouldGeneratePreview);
+            console.log('📊 [sendMessage] userMessageIsConfirmation:', userMessageIsConfirmation);
+            console.log('📊 [sendMessage] responseIndicatesGeneration:', responseIndicatesGeneration);
           }
         } else {
           throw new Error(chatData.error || 'Erro ao obter resposta da IA');
@@ -1512,6 +1762,82 @@ ${getRedirectMessage(messageToSend)}`,
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // ✅ Função auxiliar para construir prompt completo com todos os dados
+  const buildCompletePrompt = (
+    basePrompt: string,
+    projectData: any,
+    initialData: any
+  ): string => {
+    // Se não tem dados do banco e o prompt é simples, usar prompt original
+    if (!projectData || Object.keys(projectData).length === 0) {
+      return basePrompt || initialData.additionalPrompt || '';
+    }
+
+    // ✅ Construir prompt estruturado com TODOS os dados extraídos
+    const sections: string[] = [];
+    
+    // Prompt original do usuário
+    if (basePrompt || initialData.additionalPrompt) {
+      sections.push(`💡 **SOLICITAÇÃO ORIGINAL:**\n${basePrompt || initialData.additionalPrompt}`);
+    }
+
+    // Dados da empresa
+    sections.push(`\n🏢 **DADOS DA EMPRESA:**`);
+    if (projectData.company_name) sections.push(`- Nome: ${projectData.company_name}`);
+    if (projectData.business_type) sections.push(`- Setor/Negócio: ${projectData.business_type}`);
+    if (projectData.business_sector && projectData.business_sector !== projectData.business_type) {
+      sections.push(`- Setor: ${projectData.business_sector}`);
+    }
+    if (projectData.slogan) sections.push(`- Slogan: "${projectData.slogan}"`);
+    if (projectData.business_objective) sections.push(`- Objetivo: ${projectData.business_objective}`);
+    if (projectData.target_audience) sections.push(`- Público-alvo: ${projectData.target_audience}`);
+    if (projectData.short_description) sections.push(`- Descrição: ${projectData.short_description}`);
+
+    // Identidade visual
+    if (projectData.design_style || projectData.design_colors) {
+      sections.push(`\n🎨 **IDENTIDADE VISUAL:**`);
+      if (projectData.design_style) sections.push(`- Tema/Estilo: ${projectData.design_style}`);
+      if (projectData.design_colors && Array.isArray(projectData.design_colors) && projectData.design_colors.length > 0) {
+        sections.push(`- Cores: ${projectData.design_colors.join(', ')}`);
+      }
+    }
+
+    // Estrutura do site
+    if (projectData.pages_needed && Array.isArray(projectData.pages_needed) && projectData.pages_needed.length > 0) {
+      sections.push(`\n🏗️ **ESTRUTURA DO SITE:**`);
+      sections.push(`- Páginas/Seções: ${projectData.pages_needed.join(', ')}`);
+      if (projectData.site_structure) sections.push(`- Tipo: ${projectData.site_structure}`);
+    }
+
+    // Funcionalidades
+    if (projectData.functionalities && Array.isArray(projectData.functionalities) && projectData.functionalities.length > 0) {
+      sections.push(`\n⚙️ **FUNCIONALIDADES:**`);
+      sections.push(`- ${projectData.functionalities.join(', ')}`);
+    }
+
+    // Conteúdo
+    if (projectData.cta_text || projectData.tone) {
+      sections.push(`\n✍️ **CONTEÚDO:**`);
+      if (projectData.cta_text) sections.push(`- CTA: "${projectData.cta_text}"`);
+      // tone pode estar em content_needs
+      if (projectData.content_needs) {
+        try {
+          const contentNeeds = typeof projectData.content_needs === 'string' 
+            ? JSON.parse(projectData.content_needs) 
+            : projectData.content_needs;
+          if (contentNeeds.tone) sections.push(`- Tom de voz: ${contentNeeds.tone}`);
+        } catch (e) {
+          // Ignorar erro de parse
+        }
+      }
+    }
+
+    const completePrompt = sections.join('\n');
+    console.log('📋 [buildCompletePrompt] Prompt completo construído:', completePrompt.substring(0, 300) + '...');
+    
+    return completePrompt || basePrompt;
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {

@@ -100,9 +100,9 @@ export async function generateAIResponse(
       const hasStyle = projectData.design_style;
       const hasCompleteFormData = hasBasicInfo && hasStructure && hasFunctionalities && hasStyle;
       
-      // ✅ Se NÃO tem dados completos, é apenas prompt inicial - responder normalmente
+      // ✅ Se NÃO tem dados completos, é apenas prompt inicial - fazer perguntas
       if (!hasCompleteFormData) {
-        // Fluxo simples: apenas prompt inicial, responder diretamente
+        // Fluxo simples: apenas prompt inicial, fazer perguntas primeiro
         // ✅ Extrair o prompt inicial do histórico ou userMessage
         const initialPrompt = userMessage || (conversationHistory.length > 0 ? conversationHistory[0].content : 'seu projeto');
         
@@ -110,18 +110,20 @@ export async function generateAIResponse(
 
 📋 **ID da Solicitação:** \`${conversationId}\`
 
-💡 **Seu Prompt:** ${initialPrompt}
+💡 **Seu Prompt:** ${initialPrompt.length > 200 ? initialPrompt.substring(0, 200) + '...' : initialPrompt}
 
 ---
 
-⚙️ **STATUS: Gerando seu site agora...**
+Para criar seu site, preciso de algumas informações:
 
-🔄 Estou criando um site profissional e responsivo baseado na sua solicitação. Isso pode levar alguns segundos.
+1. **Nome da empresa ou tipo de negócio**
+2. **Quais páginas/seções você quer no site?** (ex: Home, Sobre, Serviços, Contato)
+3. **Qual estilo visual você prefere?** (moderno, corporativo, criativo, etc.)
 
-⏳ Por favor, aguarde enquanto preparo seu site personalizado...`;
-        suggestedOptions = [];
-        nextStage = 2;
-        shouldGeneratePreview = true; // ✅ Gerar preview direto quando só tem prompt inicial
+Pode me informar essas informações?`;
+        suggestedOptions = ['Vou informar', 'Quero personalizar'];
+        nextStage = 1;
+        shouldGeneratePreview = false; // ✅ NÃO gerar ainda - aguardar informações
       } else {
         // ✅ TEM dados completos do formulário - mostrar confirmação
         // ✅ Extrair dados de content_needs (JSONB)

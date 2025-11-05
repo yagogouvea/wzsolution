@@ -115,7 +115,7 @@
   <!-- Header Fixo -->
   <header class="fixed top-0 w-full bg-white shadow-md z-50 transition-all duration-300">
     <nav class="container mx-auto px-6 py-4 flex items-center justify-between">
-      <div class="flex items-center space-x-2">
+      <div class="flex items-center space-x-2 flex-shrink-0 mr-8">
         <svg class="w-10 h-10" viewBox="0 0 50 50" fill="none">
           <rect width="50" height="50" rx="10" fill="url(#gradient1)"/>
           <path d="M15 18L20 32L25 18L30 32L35 18" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -127,15 +127,18 @@
             </linearGradient>
           </defs>
         </svg>
-        <span class="text-2xl font-bold gradient-text">WZ Solutions</span>
+        <span class="text-2xl font-bold gradient-text whitespace-nowrap">WZ Solutions</span>
       </div>
       
-      <div class="hidden md:flex items-center space-x-8">
-        <a href="#home" class="nav-link text-gray-700 hover:text-purple-600 font-medium">Início</a>
-        <a href="#servicos" class="nav-link text-gray-700 hover:text-purple-600 font-medium">Serviços</a>
-        <a href="#ia-site" class="nav-link text-gray-700 hover:text-purple-600 font-medium">IA Site</a>
-        <a href="#orcamento" class="nav-link text-gray-700 hover:text-purple-600 font-medium">Orçamento</a>
-        <a href="#contato" class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-2 rounded-full hover:shadow-lg transition-all duration-300">Contato</a>
+      <div class="hidden md:flex items-center space-x-6 flex-1 justify-center">
+        <a href="#home" class="nav-link text-gray-700 hover:text-purple-600 font-medium px-2">Início</a>
+        <a href="#servicos" class="nav-link text-gray-700 hover:text-purple-600 font-medium px-2">Serviços</a>
+        <a href="#ia-site" class="nav-link text-gray-700 hover:text-purple-600 font-medium px-2">IA Site</a>
+        <a href="#orcamento" class="nav-link text-gray-700 hover:text-purple-600 font-medium px-2">Orçamento</a>
+      </div>
+      
+      <div class="hidden md:flex items-center gap-6 flex-shrink-0 ml-8" id="header-buttons-container">
+        <a href="#contato" class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-2 rounded-full hover:shadow-lg transition-all duration-300 whitespace-nowrap">Contato</a>
       </div>
     </nav>
   </header>

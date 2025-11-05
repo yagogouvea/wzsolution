@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import LoginModal from './LoginModal';
 
 /**
  * Componente que renderiza o HTML estático baixado
@@ -11,6 +12,9 @@ export default function StaticAIGeneratedHome() {
   const router = useRouter();
   const [html, setHtml] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [loginModalMode, setLoginModalMode] = useState<'login' | 'signup'>('login');
+  const [pendingPromptData, setPendingPromptData] = useState<any>(null);
 
   useEffect(() => {
     // Carregar HTML estático do arquivo baixado
@@ -204,6 +208,74 @@ export default function StaticAIGeneratedHome() {
           /href=["']#ia-site["']/gi,
           'href="#ia-site" onclick="event.preventDefault(); const section = document.getElementById(\'ia-site\'); if(section) { const headerHeight = 80; const elementPosition = section.getBoundingClientRect().top + window.pageYOffset; const offsetPosition = elementPosition - headerHeight; window.scrollTo({ top: offsetPosition, behavior: \'smooth\' }); } return false;"'
         );
+        
+        // ✅ 10.5. Adicionar botão de login no header do HTML estático
+        // Estratégia: Inserir dentro do container de botões existente (header-buttons-container)
+        const loginButtonHTML = `
+            <button id="header-login-button" onclick="window.openLoginModal && window.openLoginModal('login'); return false;" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: linear-gradient(to right, #9333ea, #4f46e5); color: white !important; border-radius: 0.5rem; text-decoration: none; font-weight: 600; font-size: 0.875rem; transition: all 0.3s; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2); border: none; cursor: pointer;">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: white !important;">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+              </svg>
+              <span style="color: white !important;">Entrar</span>
+            </button>
+        `;
+        
+        // Tentativa 1: Procurar pelo container de botões específico (header-buttons-container)
+        if (!processedHTML.includes('header-login-button')) {
+          processedHTML = processedHTML.replace(
+            /(<div[^>]*id=["']header-buttons-container["'][^>]*>[\s\S]*?)(<\/div>)/gi,
+            (match, divContent, closingTag) => {
+              if (divContent.includes('header-login-button') || divContent.includes('Entrar')) {
+                return match;
+              }
+              return divContent + loginButtonHTML + closingTag;
+            }
+          );
+        }
+        
+        // Tentativa 2: Procurar por nav dentro do header
+        if (!processedHTML.includes('header-login-button')) {
+          processedHTML = processedHTML.replace(
+            /(<header[^>]*>[\s\S]*?<nav[^>]*>[\s\S]*?)(<\/nav>[\s\S]*?<\/header>)/gi,
+            (match, navContent, rest) => {
+              if (navContent.includes('header-login-button') || navContent.includes('Entrar')) {
+                return match;
+              }
+              return navContent + loginButtonHTML + '</nav>' + rest;
+            }
+          );
+        }
+        
+        // Tentativa 3: Se não encontrou nav, procurar por div com classe container/wrapper no header
+        if (!processedHTML.includes('header-login-button')) {
+          processedHTML = processedHTML.replace(
+            /(<header[^>]*>[\s\S]*?<div[^>]*(?:class|className)=["'][^"']*(?:container|wrapper|flex|justify-between)[^"']*["'][^>]*>[\s\S]*?)(<\/div>[\s\S]*?<\/header>)/gi,
+            (match, divContent, rest) => {
+              if (divContent.includes('header-login-button') || divContent.includes('Entrar')) {
+                return match;
+              }
+              // Inserir antes do último </div> do header
+              const lastDiv = divContent.lastIndexOf('</div>');
+              if (lastDiv > 0) {
+                return divContent.slice(0, lastDiv) + loginButtonHTML + divContent.slice(lastDiv) + rest;
+              }
+              return divContent + loginButtonHTML + '</div>' + rest;
+            }
+          );
+        }
+        
+        // Tentativa 4: Se ainda não encontrou, inserir diretamente antes do </header>
+        if (!processedHTML.includes('header-login-button')) {
+          processedHTML = processedHTML.replace(
+            /(<header[^>]*>[\s\S]*?)(<\/header>)/gi,
+            (match, headerContent, closingTag) => {
+              if (headerContent.includes('header-login-button') || headerContent.includes('Entrar')) {
+                return match;
+              }
+              return headerContent + loginButtonHTML + closingTag;
+            }
+          );
+        }
         
         // 11. Reformular completamente a seção IA - substituir por versão melhorada
         const novaSecaoIA = `
@@ -424,6 +496,25 @@ export default function StaticAIGeneratedHome() {
             (function() {
               // Função para lidar com o envio do formulário da seção IA
               // Esta função será chamada pelo onclick do botão ou onsubmit do form
+              // ✅ Função para verificar autenticação
+              async function checkAuth() {
+                try {
+                  // Tentar fazer uma requisição simples para verificar
+                  const response = await fetch('/api/auth/check', { method: 'GET' }).catch(() => null);
+                  if (response && response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.user) {
+                      return data.user;
+                    }
+                  }
+                  
+                  return null;
+                } catch (error) {
+                  console.error('❌ [AUTH] Erro:', error);
+                  return null;
+                }
+              }
+              
               window.handleIAPromptSubmit = async function(event) {
                 if (event) {
                   event.preventDefault();
@@ -432,6 +523,40 @@ export default function StaticAIGeneratedHome() {
                 }
                 
                 console.log('🛑 [INJECTED] Submit interceptado!');
+                
+                // ✅ VERIFICAR AUTENTICAÇÃO PRIMEIRO
+                console.log('🔐 [INJECTED] Verificando autenticação...');
+                const user = await checkAuth();
+                
+                if (!user) {
+                  console.log('🔐 [INJECTED] Usuário não logado, abrindo modal de login...');
+                  const textarea = document.getElementById('initial-prompt');
+                  const projectDescription = textarea ? textarea.value.trim() : '';
+                  
+                  if (projectDescription) {
+                    sessionStorage.setItem('pending_site_creation', JSON.stringify({
+                      selectedType: 'site',
+                      idea: projectDescription,
+                      companyName: projectDescription.split('para')[1]?.trim() || 'Meu Negócio',
+                      businessSector: 'A definir'
+                    }));
+                  }
+                  
+                  // Abrir modal de login via função global
+                  if ((window as any).openLoginModal) {
+                    (window as any).openLoginModal('login');
+                  } else {
+                    // Fallback: aguardar um pouco e tentar novamente
+                    setTimeout(() => {
+                      if ((window as any).openLoginModal) {
+                        (window as any).openLoginModal('login');
+                      }
+                    }, 100);
+                  }
+                  return false;
+                }
+                
+                console.log('✅ [INJECTED] Usuário autenticado');
                 
                 // Capturar o texto do textarea - usar ID correto
                 const textarea = document.getElementById('initial-prompt');
@@ -465,7 +590,8 @@ export default function StaticAIGeneratedHome() {
                       initialPrompt: projectDescription,
                       projectType: 'site',
                       clientName: 'Cliente',
-                      clientEmail: ''
+                      clientEmail: '',
+                      userId: user.id // ✅ Enviar userId
                     })
                   });
                   
@@ -498,6 +624,69 @@ export default function StaticAIGeneratedHome() {
                 return false;
               };
               
+              // ✅ Função para atualizar botão de login
+              async function updateLoginButton() {
+                try {
+                  const loginButton = document.getElementById('header-login-button');
+                  if (!loginButton) return;
+                  
+                  const response = await fetch('/api/auth/check', { method: 'GET' }).catch(() => null);
+                  
+                  if (response && response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.user) {
+                      // Usuário logado - substituir o elemento <a> por novos elementos
+                      const container = loginButton.parentElement;
+                      if (container) {
+                        loginButton.remove();
+                        container.innerHTML += \`
+                          <a href="/cliente" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: rgba(147, 51, 234, 0.2); color: rgba(196, 181, 253, 1); border-radius: 0.5rem; text-decoration: none; font-weight: 600; font-size: 0.875rem; transition: all 0.3s; white-space: nowrap; border: 1px solid rgba(147, 51, 234, 0.3);">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                            <span>Painel do Cliente</span>
+                          </a>
+                          <button id="header-logout-button-injected" style="padding: 0.5rem 1rem; background: transparent; color: rgba(196, 181, 253, 0.8); border: none; border-radius: 0.5rem; font-size: 0.875rem; cursor: pointer; transition: all 0.3s;">
+                            Sair
+                          </button>
+                        \`;
+                        
+                        // Configurar evento de logout após injeção
+                        setTimeout(() => {
+                          const logoutBtn = document.getElementById('header-logout-button-injected');
+                          if (logoutBtn) {
+                            logoutBtn.onclick = async function(e) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              try {
+                                // Limpar storage primeiro
+                                if (typeof window !== 'undefined') {
+                                  try {
+                                    localStorage.clear();
+                                    sessionStorage.clear();
+                                  } catch(storageErr) {
+                                    console.warn('Erro ao limpar storage:', storageErr);
+                                  }
+                                }
+                                // Tentar logout no Supabase
+                                const { signOut } = await import('@/lib/auth');
+                                await signOut();
+                              } catch(err) {
+                                console.error('Erro ao fazer logout:', err);
+                              }
+                              // Sempre redirecionar
+                              window.location.href = '/';
+                            };
+                          }
+                        }, 100);
+                      }
+                    }
+                  }
+                } catch (error) {
+                  console.error('Erro ao atualizar botão de login:', error);
+                }
+              }
+              
               function connectIAChat() {
                 // Interceptar links "IA Site" no header e navegação para fazer scroll suave
                 const iaLinks = document.querySelectorAll('a[href="#ia-site"]');
@@ -519,6 +708,9 @@ export default function StaticAIGeneratedHome() {
                     return false;
                   });
                 });
+                
+                // ✅ Atualizar botão de login
+                setTimeout(updateLoginButton, 500);
               }
               
               // Executar quando DOM estiver pronto
@@ -563,6 +755,22 @@ export default function StaticAIGeneratedHome() {
     });
   }, []);
 
+  // Expor função para abrir modal globalmente
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).openLoginModal = (mode: 'login' | 'signup' = 'login') => {
+        setLoginModalMode(mode);
+        setIsLoginModalOpen(true);
+      };
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete (window as any).openLoginModal;
+      }
+    };
+  }, []);
+
   // Configurar botão APÓS o HTML ser inserido
   // IMPORTANTE: Este useEffect DEVE estar antes dos returns condicionais
   useEffect(() => {
@@ -575,6 +783,18 @@ export default function StaticAIGeneratedHome() {
     
     let isConfigured = false; // Flag para evitar múltiplas configurações
     
+    // ✅ Função para verificar autenticação (React)
+    const checkAuthReact = async () => {
+      try {
+        const { getCurrentUser } = await import('@/lib/auth');
+        const user = await getCurrentUser();
+        return user;
+      } catch (error) {
+        console.error('❌ [REACT] Erro ao verificar autenticação:', error);
+        return null;
+      }
+    };
+    
     // Função principal que será chamada ao clicar (definida fora para ser reutilizável)
     const handleButtonClick = async function(e: MouseEvent) {
         e.preventDefault();
@@ -582,6 +802,35 @@ export default function StaticAIGeneratedHome() {
         e.stopImmediatePropagation();
         
         console.log('🖱️ [REACT] Botão clicado!');
+        
+        // ✅ VERIFICAR AUTENTICAÇÃO PRIMEIRO
+        console.log('🔐 [REACT] Verificando autenticação...');
+        const user = await checkAuthReact();
+        
+        if (!user) {
+          console.log('🔐 [REACT] Usuário não logado, abrindo modal de login...');
+          const promptEl = document.getElementById('initial-prompt') as HTMLTextAreaElement;
+          const prompt = promptEl?.value.trim() || '';
+          
+          // Salvar dados pendentes
+          if (prompt) {
+            const pendingData = {
+              selectedType: 'site',
+              idea: prompt,
+              companyName: prompt.split('para')[1]?.trim() || 'Meu Negócio',
+              businessSector: 'A definir'
+            };
+            setPendingPromptData(pendingData);
+            sessionStorage.setItem('pending_site_creation', JSON.stringify(pendingData));
+          }
+          
+          // Abrir modal de login
+          setLoginModalMode('login');
+          setIsLoginModalOpen(true);
+          return false;
+        }
+        
+        console.log('✅ [REACT] Usuário autenticado:', user.email);
         
         const promptEl = document.getElementById('initial-prompt') as HTMLTextAreaElement;
         const buttonEl = document.getElementById('submit-button') as HTMLButtonElement;
@@ -615,14 +864,26 @@ export default function StaticAIGeneratedHome() {
           console.log('📤 [REACT] Enviando para API...');
           
           const apiBaseUrl = window.location.origin;
+          
+          // Preparar payload com userId se disponível
+          const payload: any = {
+            initialPrompt: prompt,
+            projectType: 'site',
+            clientName: 'Cliente'
+          };
+          
+          // Adicionar userId apenas se o usuário estiver logado e tiver ID válido
+          if (user && user.id && typeof user.id === 'string') {
+            payload.userId = user.id;
+            console.log('📤 [REACT] Enviando com userId:', user.id);
+          } else {
+            console.log('⚠️ [REACT] Enviando sem userId (usuário não logado ou ID inválido)');
+          }
+          
           const response = await fetch(`${apiBaseUrl}/api/start-conversation`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              initialPrompt: prompt,
-              projectType: 'site',
-              clientName: 'Cliente'
-            })
+            body: JSON.stringify(payload)
           });
           
           console.log('📥 [REACT] Resposta recebida, status:', response.status);
@@ -658,6 +919,125 @@ export default function StaticAIGeneratedHome() {
         return false;
       };
     
+    // ✅ Função para lidar com logout
+    const handleLogoutClick = async (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        // Limpar storage primeiro
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.clear();
+            sessionStorage.clear();
+          } catch (storageErr) {
+            console.warn('Erro ao limpar storage:', storageErr);
+          }
+        }
+        // Tentar logout no Supabase
+        const { signOut } = await import('@/lib/auth');
+        await signOut();
+      } catch (err) {
+        console.error('Erro ao fazer logout:', err);
+      }
+      // Sempre redirecionar
+      window.location.href = '/';
+    };
+
+    // ✅ Função para atualizar botão de login no header
+    const updateHeaderLoginButton = async () => {
+      try {
+        const loginButton = document.getElementById('header-login-button');
+        if (!loginButton) {
+          console.log('⚠️ [REACT] Botão header-login-button não encontrado');
+          return;
+        }
+        
+        const { getCurrentUser } = await import('@/lib/auth');
+        const user = await getCurrentUser();
+        
+        if (user) {
+          // Usuário logado - substituir o botão por links de área do cliente
+          const container = loginButton.parentElement;
+          if (container) {
+            loginButton.remove();
+            const areaClienteBtn = document.createElement('a');
+            areaClienteBtn.href = '/cliente';
+            areaClienteBtn.style.cssText = 'display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: rgba(147, 51, 234, 0.2); color: rgba(196, 181, 253, 1); border-radius: 0.5rem; text-decoration: none; font-weight: 600; font-size: 0.875rem; transition: all 0.3s; white-space: nowrap; border: 1px solid rgba(147, 51, 234, 0.3);';
+            areaClienteBtn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg><span>Painel do Cliente</span>';
+            container.appendChild(areaClienteBtn);
+            
+            const sairBtn = document.createElement('button');
+            sairBtn.id = 'header-logout-button';
+            sairBtn.textContent = 'Sair';
+            sairBtn.onclick = handleLogoutClick;
+            sairBtn.style.cssText = 'padding: 0.5rem 1rem; background: transparent; color: rgba(196, 181, 253, 0.8); border: none; border-radius: 0.5rem; font-size: 0.875rem; cursor: pointer; transition: all 0.3s;';
+            container.appendChild(sairBtn);
+          }
+        } else {
+          // Não logado - garantir que o botão abre o modal
+          // Remover botões de logout e painel se existirem
+          const existingLogout = document.getElementById('header-logout-button');
+          const existingLogoutInjected = document.getElementById('header-logout-button-injected');
+          if (existingLogout) existingLogout.remove();
+          if (existingLogoutInjected) existingLogoutInjected.remove();
+          
+          // Remover link do painel se existir
+          const container = loginButton.parentElement;
+          if (container) {
+            const existingPanelLink = container.querySelector('a[href="/cliente"]');
+            if (existingPanelLink) existingPanelLink.remove();
+          }
+          
+          if (loginButton.tagName === 'A' || loginButton.getAttribute('href')) {
+            const btn = document.createElement('button');
+            btn.id = 'header-login-button';
+            btn.onclick = () => {
+              if ((window as any).openLoginModal) {
+                (window as any).openLoginModal('login');
+              }
+            };
+            btn.style.cssText = loginButton.getAttribute('style') || 'display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: linear-gradient(to right, #9333ea, #4f46e5); color: white !important; border-radius: 0.5rem; font-weight: 600; font-size: 0.875rem; transition: all 0.3s; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2); border: none; cursor: pointer;';
+            btn.innerHTML = loginButton.innerHTML;
+            loginButton.parentNode?.replaceChild(btn, loginButton);
+          }
+        }
+      } catch (error) {
+        console.error('❌ [REACT] Erro ao atualizar botão de login:', error);
+      }
+    };
+    
+    // ✅ Listener de mudanças de autenticação para atualizar header automaticamente
+    const setupAuthListener = async () => {
+      try {
+        const { supabaseAuth } = await import('@/lib/auth');
+        if (supabaseAuth && supabaseAuth.auth) {
+          supabaseAuth.auth.onAuthStateChange((event, session) => {
+            console.log('🔄 [REACT] Mudança de autenticação detectada:', event);
+            // Atualizar botão do header quando há mudança de autenticação
+            setTimeout(() => {
+              updateHeaderLoginButton();
+            }, 300);
+          });
+        }
+      } catch (error) {
+        console.warn('⚠️ [REACT] Erro ao configurar listener de auth:', error);
+      }
+    };
+    
+    // ✅ Listener de evento customizado para atualizar header após login
+    const handleAuthStateChanged = () => {
+      console.log('🔄 [REACT] Evento auth-state-changed recebido');
+      setTimeout(() => {
+        updateHeaderLoginButton();
+      }, 300);
+    };
+    
+    // Configurar listeners
+    setupAuthListener();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('auth-state-changed', handleAuthStateChanged);
+    }
+
     // Função para configurar o botão
     const setupButton = () => {
       // Evitar múltiplas configurações
@@ -665,6 +1045,9 @@ export default function StaticAIGeneratedHome() {
         console.log('⏭️ [REACT] Botão já configurado, pulando...');
         return true;
       }
+      
+      // ✅ Atualizar botão de login no header
+      setTimeout(updateHeaderLoginButton, 300);
       
       const button = document.getElementById('submit-button');
       const textarea = document.getElementById('initial-prompt');
@@ -746,8 +1129,13 @@ export default function StaticAIGeneratedHome() {
     setTimeout(trySetup, 1000);
     setTimeout(trySetup, 2000);
     
+    // Cleanup do useEffect
     return () => {
       console.log('🧹 [REACT] Cleanup do useEffect');
+      // Remover listener de evento customizado
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('auth-state-changed', handleAuthStateChanged);
+      }
     };
   }, [html]);
 
@@ -946,13 +1334,163 @@ export default function StaticAIGeneratedHome() {
     );
   }
 
+  // Função para processar criação pendente após login
+  const handleLoginSuccess = async () => {
+    // Atualizar botão do header após login bem-sucedido
+    console.log('✅ [REACT] Login bem-sucedido, atualizando header...');
+    
+    // Disparar evento customizado para atualizar header
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('auth-state-changed'));
+    }
+    
+    // Também chamar diretamente a atualização após um delay
+    setTimeout(async () => {
+      try {
+        // Chamar função de atualização do header
+        const loginButton = document.getElementById('header-login-button');
+        if (loginButton) {
+          // Importar função de atualização dinamicamente
+          const { getCurrentUser } = await import('@/lib/auth');
+          const user = await getCurrentUser();
+          
+          if (user) {
+            // Usuário logado - atualizar botão
+            const container = loginButton.parentElement;
+            if (container) {
+              // Remover botão de login
+              loginButton.remove();
+              
+              // Remover botões existentes se houver
+              const existingLogout = document.getElementById('header-logout-button');
+              const existingLogoutInjected = document.getElementById('header-logout-button-injected');
+              if (existingLogout) existingLogout.remove();
+              if (existingLogoutInjected) existingLogoutInjected.remove();
+              
+              // Verificar se já não existe botão de painel
+              const existingPanelLink = container.querySelector('a[href="/cliente"]');
+              if (existingPanelLink) {
+                // Se já existe, apenas garantir que o logout está configurado
+                const logoutBtn = container.querySelector('#header-logout-button') as HTMLButtonElement;
+                if (!logoutBtn) {
+                  // Criar botão de logout se não existir
+                  const sairBtn = document.createElement('button');
+                  sairBtn.id = 'header-logout-button';
+                  sairBtn.textContent = 'Sair';
+                  sairBtn.onclick = async (e: Event) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    try {
+                      if (typeof window !== 'undefined') {
+                        try {
+                          localStorage.clear();
+                          sessionStorage.clear();
+                        } catch (storageErr) {
+                          console.warn('Erro ao limpar storage:', storageErr);
+                        }
+                      }
+                      const { signOut } = await import('@/lib/auth');
+                      await signOut();
+                    } catch (err) {
+                      console.error('Erro ao fazer logout:', err);
+                    }
+                    window.location.href = '/';
+                  };
+                  sairBtn.style.cssText = 'padding: 0.5rem 1rem; background: transparent; color: rgba(196, 181, 253, 0.8); border: none; border-radius: 0.5rem; font-size: 0.875rem; cursor: pointer; transition: all 0.3s;';
+                  container.appendChild(sairBtn);
+                }
+                return; // Já está configurado
+              }
+              
+              // Criar botão de Painel do Cliente
+              const areaClienteBtn = document.createElement('a');
+              areaClienteBtn.href = '/cliente';
+              areaClienteBtn.style.cssText = 'display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: rgba(147, 51, 234, 0.2); color: rgba(196, 181, 253, 1); border-radius: 0.5rem; text-decoration: none; font-weight: 600; font-size: 0.875rem; transition: all 0.3s; white-space: nowrap; border: 1px solid rgba(147, 51, 234, 0.3);';
+              areaClienteBtn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg><span>Painel do Cliente</span>';
+              container.appendChild(areaClienteBtn);
+              
+              // Criar botão de logout
+              const sairBtn = document.createElement('button');
+              sairBtn.id = 'header-logout-button';
+              sairBtn.textContent = 'Sair';
+              sairBtn.onclick = async (e: Event) => {
+                e.preventDefault();
+                e.stopPropagation();
+                try {
+                  if (typeof window !== 'undefined') {
+                    try {
+                      localStorage.clear();
+                      sessionStorage.clear();
+                    } catch (storageErr) {
+                      console.warn('Erro ao limpar storage:', storageErr);
+                    }
+                  }
+                  const { signOut } = await import('@/lib/auth');
+                  await signOut();
+                } catch (err) {
+                  console.error('Erro ao fazer logout:', err);
+                }
+                window.location.href = '/';
+              };
+              sairBtn.style.cssText = 'padding: 0.5rem 1rem; background: transparent; color: rgba(196, 181, 253, 0.8); border: none; border-radius: 0.5rem; font-size: 0.875rem; cursor: pointer; transition: all 0.3s;';
+              container.appendChild(sairBtn);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ [REACT] Erro ao atualizar header após login:', error);
+      }
+    }, 500);
+    if (pendingPromptData && typeof window !== 'undefined') {
+      try {
+        const { getCurrentUser } = await import('@/lib/auth');
+        const user = await getCurrentUser();
+        
+        if (user && pendingPromptData.idea) {
+          // Criar conversa via API
+          const response = await fetch('/api/start-conversation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              initialPrompt: pendingPromptData.idea,
+              projectType: 'site',
+              clientName: 'Cliente',
+              userId: user.id
+            })
+          });
+          
+          const data = await response.json();
+          
+          if (data.success && data.conversationId) {
+            const chatUrl = `/chat/${data.conversationId}?prompt=${encodeURIComponent(pendingPromptData.idea)}&companyName=${encodeURIComponent(pendingPromptData.companyName || 'Meu Negócio')}&businessSector=${encodeURIComponent(pendingPromptData.businessSector || 'Negócios')}`;
+            window.location.href = chatUrl;
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao processar criação pendente:', error);
+      }
+    }
+  };
+
   // Renderizar HTML usando dangerouslySetInnerHTML
   return (
-    <div 
-      id="ai-generated-site-root"
-      dangerouslySetInnerHTML={{ __html: html }}
-      style={{ minHeight: '100vh' }}
-    />
+    <>
+      <div 
+        id="ai-generated-site-root"
+        dangerouslySetInnerHTML={{ __html: html }}
+        style={{ minHeight: '100vh' }}
+      />
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => {
+          setIsLoginModalOpen(false);
+          setPendingPromptData(null);
+        }}
+        onSuccess={handleLoginSuccess}
+        initialMode={loginModalMode}
+        pendingData={pendingPromptData}
+      />
+    </>
   );
 }
 

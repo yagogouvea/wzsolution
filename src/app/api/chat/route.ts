@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateAIResponse } from '@/lib/claude-chat'; // ✅ Usando Claude em vez de GPT
 import { DatabaseService } from '@/lib/supabase';
+import { extractDataFromPrompt } from '@/lib/prompt-extractor';
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,6 +10,7 @@ export async function POST(request: NextRequest) {
     let message: string;
     let stage: number = 1;
     let formData: any | undefined;
+    let userId: string | null = null;
     
     try {
       const body = await request.json();
@@ -16,6 +18,7 @@ export async function POST(request: NextRequest) {
       message = body.message;
       stage = body.stage || 1;
       formData = body.formData;
+      userId = body.userId || null; // ✅ Obter userId do body
     } catch (parseError: unknown) {
       console.error('❌ Erro ao parsear JSON do request:', parseError);
       const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
@@ -48,6 +51,7 @@ export async function POST(request: NextRequest) {
       try {
         conversation = await DatabaseService.createConversation({
           id: conversationId,
+          user_id: userId || undefined, // ✅ Associar ao usuário se fornecido
           project_type: 'site',
           initial_prompt: message,
           status: 'active'
@@ -232,7 +236,70 @@ export async function POST(request: NextRequest) {
         }
     
     // ✅ Buscar dados do projeto NOVAMENTE (caso tenha sido atualizado pelo formData acima)
-    const projectData = await DatabaseService.getProjectData(conversationId);
+    let projectData = await DatabaseService.getProjectData(conversationId);
+    
+    // ✅ NOVO: Se for a primeira mensagem e o prompt for completo, extrair dados antes
+    const isFirstMessage = conversationHistory.length === 0;
+    const isPromptComplete = message.length > 100 && (
+      message.includes('para') || 
+      message.includes('empresa') || 
+      message.includes('negócio') ||
+      message.includes('cores') ||
+      message.includes('páginas') ||
+      message.includes('funcionalidades')
+    );
+
+    if (isFirstMessage && isPromptComplete && stage === 1) {
+      console.log('🔍 [Chat] Prompt completo detectado, extraindo informações...');
+      try {
+        const extractedData = await extractDataFromPrompt(message, conversationId);
+        
+        if (extractedData.has_complete_info && Object.keys(extractedData).length > 1) {
+          console.log('✅ [Chat] Dados extraídos do prompt completo:', {
+            company_name: extractedData.company_name,
+            business_type: extractedData.business_type,
+            pages_count: extractedData.pages_needed?.length || 0,
+            has_style: !!extractedData.design_style,
+            has_colors: !!extractedData.design_colors
+          });
+
+          // ✅ Mesclar dados extraídos com projectData existente (prompt tem prioridade)
+          // ✅ REMOVER has_complete_info (não existe na tabela project_data)
+          const { has_complete_info, ...dataToMerge } = extractedData;
+          
+          const mergedData: Record<string, unknown> = {
+            ...(projectData || {}),
+            // Preservar dados existentes se não foram mencionados no prompt
+            company_name: dataToMerge.company_name || projectData?.company_name,
+            business_type: dataToMerge.business_type || dataToMerge.business_sector || projectData?.business_type,
+            business_sector: dataToMerge.business_sector || dataToMerge.business_type || projectData?.business_type,
+            pages_needed: dataToMerge.pages_needed || projectData?.pages_needed,
+            design_style: dataToMerge.design_style || projectData?.design_style,
+            design_colors: dataToMerge.design_colors || projectData?.design_colors,
+            functionalities: dataToMerge.functionalities || projectData?.functionalities,
+            target_audience: dataToMerge.target_audience || projectData?.target_audience,
+            business_objective: dataToMerge.business_objective || projectData?.business_objective,
+            short_description: dataToMerge.short_description || projectData?.short_description,
+            slogan: dataToMerge.slogan || projectData?.slogan,
+            cta_text: dataToMerge.cta_text || projectData?.cta_text,
+            site_structure: dataToMerge.site_structure || projectData?.site_structure,
+          };
+
+          // Salvar dados extraídos no banco ANTES de chamar a IA
+          await DatabaseService.updateProjectData(conversationId, mergedData);
+          console.log('✅ [Chat] Dados extraídos salvos no banco de dados');
+
+          // Atualizar projectData para usar na geração da resposta
+          projectData = mergedData as any;
+        } else {
+          console.log('ℹ️ [Chat] Prompt não tem informações completas suficientes, continuando fluxo normal');
+        }
+      } catch (extractError) {
+        console.error('⚠️ [Chat] Erro ao extrair dados do prompt (não crítico):', extractError);
+        // Continuar sem os dados extraídos - a IA vai processar normalmente
+      }
+    }
+
     console.log('📊 Dados do projeto carregados para IA:', {
       company_name: projectData?.company_name,
       business_type: projectData?.business_type,
@@ -319,12 +386,26 @@ export async function POST(request: NextRequest) {
       status: aiResponse.nextStage >= 6 ? 'completed' : 'active'
     });
 
+    // ✅ Garantir que shouldGeneratePreview seja sempre boolean
+    const shouldGeneratePreview = aiResponse.shouldGeneratePreview === true;
+
+    // ✅ Log detalhado antes de retornar
+    console.log('📤 [chat] Retornando resposta:', {
+      success: true,
+      responseLength: aiResponse.response?.length || 0,
+      nextStage: aiResponse.nextStage,
+      shouldGenerateImages: aiResponse.shouldGenerateImages,
+      shouldGeneratePreview: shouldGeneratePreview,
+      shouldGeneratePreviewRaw: aiResponse.shouldGeneratePreview,
+      conversationComplete: aiResponse.nextStage >= 6
+    });
+
     return NextResponse.json({
       success: true,
       response: aiResponse.response,
       nextStage: aiResponse.nextStage,
       shouldGenerateImages: aiResponse.shouldGenerateImages,
-      shouldGeneratePreview: aiResponse.shouldGeneratePreview || false, // ✅ Nova flag para preview
+      shouldGeneratePreview: shouldGeneratePreview, // ✅ Garantir boolean
       conversationComplete: aiResponse.nextStage >= 6
     });
 

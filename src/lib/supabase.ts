@@ -19,7 +19,17 @@ function getSupabaseClient(): SupabaseClient {
     throw new Error('supabaseAnonKey is required.');
   }
 
-  _supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
+  // Usar storage key diferente para evitar conflitos com auth
+  const storageKey = 'wz-solution-db';
+  
+  _supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      storageKey: storageKey, // ✅ Chave diferente da auth para evitar conflitos
+      autoRefreshToken: false, // ✅ Não precisa de refresh automático para DB
+      persistSession: false, // ✅ Não precisa persistir sessão para DB
+    }
+  });
+  
   return _supabaseInstance;
 }
 
@@ -38,10 +48,12 @@ export const supabase = new Proxy({} as SupabaseClient, {
 // Types para o banco de dados
 export interface Conversation {
   id: string;
+  user_id?: string; // ✅ ID do usuário logado (Supabase Auth)
   client_email?: string;
   client_name?: string;
   initial_prompt: string;
   project_type: string;
+  project_name?: string; // ✅ Nome personalizado do projeto
   status: 'active' | 'completed' | 'abandoned';
   created_at: string;
   updated_at: string;
