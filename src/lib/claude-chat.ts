@@ -91,8 +91,7 @@ export async function generateAIResponse(
       hasCompleteProjectData
     });
 
-    // ✅ Se tem dados completos na primeira mensagem, é prompt completo - gerar direto
-    const isCompletePrompt = isFirstUserResponse && hasCompleteProjectData;
+    // ✅ Nota: isCompletePrompt removido - agora sempre pedimos confirmação antes de gerar
     
     // Construir contexto da conversa
     const conversationContext = conversationHistory
@@ -152,46 +151,82 @@ ${hasCompleteProjectData ? '✅ TEM TODOS OS DADOS NECESSÁRIOS - PODE GERAR O S
 
 INSTRUÇÕES:
 - Seja amigável e profissional
-${(isCompletePrompt || hasCompleteProjectData) && !userConfirmed ? `- IMPORTANTE: O usuário forneceu um prompt COMPLETO com todas as informações necessárias. Você DEVE mostrar um resumo DETALHADO das informações extraídas e pedir confirmação ANTES de gerar.
-
-Use EXATAMENTE estas informações extraídas:
-${projectData.company_name ? `🏢 **Empresa:** ${projectData.company_name}` : ''}
-${projectData.business_type ? `🏢 **Tipo de Negócio:** ${projectData.business_type}` : ''}
-${projectData.business_sector && projectData.business_sector !== projectData.business_type ? `📂 **Setor:** ${projectData.business_sector}` : ''}
-${projectData.pages_needed && Array.isArray(projectData.pages_needed) ? `📄 **Páginas:** ${projectData.pages_needed.join(', ')}` : ''}
-${projectData.design_style ? `🎨 **Estilo Visual:** ${projectData.design_style}` : ''}
-${projectData.design_colors && Array.isArray(projectData.design_colors) ? `🎨 **Cores:** ${projectData.design_colors.join(', ')}` : ''}
-${projectData.functionalities && Array.isArray(projectData.functionalities) ? `⚙️ **Funcionalidades:** ${projectData.functionalities.join(', ')}` : ''}
-${projectData.business_objective ? `🎯 **Objetivo:** ${projectData.business_objective}` : ''}
-${projectData.target_audience ? `👥 **Público-alvo:** ${projectData.target_audience}` : ''}
-${projectData.slogan ? `💬 **Slogan:** "${projectData.slogan}"` : ''}
-
-Formato da resposta:
-"📋 **CONFIRMAÇÃO DAS INFORMAÇÕES**
-
-Analisei seu pedido completo e extraí as seguintes informações:
-
-[LISTAR TODAS AS INFORMAÇÕES ACIMA QUE ESTÃO DISPONÍVEIS]
-
-✅ **Está tudo correto?** Se sim, diga "gerar", "ok" ou "pode gerar" para eu criar seu site agora!"
-
-NÃO gere o site ainda - aguarde confirmação explícita do usuário.` : ''}
-${(isCompletePrompt || hasCompleteProjectData) && userConfirmed ? '- IMPORTANTE: O usuário CONFIRMOU após fornecer um prompt completo. Agora você DEVE gerar o site. Informe que está gerando agora e será exibido como PREVIEW na plataforma. Exemplo: "Perfeito! Vou gerar seu site agora com todas as especificações confirmadas. Isso pode levar alguns minutos... Você poderá visualizar o preview em instantes!" NUNCA mencione ZIP ou arquivo para download.' : ''}
-${isFirstUserResponse && !isCompletePrompt && !hasCompleteProjectData ? '- Esta é a primeira mensagem do usuário. Confirme o recebimento e faça 2-3 perguntas básicas essenciais (nome da empresa, tipo de negócio, principais funcionalidades desejadas)' : ''}
+${hasCompleteProjectData && !userConfirmed ? `- ⚠️ **REGRA CRÍTICA:** Você TEM todos os dados necessários, mas o usuário AINDA NÃO CONFIRMOU.
+  
+  Você DEVE:
+  1. COMPILAR um resumo detalhado e organizado de TODAS as informações do projeto
+  2. Apresentar esse resumo de forma clara e visual
+  3. PERGUNTAR EXPLICITAMENTE se está tudo correto ANTES de gerar
+  4. NUNCA dizer que está gerando ou criando o site - apenas que está COMPILANDO o projeto
+  5. Aguardar confirmação explícita do usuário antes de gerar
+  
+  Use este formato:
+  
+  "📋 **COMPILAÇÃO DO PROJETO**
+  
+  Analisei todas as informações e compilei seu projeto com os seguintes detalhes:
+  
+  ${projectData.company_name ? `🏢 **Empresa:** ${projectData.company_name}` : ''}
+  ${projectData.business_type ? `🏢 **Tipo de Negócio:** ${projectData.business_type}` : ''}
+  ${projectData.business_sector && projectData.business_sector !== projectData.business_type ? `📂 **Setor:** ${projectData.business_sector}` : ''}
+  ${projectData.pages_needed && Array.isArray(projectData.pages_needed) ? `📄 **Páginas:** ${projectData.pages_needed.join(', ')}` : ''}
+  ${projectData.design_style ? `🎨 **Estilo Visual:** ${projectData.design_style}` : ''}
+  ${projectData.design_colors && Array.isArray(projectData.design_colors) ? `🎨 **Cores:** ${projectData.design_colors.join(', ')}` : ''}
+  ${projectData.functionalities && Array.isArray(projectData.functionalities) ? `⚙️ **Funcionalidades:** ${projectData.functionalities.join(', ')}` : ''}
+  ${projectData.business_objective ? `🎯 **Objetivo:** ${projectData.business_objective}` : ''}
+  ${projectData.target_audience ? `👥 **Público-alvo:** ${projectData.target_audience}` : ''}
+  ${projectData.slogan ? `💬 **Slogan:** "${projectData.slogan}"` : ''}
+  
+  ---
+  
+  ✅ **Confirme se está tudo correto ou se quer ajustar algo:**
+  - Se estiver tudo OK, diga "gerar", "ok" ou "pode gerar" para eu criar seu site
+  - Se quiser alterar algo, me diga o que deseja ajustar"
+  
+  ⚠️ NUNCA diga "Vou gerar" ou "Gerando agora" - você está apenas COMPILANDO e aguardando confirmação!` : ''}
+${hasCompleteProjectData && userConfirmed ? '- ✅ **IMPORTANTE:** O usuário CONFIRMOU explicitamente após você ter compilado o projeto. Agora SIM você DEVE gerar o site. Informe que está iniciando a geração e será exibido como PREVIEW na plataforma. Exemplo: "Perfeito! Recebi sua confirmação. Vou iniciar a geração do seu site agora... Isso pode levar alguns minutos. Você poderá visualizar o preview completo em instantes!" NUNCA mencione ZIP ou arquivo para download.' : ''}
+${isFirstUserResponse && !hasCompleteProjectData ? '- Esta é a primeira mensagem do usuário. Confirme o recebimento e faça 2-3 perguntas básicas essenciais (nome da empresa, tipo de negócio, principais funcionalidades desejadas)' : ''}
 ${isSecondUserResponse && !hasMinimumData ? `- O usuário respondeu, mas ainda faltam informações. Liste claramente o que falta: ${missingData.join(', ')}. Seja específico e peça essas informações.` : ''}
-${isSecondUserResponse && hasMinimumData ? '- O usuário já respondeu suas perguntas e TEM DADOS SUFICIENTES. Agora confirme brevemente as informações e informe que o site será gerado e exibido como PREVIEW. NÃO faça mais perguntas, apenas confirme e inicie a geração. NUNCA mencione ZIP ou arquivo.' : ''}
+${isSecondUserResponse && hasMinimumData && !hasCompleteProjectData ? '- O usuário respondeu suas perguntas e você TEM DADOS MÍNIMOS, mas ainda pode faltar algo. COMPILE um resumo do que tem até agora e pergunte se falta mais alguma coisa antes de poder gerar.' : ''}
+${isSecondUserResponse && hasCompleteProjectData && !userConfirmed ? '- O usuário respondeu suas perguntas e você TEM TODOS OS DADOS. COMPILE um resumo completo e organizado e PERGUNTE EXPLICITAMENTE se está tudo correto antes de gerar. NÃO diga que está gerando - apenas compile e peça confirmação.' : ''}
+${isSecondUserResponse && hasCompleteProjectData && userConfirmed ? '- O usuário respondeu suas perguntas, você compilou o projeto e ele CONFIRMOU. Agora SIM você DEVE iniciar a geração do site.' : ''}
 ${userConfirmed && !hasMinimumData ? `- O usuário pediu para gerar, mas AINDA FALTAM DADOS: ${missingData.join(', ')}. Explique educadamente que precisa dessas informações antes de gerar e liste o que falta especificamente.` : ''}
 - Use markdown para formatação quando apropriado (**negrito**, listas, etc.)
 - Seja conciso mas completo
-${hasUserResponseAfterQuestions && hasMinimumData ? '- IMPORTANTE: O usuário já forneceu informações suficientes. Confirme brevemente e informe que o site será gerado agora e exibido como PREVIEW. NUNCA mencione ZIP ou arquivo.' : ''}
+${hasUserResponseAfterQuestions && hasCompleteProjectData && !userConfirmed ? '- IMPORTANTE: O usuário já forneceu informações e você TEM TODOS OS DADOS. COMPILE um resumo completo e PERGUNTE se está tudo correto. NÃO diga que está gerando - apenas compile e peça confirmação.' : ''}
+${hasUserResponseAfterQuestions && hasCompleteProjectData && userConfirmed ? '- IMPORTANTE: O usuário já forneceu informações, você compilou o projeto e ele CONFIRMOU. Agora pode gerar o site.' : ''}
+${hasUserResponseAfterQuestions && hasMinimumData && !hasCompleteProjectData ? '- O usuário já forneceu algumas informações. COMPILE o que tem até agora e pergunte se falta mais alguma coisa.' : ''}
 ${hasUserResponseAfterQuestions && !hasMinimumData ? `- O usuário já interagiu, mas AINDA FALTAM: ${missingData.join(', ')}. Liste claramente o que precisa e peça essas informações.` : ''}`;
 
-    const userPrompt = `Histórico da conversa:
+    // ✅ Construir prompt do usuário baseado no estado atual
+    let userPromptText = `Histórico da conversa:
 ${conversationContext || 'Primeira mensagem'}
 
 Mensagem atual do usuário: ${userMessage}
 
-${isSecondUserResponse || hasUserResponseAfterQuestions ? '✅ O usuário já respondeu suas perguntas. Confirme brevemente as informações coletadas e informe que o site será gerado agora. Exemplo: "Perfeito! Com base nas informações que você forneceu, vou gerar seu site agora. Isso pode levar alguns minutos..."' : 'Responda de forma natural e ajudando o usuário a avançar na criação do site.'}`;
+`;
+    
+    if (hasCompleteProjectData && !userConfirmed) {
+      userPromptText += `⚠️ ATENÇÃO: Você TEM todos os dados necessários, mas o usuário NÃO confirmou ainda. 
+      
+      Você DEVE:
+      1. COMPILAR um resumo detalhado e organizado de TODAS as informações
+      2. Apresentar de forma clara e visual
+      3. PERGUNTAR EXPLICITAMENTE: "Está tudo correto? Se sim, diga 'gerar' ou 'ok' para eu criar seu site"
+      4. NÃO diga que está gerando - apenas que compilou e está aguardando confirmação
+      
+      Formato: Apresente o resumo de forma organizada e peça confirmação clara.`;
+    } else if (hasCompleteProjectData && userConfirmed) {
+      userPromptText += `✅ O usuário CONFIRMOU após você ter compilado o projeto. Agora você DEVE iniciar a geração do site. Informe que está começando a criar o site agora.`;
+    } else if (missingData.length > 0) {
+      userPromptText += `⚠️ Ainda faltam informações: ${missingData.join(', ')}. Liste claramente o que falta e peça essas informações de forma amigável.`;
+    } else if (isUserAddingInfo) {
+      userPromptText += `📝 O usuário está adicionando ou modificando informações. COMPILE novamente o projeto completo com todas as informações atualizadas e peça confirmação novamente.`;
+    } else {
+      userPromptText += `Responda de forma natural e ajudando o usuário a avançar na criação do site.`;
+    }
+    
+    const userPrompt = userPromptText;
 
     // Chamar Claude para gerar resposta
     const response = await anthropic.messages.create({
@@ -231,66 +266,70 @@ ${isSecondUserResponse || hasUserResponseAfterQuestions ? '✅ O usuário já re
       conversationLength: conversationHistory.length
     });
     
-    // ✅ NOVO FLUXO: Quando tem dados completos, mostrar confirmação e aguardar OK
-    if (isCompletePrompt || (hasMinimumData && hasCompleteProjectData)) {
-      // ✅ Tem dados completos → Mostrar confirmação e aguardar OK do usuário
-      if (userConfirmed) {
-        // ✅ Usuário confirmou → GERAR SITE AGORA
-        nextStage = 2;
-        shouldGeneratePreview = true;
-        console.log('✅ [Claude-Chat] Dados completos + usuário confirmou - gerando site agora!', {
-          company_name: projectData.company_name,
-          business_type: projectData.business_type,
-          pages_count: Array.isArray(projectData.pages_needed) ? projectData.pages_needed.length : 0,
-          has_style: !!projectData.design_style
-        });
-      } else {
-        // ✅ Tem dados mas usuário ainda não confirmou → Mostrar confirmação e aguardar OK
-        nextStage = 1;
-        shouldGeneratePreview = false;
-        console.log('📋 [Claude-Chat] Dados completos detectados - mostrando confirmação e aguardando OK do usuário', {
-          company_name: projectData.company_name,
-          business_type: projectData.business_type,
-          pages_count: Array.isArray(projectData.pages_needed) ? projectData.pages_needed.length : 0,
-          has_style: !!projectData.design_style
-        });
-      }
-    } else if (isFirstUserResponse && !userConfirmed) {
-      // Primeira mensagem sem confirmação e sem dados completos - IA vai fazer perguntas básicas
+    // ✅ FLUXO CORRETO: Sempre pedir confirmação antes de gerar
+    // 1. Se tem dados completos E usuário confirmou → GERAR
+    // 2. Se tem dados completos MAS usuário NÃO confirmou → PEDIR CONFIRMAÇÃO
+    // 3. Se faltam dados → PERGUNTAR O QUE FALTA
+    // 4. Se usuário enviou alterações → RECOMPILAR E PEDIR CONFIRMAÇÃO NOVAMENTE
+    
+    // ✅ Verificar se usuário está enviando alterações/adicionais (não é confirmação)
+    const isUserAddingInfo = !userConfirmed && !isFirstUserResponse && userMessage.length > 20;
+    
+    if (hasCompleteProjectData && userConfirmed) {
+      // ✅ CASO 1: Tem tudo E usuário confirmou → GERAR AGORA
+      nextStage = 2;
+      shouldGeneratePreview = true;
+      console.log('✅ [Claude-Chat] Dados completos + confirmação explícita - GERANDO AGORA!', {
+        company_name: projectData.company_name,
+        business_type: projectData.business_type,
+        pages_count: Array.isArray(projectData.pages_needed) ? projectData.pages_needed.length : 0,
+        has_style: !!projectData.design_style
+      });
+    } else if (hasCompleteProjectData && !userConfirmed) {
+      // ✅ CASO 2: Tem tudo MAS não confirmou → PEDIR CONFIRMAÇÃO (NÃO GERAR)
       nextStage = 1;
       shouldGeneratePreview = false;
-      console.log('📝 [Claude-Chat] Primeira mensagem simples - IA vai fazer perguntas');
-    } else if (isSecondUserResponse || hasUserResponseAfterQuestions || userConfirmed) {
-      // ✅ Segunda mensagem OU usuário confirmou → Verificar se tem dados suficientes
-      if (hasMinimumData) {
-        // Tem dados suficientes → GERAR SITE
-        nextStage = 2;
-        shouldGeneratePreview = true;
-        console.log('✅ [Claude-Chat] Deve gerar preview agora!', {
-          isSecondUserResponse,
-          hasUserResponse: hasUserResponseAfterQuestions,
-          userConfirmed,
-          conversationLength: conversationHistory.length
-        });
-      } else {
-        // Não tem dados suficientes → Informar o que falta
-        nextStage = 1;
-        shouldGeneratePreview = false;
-        console.log('⚠️ [Claude-Chat] Dados insuficientes para gerar:', missingData);
-      }
+      console.log('📋 [Claude-Chat] Dados completos - COMPILANDO e pedindo confirmação (NÃO gerar ainda)', {
+        company_name: projectData.company_name,
+        business_type: projectData.business_type,
+        pages_count: Array.isArray(projectData.pages_needed) ? projectData.pages_needed.length : 0,
+        has_style: !!projectData.design_style,
+        isUserAddingInfo
+      });
+    } else if (isUserAddingInfo && hasMinimumData) {
+      // ✅ CASO 3: Usuário está adicionando informações e já tem dados mínimos → RECOMPILAR E PEDIR CONFIRMAÇÃO
+      nextStage = 1;
+      shouldGeneratePreview = false;
+      console.log('🔄 [Claude-Chat] Usuário adicionou informações - RECOMPILANDO e pedindo confirmação', {
+        hasMinimumData,
+        missingData
+      });
+    } else if (isFirstUserResponse && !hasCompleteProjectData) {
+      // ✅ CASO 4: Primeira mensagem sem dados completos → PERGUNTAR O QUE FALTA
+      nextStage = 1;
+      shouldGeneratePreview = false;
+      console.log('📝 [Claude-Chat] Primeira mensagem - perguntando informações faltantes:', missingData);
+    } else if (missingData.length > 0) {
+      // ✅ CASO 5: Ainda faltam dados → LISTAR O QUE FALTA
+      nextStage = 1;
+      shouldGeneratePreview = false;
+      console.log('⚠️ [Claude-Chat] Ainda faltam dados - listando:', missingData);
     } else {
-      // Ainda coletando informações (não deveria chegar aqui com a lógica simplificada)
+      // Fallback: coletando informações
       nextStage = stage;
       shouldGeneratePreview = false;
-      console.log('⚠️ [Claude-Chat] Ainda coletando informações');
+      console.log('⚠️ [Claude-Chat] Coletando informações');
     }
 
     // Extrair sugestões da resposta do Claude ou usar padrões
     let suggestedOptions: string[] = [];
     
     // ✅ Se tem dados completos mas usuário não confirmou, sugerir opções de confirmação
-    if ((isCompletePrompt || hasCompleteProjectData) && !userConfirmed) {
+    if (hasCompleteProjectData && !userConfirmed) {
       suggestedOptions = ['✅ Sim, pode gerar', '📝 Quero ajustar algo'];
+    } else if (hasCompleteProjectData && userConfirmed) {
+      // Usuário confirmou - não precisa de opções, vai gerar
+      suggestedOptions = [];
     } else {
       // Tentar extrair opções da resposta (se o Claude sugerir)
       const optionsMatch = aiResponse.match(/[-•]\s*([^\n]+)/g);
