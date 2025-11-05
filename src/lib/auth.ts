@@ -426,13 +426,34 @@ export async function signUp(email: string, password: string, name?: string) {
       };
     }
 
+    // ✅ Configurar URL de redirect para confirmação de email
+    let emailRedirectTo: string | undefined;
+    
+    if (typeof window !== 'undefined') {
+      // No cliente, usar window.location.origin (sempre correto)
+      emailRedirectTo = `${window.location.origin}/login?confirmed=true`;
+    } else {
+      // No servidor, usar variável de ambiente
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                     process.env.NEXT_PUBLIC_SITE_URL ||
+                     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+                     (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null);
+      
+      if (appUrl) {
+        emailRedirectTo = `${appUrl}/login?confirmed=true`;
+      }
+      // Se não tiver URL configurada, deixar undefined (Supabase usará padrão)
+    }
+
     const { data, error } = await getSupabaseAuth().auth.signUp({
       email: normalizedEmail,
       password,
       options: {
         data: {
           name: name || normalizedEmail.split('@')[0]
-        }
+        },
+        // ✅ Configurar redirect de confirmação de email
+        emailRedirectTo: emailRedirectTo
       }
     });
 
@@ -664,9 +685,31 @@ export async function getCurrentSession() {
  */
 export async function resendConfirmationEmail(email: string) {
   try {
+    // ✅ Configurar URL de redirect para confirmação de email
+    let emailRedirectTo: string | undefined;
+    
+    if (typeof window !== 'undefined') {
+      // No cliente, usar window.location.origin (sempre correto)
+      emailRedirectTo = `${window.location.origin}/login?confirmed=true`;
+    } else {
+      // No servidor, usar variável de ambiente
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                     process.env.NEXT_PUBLIC_SITE_URL ||
+                     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+                     (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null);
+      
+      if (appUrl) {
+        emailRedirectTo = `${appUrl}/login?confirmed=true`;
+      }
+      // Se não tiver URL configurada, deixar undefined (Supabase usará padrão)
+    }
+
     const { error } = await getSupabaseAuth().auth.resend({
       type: 'signup',
-      email: email
+      email: email,
+      options: {
+        emailRedirectTo: emailRedirectTo
+      }
     });
 
     if (error) throw error;
@@ -689,10 +732,30 @@ export async function resendConfirmationEmail(email: string) {
  */
 export async function resetPasswordRequest(email: string) {
   try {
-    // Configurar URL de redirect para a página de reset
-    const redirectUrl = typeof window !== 'undefined' 
-      ? `${window.location.origin}/reset-password`
-      : `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/reset-password`;
+    // ✅ Configurar URL de redirect para a página de reset
+    // ✅ Priorizar NEXT_PUBLIC_APP_URL ou NEXT_PUBLIC_SITE_URL em produção
+    let redirectUrl: string;
+    
+    if (typeof window !== 'undefined') {
+      // No cliente, usar window.location.origin (sempre correto)
+      redirectUrl = `${window.location.origin}/reset-password`;
+    } else {
+      // No servidor, usar variável de ambiente ou detectar do request
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                     process.env.NEXT_PUBLIC_SITE_URL ||
+                     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+                     (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null);
+      
+      if (appUrl) {
+        redirectUrl = `${appUrl}/reset-password`;
+      } else {
+        // ⚠️ Fallback apenas em desenvolvimento
+        console.warn('⚠️ [Auth] Usando localhost como fallback - configure NEXT_PUBLIC_APP_URL em produção!');
+        redirectUrl = 'http://localhost:3000/reset-password';
+      }
+    }
+
+    console.log('📧 [Auth] URL de redirect para reset de senha:', redirectUrl);
 
     const { error } = await getSupabaseAuth().auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl

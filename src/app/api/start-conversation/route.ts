@@ -2,13 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { DatabaseService } from '@/lib/supabase';
 import { extractDataFromPrompt } from '@/lib/prompt-extractor';
 
-// Importação opcional da IA - se falhar, continuamos sem ela
+// ✅ Importar Claude Chat (PRINCIPAL) - usar Claude em vez de OpenAI
 let generateAIResponse: any = null;
 try {
-  const openaiModule = require('@/lib/openai');
-  generateAIResponse = openaiModule.generateAIResponse;
+  const claudeModule = require('@/lib/claude-chat');
+  generateAIResponse = claudeModule.generateAIResponse;
+  console.log('✅ [start-conversation] Claude Chat carregado com sucesso');
 } catch (importError) {
-  console.warn('⚠️ OpenAI module não disponível, continuando sem IA:', importError);
+  console.warn('⚠️ Claude Chat não disponível, tentando OpenAI como fallback:', importError);
+  // Fallback para OpenAI se Claude não estiver disponível
+  try {
+    const openaiModule = require('@/lib/openai');
+    generateAIResponse = openaiModule.generateAIResponse;
+    console.warn('⚠️ Usando OpenAI como fallback');
+  } catch (openaiError) {
+    console.warn('⚠️ Nenhuma IA disponível, continuando sem IA:', openaiError);
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -159,64 +168,86 @@ export async function POST(request: NextRequest) {
       console.warn('⚠️ Erro ao buscar project_data:', dbError);
     }
 
-    // Gerar primeira resposta da IA (pode falhar se OpenAI não estiver configurada)
+    // ✅ Gerar primeira resposta da IA usando Claude (sempre personalizada)
     let aiResponse;
-    // ✅ Mensagem padrão já inclui ID e prompt quando a IA não estiver disponível
-    let initialResponse = `🚀 **Bem-vindo ao gerador de sites da WZ Solution!**
+    let initialResponse: string;
+    
+    if (!generateAIResponse) {
+      // ⚠️ Fallback apenas se nenhuma IA estiver disponível (não deveria acontecer)
+      console.error('❌ Nenhuma IA disponível - usando mensagem genérica');
+      initialResponse = `Olá! Recebi seu pedido para criar um site. Vou analisar seu prompt e responder em breve.
 
 📋 **ID da Solicitação:** \`${conversation.id}\`
 
-💡 **Seu Prompt:** ${initialPrompt}
-
----
-
-⚙️ **STATUS: Gerando seu site agora...**
-
-🔄 Estou criando um site profissional e responsivo baseado na sua solicitação. Isso pode levar alguns segundos.
-
-⏳ Por favor, aguarde enquanto preparo seu site personalizado...`;
-    
-    try {
-      aiResponse = await generateAIResponse(
-        conversation.id,
-        initialPrompt,
-        1, // Primeiro estágio
-        [], // Sem histórico ainda
-        projectData // ✅ Passar dados do projeto (pode ter dados extraídos)
-      );
-      
-      if (aiResponse?.response) {
-        initialResponse = aiResponse.response;
+💡 **Seu Prompt:** ${initialPrompt.substring(0, 200)}${initialPrompt.length > 200 ? '...' : ''}`;
+    } else {
+      try {
+        aiResponse = await generateAIResponse(
+          conversation.id,
+          initialPrompt,
+          1, // Primeiro estágio
+          [], // Sem histórico ainda
+          projectData // ✅ Passar dados do projeto (pode ter dados extraídos)
+        );
         
-        // Salvar primeira resposta da IA
+        if (aiResponse?.response) {
+          initialResponse = aiResponse.response;
+          
+          // Salvar primeira resposta da IA
+          await DatabaseService.addMessage({
+            conversation_id: conversation.id,
+            sender_type: 'ai',
+            content: aiResponse.response,
+            message_type: 'text',
+            metadata: {
+              stage: aiResponse.nextStage || 1,
+              isWelcomeMessage: true,
+              shouldGeneratePreview: aiResponse.shouldGeneratePreview || false
+            }
+          });
+        } else {
+          // Se não houve resposta da IA, usar mensagem genérica
+          initialResponse = `Olá! Recebi seu pedido. Vou analisar seu prompt e responder em breve.
+
+📋 **ID da Solicitação:** \`${conversation.id}\`
+
+💡 **Seu Prompt:** ${initialPrompt.substring(0, 200)}${initialPrompt.length > 200 ? '...' : ''}`;
+          
+          await DatabaseService.addMessage({
+            conversation_id: conversation.id,
+            sender_type: 'ai',
+            content: initialResponse,
+            message_type: 'text',
+            metadata: {
+              stage: 1,
+              isWelcomeMessage: true,
+              aiError: true
+            }
+          });
+        }
+      } catch (aiError) {
+        console.warn('⚠️ Erro ao gerar resposta da IA (não crítico):', aiError);
+        // Continuar sem resposta da IA - conversa foi criada com sucesso
+        
+        // Usar mensagem genérica em caso de erro
+        initialResponse = `Olá! Recebi seu pedido. Vou analisar seu prompt e responder em breve.
+
+📋 **ID da Solicitação:** \`${conversation.id}\`
+
+💡 **Seu Prompt:** ${initialPrompt.substring(0, 200)}${initialPrompt.length > 200 ? '...' : ''}`;
+        
         await DatabaseService.addMessage({
           conversation_id: conversation.id,
           sender_type: 'ai',
-          content: aiResponse.response,
+          content: initialResponse,
           message_type: 'text',
           metadata: {
-            stage: aiResponse.nextStage || 1,
+            stage: 1,
             isWelcomeMessage: true,
-            shouldGeneratePreview: aiResponse.shouldGeneratePreview || false
+            aiError: true
           }
         });
       }
-    } catch (aiError) {
-      console.warn('⚠️ Erro ao gerar resposta da IA (não crítico):', aiError);
-      // Continuar sem resposta da IA - conversa foi criada com sucesso
-      
-      // Salvar mensagem padrão
-      await DatabaseService.addMessage({
-        conversation_id: conversation.id,
-        sender_type: 'ai',
-        content: initialResponse,
-        message_type: 'text',
-        metadata: {
-          stage: 1,
-          isWelcomeMessage: true,
-          aiError: true
-        }
-      });
     }
 
     return NextResponse.json({
