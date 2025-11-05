@@ -864,6 +864,10 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
   };
 
   const generateSitePreview = async (prompt: string) => {
+    console.log('🎯 [generateSitePreview] ============================================');
+    console.log('🎯 [generateSitePreview] FUNÇÃO CHAMADA!');
+    console.log('🎯 [generateSitePreview] ============================================');
+    
     const projectId = generateProjectId(conversationId);
     console.log('🎯 [generateSitePreview] Iniciando geração do site...');
     console.log('🆔 [generateSitePreview] IDs do projeto:', {
@@ -872,13 +876,19 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
       previewUrl: `/preview/${conversationId}`,
       chatUrl: `/chat/${conversationId}`
     });
-    console.log('📝 [generateSitePreview] Prompt recebido:', prompt);
-    console.log('🔒 [generateSitePreview] isGenerating:', isGenerating);
-    console.log('🔒 [generateSitePreview] generationLockRef:', generationLockRef.current);
+    console.log('📝 [generateSitePreview] Prompt recebido:', prompt?.substring(0, 100));
+    console.log('🔒 [generateSitePreview] Estado ANTES da verificação:', {
+      isGenerating,
+      generationLockRef: generationLockRef.current,
+      timestamp: new Date().toISOString()
+    });
     
     // ✅ Proteção contra múltiplas chamadas simultâneas
     if (isGenerating || generationLockRef.current) {
-      console.warn('⚠️ [generateSitePreview] Geração já em andamento, ignorando chamada duplicada', {
+      console.warn('⚠️ [generateSitePreview] ============================================');
+      console.warn('⚠️ [generateSitePreview] BLOQUEADO: Geração já em andamento!');
+      console.warn('⚠️ [generateSitePreview] ============================================');
+      console.warn('⚠️ [generateSitePreview] Detalhes:', {
         isGenerating,
         generationLockRef: generationLockRef.current,
         timestamp: new Date().toISOString()
@@ -886,17 +896,20 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
       return;
     }
     
-    console.log('✅ [generateSitePreview] Estado verificado - pode prosseguir:', {
-      isGenerating: false,
-      generationLockRef: false,
-      timestamp: new Date().toISOString()
-    });
+    console.log('✅ [generateSitePreview] Estado verificado - pode prosseguir!');
+    console.log('✅ [generateSitePreview] Definindo locks e iniciando processo...');
     
-    console.log('✅ [generateSitePreview] Iniciando processo...');
+    // ✅ IMPORTANTE: Definir locks ANTES de qualquer outra coisa
     setIsGenerating(true);
     generationLockRef.current = true;
     setIsLoading(true); // ✅ Ativar loading ANTES de qualquer outra coisa
     setGenerationStartTime(new Date()); // ✅ Registrar tempo de início
+    
+    console.log('✅ [generateSitePreview] Locks definidos, processo iniciado:', {
+      isGenerating: true,
+      generationLockRef: true,
+      timestamp: new Date().toISOString()
+    });
 
     // ✅ Não criar mensagem de boas-vindas aqui - já foi criada em initializeConversation
     // Apenas garantir que o loading está visível
@@ -1732,6 +1745,12 @@ ${getRedirectMessage(messageToSend)}`,
       } else {
         // ✅ Não tem site ainda - enviar para IA perguntar ou gerar preview
         console.log('📨 [sendMessage] Enviando mensagem para IA (sem site gerado ainda)...');
+        console.log('📤 [sendMessage] Enviando requisição para /api/chat:', {
+          conversationId,
+          messageLength: messageToSend.length,
+          messagePreview: messageToSend.substring(0, 50)
+        });
+        
         const chatResponse = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1742,14 +1761,42 @@ ${getRedirectMessage(messageToSend)}`,
           })
         });
         
+        console.log('📥 [sendMessage] Resposta HTTP recebida:', {
+          status: chatResponse.status,
+          statusText: chatResponse.statusText,
+          ok: chatResponse.ok,
+          headers: Object.fromEntries(chatResponse.headers.entries())
+        });
+        
+        if (!chatResponse.ok) {
+          const errorText = await chatResponse.text();
+          console.error('❌ [sendMessage] Erro na resposta HTTP:', {
+            status: chatResponse.status,
+            errorText: errorText.substring(0, 500)
+          });
+          throw new Error(`Erro HTTP ${chatResponse.status}: ${errorText.substring(0, 200)}`);
+        }
+        
         const chatData = await chatResponse.json();
+        
+        console.log('📥 [sendMessage] JSON parseado:', {
+          success: chatData.success,
+          hasResponse: !!chatData.response,
+          shouldGeneratePreview: chatData.shouldGeneratePreview,
+          shouldGeneratePreviewType: typeof chatData.shouldGeneratePreview,
+          shouldGeneratePreviewRaw: chatData.shouldGeneratePreviewRaw,
+          nextStage: chatData.nextStage,
+          responseLength: chatData.response?.length,
+          keys: Object.keys(chatData)
+        });
         
         if (chatData.success && chatData.response) {
           // ✅ LOG CRÍTICO: Verificar o que foi recebido do backend
-          console.log('📥 [sendMessage] RESPOSTA RECEBIDA DO BACKEND:', {
+          console.log('✅ [sendMessage] RESPOSTA VÁLIDA RECEBIDA DO BACKEND:', {
             success: chatData.success,
             shouldGeneratePreview: chatData.shouldGeneratePreview,
             shouldGeneratePreviewRaw: chatData.shouldGeneratePreviewRaw,
+            shouldGeneratePreviewType: typeof chatData.shouldGeneratePreview,
             nextStage: chatData.nextStage,
             responseLength: chatData.response?.length,
             responsePreview: chatData.response?.substring(0, 100)
@@ -1764,7 +1811,15 @@ ${getRedirectMessage(messageToSend)}`,
             type: 'text'
           };
           
-          setMessages(prev => [...prev, aiMessage]);
+          console.log('💬 [sendMessage] Adicionando mensagem da IA ao estado...');
+          setMessages(prev => {
+            const newMessages = [...prev, aiMessage];
+            console.log('💬 [sendMessage] Estado de mensagens atualizado:', {
+              totalMessages: newMessages.length,
+              lastMessage: newMessages[newMessages.length - 1]?.content?.substring(0, 50)
+            });
+            return newMessages;
+          });
           
           // ✅ PRIORIDADE 1: Se shouldGeneratePreview é true, SEMPRE gerar (não precisa verificar outras condições)
           // ✅ Verificação robusta: aceitar true, "true", 1, ou qualquer valor truthy relacionado
@@ -1775,39 +1830,76 @@ ${getRedirectMessage(messageToSend)}`,
                                      shouldGenerateValue === 1 ||
                                      shouldGenerateRaw === true ||
                                      shouldGenerateRaw === 'true' ||
-                                     shouldGenerateRaw === 1;
+                                     shouldGenerateRaw === 1 ||
+                                     Boolean(shouldGenerateValue) === true ||
+                                     Boolean(shouldGenerateRaw) === true;
           
           console.log('🔍 [sendMessage] Verificando shouldGeneratePreview:', {
             shouldGeneratePreview: shouldGenerateValue,
             shouldGeneratePreviewRaw: shouldGenerateRaw,
             type: typeof shouldGenerateValue,
             isShouldGenerateTrue,
-            nextStage: chatData.nextStage
+            nextStage: chatData.nextStage,
+            booleanCheck: Boolean(shouldGenerateValue),
+            booleanRawCheck: Boolean(shouldGenerateRaw)
           });
           
           if (isShouldGenerateTrue) {
-            console.log('🚀 [sendMessage] PRIORIDADE 1: shouldGeneratePreview é TRUE - GERANDO AGORA!');
+            console.log('🚀 [sendMessage] ============================================');
+            console.log('🚀 [sendMessage] PRIORIDADE 1: shouldGeneratePreview é TRUE');
+            console.log('🚀 [sendMessage] GERANDO AGORA!');
+            console.log('🚀 [sendMessage] ============================================');
             console.log('📊 [sendMessage] Detalhes:', {
               shouldGeneratePreview: shouldGenerateValue,
               shouldGeneratePreviewRaw: shouldGenerateRaw,
               nextStage: chatData.nextStage,
               isGenerating: isGenerating,
-              generationLockRef: generationLockRef.current
+              generationLockRef: generationLockRef.current,
+              conversationId,
+              messagePreview: messageToSend.substring(0, 100)
             });
             
-            // ✅ Pequeno delay para garantir que a mensagem da IA foi exibida antes de iniciar a geração
-            setTimeout(async () => {
+            // ✅ FUNÇÃO ASSÍNCRONA para garantir que a execução não seja bloqueada
+            const startGeneration = async () => {
               try {
-                console.log('⏳ [sendMessage] Aguardando 500ms e então chamando generateSitePreview...');
+                console.log('⏳ [sendMessage] Aguardando 500ms antes de iniciar geração...');
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                console.log('⏳ [sendMessage] Delay concluído, verificando estado antes de gerar...');
+                console.log('📊 [sendMessage] Estado atual:', {
+                  isGenerating,
+                  generationLockRef: generationLockRef.current
+                });
+                
                 console.log('📝 [sendMessage] Prompt que será usado:', messageToSend.substring(0, 100));
+                console.log('🎯 [sendMessage] Chamando generateSitePreview agora...');
+                
                 await generateSitePreview(messageToSend);
-                console.log('✅ [sendMessage] generateSitePreview chamado com sucesso!');
+                
+                console.log('✅ [sendMessage] generateSitePreview RETORNOU com sucesso!');
               } catch (error) {
-                console.error('❌ [sendMessage] Erro ao gerar preview:', error);
+                console.error('❌ [sendMessage] ERRO ao gerar preview:', error);
+                console.error('❌ [sendMessage] Tipo do erro:', typeof error);
                 console.error('❌ [sendMessage] Stack:', error instanceof Error ? error.stack : 'N/A');
+                console.error('❌ [sendMessage] Mensagem:', error instanceof Error ? error.message : String(error));
+                
+                // ✅ Não lançar erro aqui - apenas logar para não quebrar o fluxo
               }
-            }, 500);
+            };
+            
+            // ✅ Iniciar geração imediatamente (não esperar)
+            startGeneration().catch(err => {
+              console.error('❌ [sendMessage] Erro crítico ao iniciar geração:', err);
+            });
+            
             return; // ✅ IMPORTANTE: Retornar aqui para não executar código abaixo
+          } else {
+            console.log('⚠️ [sendMessage] shouldGeneratePreview NÃO é true:', {
+              shouldGenerateValue,
+              shouldGenerateRaw,
+              isShouldGenerateTrue,
+              type: typeof shouldGenerateValue
+            });
           }
           
           // ✅ PRIORIDADE 2: Verificar condições alternativas (apenas se shouldGeneratePreview não for true)
