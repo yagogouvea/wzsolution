@@ -1809,7 +1809,63 @@ ${getRedirectMessage(messageToSend)}`,
             responsePreview: chatData.response?.substring(0, 100)
           });
           
-          // Adicionar resposta da IA
+          // ✅ VERIFICAÇÃO SIMPLIFICADA E DIRETA
+          const shouldGenerateValue = chatData.shouldGeneratePreview;
+          const shouldGenerateRaw = chatData.shouldGeneratePreviewRaw;
+          
+          // ✅ VERIFICAÇÃO MUITO MAIS SIMPLES: qualquer valor truthy
+          const shouldGenerate = Boolean(shouldGenerateValue) || Boolean(shouldGenerateRaw);
+          
+          console.log('🔍 [sendMessage] Verificação SIMPLIFICADA:', {
+            shouldGeneratePreview: shouldGenerateValue,
+            shouldGeneratePreviewRaw: shouldGenerateRaw,
+            shouldGenerate: shouldGenerate,
+            'Boolean(shouldGenerateValue)': Boolean(shouldGenerateValue),
+            'Boolean(shouldGenerateRaw)': Boolean(shouldGenerateRaw)
+          });
+          
+          // ✅ CRÍTICO: Se shouldGenerate é true, INICIAR GERAÇÃO IMEDIATAMENTE
+          if (shouldGenerate) {
+            console.log('🚀🚀🚀 [sendMessage] GERANDO AGORA - shouldGenerate é TRUE!');
+            
+            // ✅ ADICIONAR MENSAGEM DA IA PRIMEIRO
+            const aiMessage: Message = {
+              id: crypto.randomUUID(),
+              sender: 'ai',
+              content: chatData.response,
+              timestamp: new Date(),
+              type: 'text'
+            };
+            
+            setMessages(prev => [...prev, aiMessage]);
+            
+            // ✅ SALVAR VARIÁVEIS ANTES DO TIMEOUT
+            const promptToUse = messageToSend;
+            const conversationIdToUse = conversationId;
+            
+            // ✅ CHAMAR generateSitePreview IMEDIATAMENTE (sem aguardar delay desnecessário)
+            console.log('🎯 [sendMessage] Chamando generateSitePreview AGORA...');
+            
+            // ✅ Usar setTimeout apenas para garantir que a mensagem foi renderizada
+            setTimeout(() => {
+              console.log('⏳ [sendMessage] Delay concluído - INICIANDO GERAÇÃO');
+              
+              // ✅ Chamar diretamente sem try/catch complexo - deixar o erro subir
+              generateSitePreview(promptToUse)
+                .then(() => {
+                  console.log('✅ [sendMessage] Geração concluída com sucesso!');
+                })
+                .catch((error) => {
+                  console.error('❌ [sendMessage] Erro na geração:', error);
+                });
+            }, 300); // ✅ Reduzir delay para 300ms
+            
+            // ✅ DEFINITIVAMENTE NÃO CONTINUAR COM O RESTO DO CÓDIGO
+            setIsLoading(false);
+            return;
+          }
+          
+          // ✅ Se não deve gerar, apenas adicionar mensagem normalmente
           const aiMessage: Message = {
             id: crypto.randomUUID(),
             sender: 'ai',
@@ -1818,119 +1874,12 @@ ${getRedirectMessage(messageToSend)}`,
             type: 'text'
           };
           
-          console.log('💬 [sendMessage] Adicionando mensagem da IA ao estado...');
-          setMessages(prev => {
-            const newMessages = [...prev, aiMessage];
-            console.log('💬 [sendMessage] Estado de mensagens atualizado:', {
-              totalMessages: newMessages.length,
-              lastMessage: newMessages[newMessages.length - 1]?.content?.substring(0, 50)
-            });
-            return newMessages;
-          });
+          setMessages(prev => [...prev, aiMessage]);
           
-          // ✅ PRIORIDADE 1: Se shouldGeneratePreview é true, SEMPRE gerar (não precisa verificar outras condições)
-          // ✅ Verificação robusta: aceitar true, "true", 1, ou qualquer valor truthy relacionado
-          const shouldGenerateValue = chatData.shouldGeneratePreview;
-          const shouldGenerateRaw = chatData.shouldGeneratePreviewRaw;
-          const isShouldGenerateTrue = shouldGenerateValue === true || 
-                                     shouldGenerateValue === 'true' || 
-                                     shouldGenerateValue === 1 ||
-                                     shouldGenerateRaw === true ||
-                                     shouldGenerateRaw === 'true' ||
-                                     shouldGenerateRaw === 1 ||
-                                     Boolean(shouldGenerateValue) === true ||
-                                     Boolean(shouldGenerateRaw) === true;
-          
-          console.log('🔍 [sendMessage] Verificando shouldGeneratePreview:', {
-            shouldGeneratePreview: shouldGenerateValue,
-            shouldGeneratePreviewRaw: shouldGenerateRaw,
-            type: typeof shouldGenerateValue,
-            isShouldGenerateTrue,
-            nextStage: chatData.nextStage,
-            booleanCheck: Boolean(shouldGenerateValue),
-            booleanRawCheck: Boolean(shouldGenerateRaw)
-          });
-          
-          if (isShouldGenerateTrue) {
-            console.log('🚀 [sendMessage] ============================================');
-            console.log('🚀 [sendMessage] ⚠️⚠️⚠️ CRÍTICO: shouldGeneratePreview é TRUE ⚠️⚠️⚠️');
-            console.log('🚀 [sendMessage] GERANDO AGORA!');
-            console.log('🚀 [sendMessage] ============================================');
-            console.log('📊 [sendMessage] Detalhes:', {
-              shouldGeneratePreview: shouldGenerateValue,
-              shouldGeneratePreviewRaw: shouldGenerateRaw,
-              nextStage: chatData.nextStage,
-              isGenerating: isGenerating,
-              generationLockRef: generationLockRef.current,
-              conversationId,
-              messagePreview: messageToSend.substring(0, 100)
-            });
-            
-            // ✅ CRÍTICO: Salvar o prompt em uma variável local para garantir que não seja perdido
-            const promptToUse = messageToSend;
-            const conversationIdToUse = conversationId;
-            
-            // ✅ VERIFICAR se generateSitePreview existe
-            if (typeof generateSitePreview !== 'function') {
-              console.error('❌ [sendMessage] ERRO CRÍTICO: generateSitePreview não é uma função!');
-              console.error('❌ [sendMessage] Tipo:', typeof generateSitePreview);
-              alert('ERRO: generateSitePreview não encontrado! Verifique o console.');
-            } else {
-              console.log('✅ [sendMessage] generateSitePreview é uma função válida');
-            }
-            
-            // ✅ Chamar generateSitePreview diretamente após um pequeno delay
-            // Usar setTimeout com uma função arrow para garantir que o contexto seja preservado
-            console.log('⏳ [sendMessage] Configurando setTimeout para chamar generateSitePreview em 500ms...');
-            setTimeout(() => {
-              console.log('⏳ [sendMessage] ============================================');
-              console.log('⏳ [sendMessage] Delay de 500ms concluído - INICIANDO GERAÇÃO');
-              console.log('⏳ [sendMessage] ============================================');
-              console.log('📝 [sendMessage] Prompt que será usado:', promptToUse?.substring(0, 100) || 'SEM PROMPT');
-              console.log('🆔 [sendMessage] ConversationId:', conversationIdToUse);
-              console.log('🎯 [sendMessage] Chamando generateSitePreview diretamente...');
-              
-              // ✅ Chamar a função diretamente e tratar erros
-              try {
-                const result = generateSitePreview(promptToUse);
-                console.log('✅ [sendMessage] generateSitePreview foi chamado, resultado:', result);
-                
-                // Se retornar uma Promise, tratar com then/catch
-                if (result && typeof result.then === 'function') {
-                  result
-                    .then(() => {
-                      console.log('✅ [sendMessage] generateSitePreview RETORNOU com sucesso!');
-                    })
-                    .catch((error) => {
-                      console.error('❌ [sendMessage] ERRO ao gerar preview:', error);
-                      console.error('❌ [sendMessage] Tipo do erro:', typeof error);
-                      console.error('❌ [sendMessage] Stack:', error instanceof Error ? error.stack : 'N/A');
-                      console.error('❌ [sendMessage] Mensagem:', error instanceof Error ? error.message : String(error));
-                    });
-                }
-              } catch (syncError) {
-                console.error('❌ [sendMessage] ERRO SÍNCRONO ao chamar generateSitePreview:', syncError);
-                console.error('❌ [sendMessage] Stack:', syncError instanceof Error ? syncError.stack : 'N/A');
-              }
-            }, 500);
-            
-            // ✅ NÃO retornar aqui - deixar o código continuar normalmente
-            // O return foi removido para garantir que o código continue normalmente
-          } else {
-            console.log('⚠️ [sendMessage] shouldGeneratePreview NÃO é true:', {
-              shouldGenerateValue,
-              shouldGenerateRaw,
-              isShouldGenerateTrue,
-              type: typeof shouldGenerateValue
-            });
-          }
-          
-          // ✅ PRIORIDADE 2: Verificar condições alternativas (apenas se shouldGeneratePreview não for true)
+          // ✅ VERIFICAÇÃO ALTERNATIVA (fallback) - apenas se shouldGenerate não for true
           const trimmedMessage = messageToSend.trim().toLowerCase();
           const exactConfirmationPattern = /^(gerar|sim|ok|pode gerar|pronto|pode|vamos|está bom|está ok|vai|confirmo|confirmado|pode criar|pode fazer|pode começar|okay|okay okay)$/i;
           const repeatedConfirmation = /^(ok|sim|gerar|pronto|pode)\s+(ok|sim|gerar|pronto|pode)$/i.test(trimmedMessage);
-          
-          // ✅ Verificar explicitamente "ok ok" (com qualquer quantidade de espaços)
           const isOkOk = /^ok\s+ok$/i.test(trimmedMessage) || trimmedMessage === 'ok ok' || trimmedMessage === 'ok  ok' || trimmedMessage === 'ok   ok';
           
           const userMessageIsConfirmation = exactConfirmationPattern.test(trimmedMessage) || 
@@ -1951,39 +1900,30 @@ ${getRedirectMessage(messageToSend)}`,
             chatData.response.includes('Estou iniciando') ||
             chatData.response.includes('estou iniciando') ||
             chatData.response.includes('iniciando a criação') ||
-            chatData.response.includes('Iniciando a criação')
+            chatData.response.includes('Iniciando a criação') ||
+            chatData.response.includes('INICIANDO') ||
+            chatData.response.includes('iniciando')
           );
           
-          const shouldGenerate = userMessageIsConfirmation && responseIndicatesGeneration;
-          
-          console.log('🔍 [sendMessage] Análise de geração (PRIORIDADE 2 - condições alternativas):', {
-            shouldGeneratePreviewFlag: chatData.shouldGeneratePreview,
-            userMessageIsConfirmation,
-            responseIndicatesGeneration,
-            shouldGenerate,
-            responseSnippet: chatData.response?.substring(0, 150)
-          });
-          
-          if (shouldGenerate) {
-            console.log('✅ [sendMessage] Condições alternativas atendidas para gerar preview');
-            setTimeout(async () => {
-              try {
-                await generateSitePreview(messageToSend);
-              } catch (error) {
-                console.error('❌ [sendMessage] Erro ao gerar preview:', error);
-              }
-            }, 500);
-          } else {
-            console.log('❌ [sendMessage] NÃO gerando - nenhuma condição atendida:', {
-              shouldGeneratePreviewFlag: chatData.shouldGeneratePreview,
-              userMessageIsConfirmation,
-              responseIndicatesGeneration,
-              shouldGenerate
-            });
+          // ✅ FALLBACK: Se o usuário confirmou E a resposta indica geração, gerar mesmo sem flag
+          if (userMessageIsConfirmation && responseIndicatesGeneration && !shouldGenerate) {
+            console.log('⚠️ [sendMessage] FALLBACK: Gerando mesmo sem flag shouldGeneratePreview');
+            const promptToUse = messageToSend;
+            setTimeout(() => {
+              generateSitePreview(promptToUse)
+                .then(() => console.log('✅ [sendMessage] Geração (fallback) concluída'))
+                .catch((error) => console.error('❌ [sendMessage] Erro (fallback):', error));
+            }, 300);
           }
-        } else {
-          throw new Error(chatData.error || 'Erro ao obter resposta da IA');
+          
+          setIsLoading(false);
+          return;
         }
+        
+        // ✅ Se chegou aqui, algo deu errado
+        console.error('❌ [sendMessage] Resposta inválida:', chatData);
+        setIsLoading(false);
+        throw new Error(chatData.error || 'Resposta inválida da API');
       }
     } catch (error) {
       console.error('❌ Erro ao enviar mensagem:', error);
