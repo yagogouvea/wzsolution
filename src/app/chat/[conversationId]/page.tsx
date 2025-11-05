@@ -1749,11 +1749,15 @@ ${getRedirectMessage(messageToSend)}`,
           // ✅ Se a IA indicar que deve gerar preview (shouldGeneratePreview), gerar agora
           // ✅ TAMBÉM verificar se a mensagem do usuário é uma confirmação e a resposta indica geração
           const trimmedMessage = messageToSend.trim().toLowerCase();
-          const exactConfirmationPattern = /^(gerar|sim|ok|pode gerar|pronto|pode|vamos|está bom|está ok|vai|confirmo|confirmado|pode criar|pode fazer|pode começar|ok ok|okay|okay okay)$/i;
+          const exactConfirmationPattern = /^(gerar|sim|ok|pode gerar|pronto|pode|vamos|está bom|está ok|vai|confirmo|confirmado|pode criar|pode fazer|pode começar|okay|okay okay)$/i;
           const repeatedConfirmation = /^(ok|sim|gerar|pronto|pode)\s+(ok|sim|gerar|pronto|pode)$/i.test(trimmedMessage);
+          
+          // ✅ Verificar explicitamente "ok ok" (com qualquer quantidade de espaços)
+          const isOkOk = /^ok\s+ok$/i.test(trimmedMessage) || trimmedMessage === 'ok ok' || trimmedMessage === 'ok  ok' || trimmedMessage === 'ok   ok';
           
           const userMessageIsConfirmation = exactConfirmationPattern.test(trimmedMessage) || 
                                              repeatedConfirmation ||
+                                             isOkOk ||
                                              (trimmedMessage.length < 50 && /(sim|ok|gerar|pronto|pode|confirmo|tudo certo)/i.test(trimmedMessage) && !/(não|nao|nada|cancelar|desistir|parar)/i.test(trimmedMessage));
           
           const responseIndicatesGeneration = chatData.response && (
@@ -1787,15 +1791,39 @@ ${getRedirectMessage(messageToSend)}`,
             console.log('✅ [sendMessage] Condições atendidas para gerar preview:', {
               shouldGeneratePreview: chatData.shouldGeneratePreview,
               userMessageIsConfirmation,
-              responseIndicatesGeneration
+              responseIndicatesGeneration,
+              shouldGenerate
             });
             console.log('🚀 [sendMessage] Iniciando geração do site...');
-            await generateSitePreview(messageToSend);
+            
+            // ✅ Pequeno delay para garantir que a mensagem da IA foi exibida antes de iniciar a geração
+            setTimeout(async () => {
+              try {
+                await generateSitePreview(messageToSend);
+              } catch (error) {
+                console.error('❌ [sendMessage] Erro ao gerar preview:', error);
+              }
+            }, 500);
           } else {
-            console.log('📝 [sendMessage] IA continua fazendo perguntas ou aguardando confirmação. Aguardando mais informações...');
-            console.log('📊 [sendMessage] shouldGeneratePreview:', chatData.shouldGeneratePreview);
-            console.log('📊 [sendMessage] userMessageIsConfirmation:', userMessageIsConfirmation);
-            console.log('📊 [sendMessage] responseIndicatesGeneration:', responseIndicatesGeneration);
+            console.log('❌ [sendMessage] NÃO gerando - condições não atendidas:', {
+              shouldGeneratePreviewFlag: chatData.shouldGeneratePreview,
+              userMessageIsConfirmation,
+              responseIndicatesGeneration,
+              shouldGenerate,
+              responseSnippet: chatData.response?.substring(0, 200)
+            });
+            
+            // ✅ FALLBACK: Se shouldGeneratePreview é true mas não detectamos, ainda assim gerar
+            if (chatData.shouldGeneratePreview === true) {
+              console.log('⚠️ [sendMessage] FALLBACK: shouldGeneratePreview é true mas condições não foram atendidas. Gerando mesmo assim...');
+              setTimeout(async () => {
+                try {
+                  await generateSitePreview(messageToSend);
+                } catch (error) {
+                  console.error('❌ [sendMessage] Erro ao gerar preview (fallback):', error);
+                }
+              }, 500);
+            }
           }
         } else {
           throw new Error(chatData.error || 'Erro ao obter resposta da IA');

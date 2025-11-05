@@ -72,12 +72,16 @@ export async function generateAIResponse(
       const isShortConfirmation = trimmedMessage.length < 50; // Confirmações são curtas
       
       // ✅ Padrão específico para confirmações explícitas (incluindo "ok ok")
-      const exactConfirmationPattern = /^(gerar|sim|ok|pode gerar|pronto|está bom|está ok|confirmo|confirmado|pode criar|pode fazer|pode começar|tudo certo|pode ir|vamos lá|ok ok|okay|okay okay)$/i;
+      const exactConfirmationPattern = /^(gerar|sim|ok|pode gerar|pronto|está bom|está ok|confirmo|confirmado|pode criar|pode fazer|pode começar|tudo certo|pode ir|vamos lá|okay|okay okay)$/i;
       
-      // ✅ Detectar confirmações repetidas (ex: "ok ok", "sim sim")
+      // ✅ Detectar confirmações repetidas (ex: "ok ok", "sim sim", "ok  ok", "ok   ok")
+      // Usar \s+ para aceitar um ou mais espaços entre as palavras
       const repeatedConfirmation = /^(ok|sim|gerar|pronto|pode)\s+(ok|sim|gerar|pronto|pode)$/i.test(trimmedMessage);
       
-      userConfirmed = isShortConfirmation && (exactConfirmationPattern.test(trimmedMessage) || repeatedConfirmation);
+      // ✅ Verificar se é "ok ok" explicitamente (com qualquer quantidade de espaços)
+      const isOkOk = /^ok\s+ok$/i.test(trimmedMessage) || trimmedMessage === 'ok ok' || trimmedMessage === 'ok  ok' || trimmedMessage === 'ok   ok';
+      
+      userConfirmed = isShortConfirmation && (exactConfirmationPattern.test(trimmedMessage) || repeatedConfirmation || isOkOk);
       
       // ✅ Também verificar se a mensagem contém palavras de confirmação no contexto de uma frase curta
       if (!userConfirmed && isShortConfirmation) {

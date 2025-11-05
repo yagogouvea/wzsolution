@@ -12,6 +12,7 @@ export default function AIGeneratorSection() {
   const [selectedType, setSelectedType] = useState('');
   const [idea, setIdea] = useState('');
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   
@@ -144,8 +145,11 @@ export default function AIGeneratorSection() {
 
     console.log('✅ [AIGenerator] Usuário logado, criando site...');
 
-    // ✅ Redirecionar IMEDIATAMENTE para evitar travamento na página inicial
-    // Preparar dados básicos para o chat
+    // ✅ Ativar estado de loading para mostrar animação
+    setIsSubmitting(true);
+    setIsAnimating(true);
+
+    // ✅ Preparar dados básicos para o chat
     const basicData = {
       companyName: idea.split('para')[1]?.trim() || 'Meu Negócio',
       businessSector: 'A definir',
@@ -184,9 +188,19 @@ export default function AIGeneratorSection() {
       queryParams.set('prompt', idea);
     }
     
-    // ✅ Redirecionar IMEDIATAMENTE - a página de chat mostrará o indicador de "IA pensando"
+    // ✅ Construir URL do chat
     const chatUrl = `/chat/${newConversationId}?${queryParams.toString()}`;
-    router.push(chatUrl); // ✅ Usar router.push em vez de window.location.href para transição mais suave
+    
+    // ✅ Adicionar um pequeno delay para garantir que a animação seja visível
+    // e então redirecionar suavemente
+    setTimeout(() => {
+      router.push(chatUrl);
+      // ✅ Manter o estado de loading por mais um pouco para transição suave
+      setTimeout(() => {
+        setIsSubmitting(false);
+        setIsAnimating(false);
+      }, 500);
+    }, 300);
   };
 
   // Função removida - chat agora é página dedicada
@@ -212,7 +226,42 @@ export default function AIGeneratorSection() {
 
   return (
     <>
-      <section id="ia-site" className="py-20 bg-gradient-to-br from-slate-50 to-white">
+      {/* ✅ Overlay de Loading durante submissão */}
+      {isSubmitting && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center"
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-white rounded-2xl p-8 shadow-2xl max-w-md mx-4 text-center"
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"
+            />
+            <h3 className="text-xl font-bold text-slate-900 mb-2">
+              Preparando seu projeto...
+            </h3>
+            <p className="text-slate-600 mb-4">
+              Estamos redirecionando você para o assistente de IA
+            </p>
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: "100%" }}
+              transition={{ duration: 0.5, repeat: Infinity, repeatType: "reverse" }}
+              className="h-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"
+            />
+          </motion.div>
+        </motion.div>
+      )}
+
+      <section id="ia-site" className="py-20 bg-gradient-to-br from-slate-50 to-white relative">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             {/* Left Column - Text */}
@@ -341,20 +390,28 @@ export default function AIGeneratorSection() {
                     
                     handleSubmit();
                   }}
-                  disabled={!selectedType || !idea.trim() || isAnimating || checkingAuth}
-                  whileHover={{ scale: selectedType && idea.trim() && !checkingAuth && user ? 1.02 : 1 }}
+                  disabled={!selectedType || !idea.trim() || isAnimating || checkingAuth || isSubmitting}
+                  whileHover={{ scale: selectedType && idea.trim() && !checkingAuth && user && !isSubmitting ? 1.02 : 1 }}
                   whileTap={{ scale: 0.98 }}
-                  className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-4 rounded-xl font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center"
+                  className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-4 rounded-xl font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center relative overflow-hidden"
                 >
                   {checkingAuth ? (
                     <>
-                      <div className="spinner mr-3" />
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-3"
+                      />
                       Verificando...
                     </>
-                  ) : isAnimating ? (
+                  ) : isSubmitting ? (
                     <>
-                      <div className="spinner mr-3" />
-                      Gerando...
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-3"
+                      />
+                      Preparando...
                     </>
                   ) : !user ? (
                     <>
