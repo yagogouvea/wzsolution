@@ -715,10 +715,25 @@ Clique no link abaixo para:
               chatData.response.includes('Gerando seu site') ||
               chatData.response.includes('STATUS: Gerando') ||
               chatData.response.includes('criando um site') ||
-              chatData.response.includes('preparo seu site')
+              chatData.response.includes('preparo seu site') ||
+              chatData.response.includes('Vou gerar seu site') ||
+              chatData.response.includes('vou gerar') ||
+              chatData.response.includes('gerando agora') ||
+              chatData.response.includes('pronto em instantes') ||
+              chatData.response.includes('visualizar o preview') ||
+              chatData.response.includes('exibir o site') ||
+              chatData.response.toLowerCase().includes('vou criar') ||
+              chatData.response.toLowerCase().includes('estou criando')
             );
             
             const shouldGenerate = chatData.shouldGeneratePreview === true || responseIndicatesGeneration;
+            
+            console.log('🔍 [initializeConversation] Análise de geração:', {
+              shouldGeneratePreviewFlag: chatData.shouldGeneratePreview,
+              responseIndicatesGeneration,
+              shouldGenerate,
+              responseSnippet: chatData.response?.substring(0, 200)
+            });
             
             if (shouldGenerate) {
               console.log('✅ [initializeConversation] IA indicou que deve gerar preview agora!');

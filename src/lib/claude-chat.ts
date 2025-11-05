@@ -134,6 +134,13 @@ export async function generateAIResponse(
 
 Sua função é ajudar o usuário a criar um site profissional através de uma conversa amigável e objetiva.
 
+⚠️ **REGRA CRÍTICA SOBRE ENTREGA:**
+- NUNCA mencione "arquivo ZIP", "download", "arquivo completo" ou "entregar arquivo"
+- O site é SEMPRE criado e exibido como PREVIEW/VISUALIZAÇÃO na própria plataforma
+- Use termos como: "criar o site", "gerar o preview", "mostrar a visualização", "exibir o site"
+- Exemplo CORRETO: "Vou gerar seu site agora e você poderá visualizá-lo em instantes!"
+- Exemplo ERRADO: "Vou entregar seu site em um arquivo ZIP"
+
 CONTEXTO DO PROJETO:
 ${projectContext.length > 0 ? projectContext.join('\n') : 'Projeto em estágio inicial'}
 
@@ -169,14 +176,14 @@ Analisei seu pedido completo e extraí as seguintes informações:
 ✅ **Está tudo correto?** Se sim, diga "gerar", "ok" ou "pode gerar" para eu criar seu site agora!"
 
 NÃO gere o site ainda - aguarde confirmação explícita do usuário.` : ''}
-${(isCompletePrompt || hasCompleteProjectData) && userConfirmed ? '- IMPORTANTE: O usuário CONFIRMOU após fornecer um prompt completo. Agora você DEVE gerar o site. Informe que está gerando agora. Exemplo: "Perfeito! Vou gerar seu site agora com todas as especificações confirmadas. Isso pode levar alguns minutos..."' : ''}
+${(isCompletePrompt || hasCompleteProjectData) && userConfirmed ? '- IMPORTANTE: O usuário CONFIRMOU após fornecer um prompt completo. Agora você DEVE gerar o site. Informe que está gerando agora e será exibido como PREVIEW na plataforma. Exemplo: "Perfeito! Vou gerar seu site agora com todas as especificações confirmadas. Isso pode levar alguns minutos... Você poderá visualizar o preview em instantes!" NUNCA mencione ZIP ou arquivo para download.' : ''}
 ${isFirstUserResponse && !isCompletePrompt && !hasCompleteProjectData ? '- Esta é a primeira mensagem do usuário. Confirme o recebimento e faça 2-3 perguntas básicas essenciais (nome da empresa, tipo de negócio, principais funcionalidades desejadas)' : ''}
 ${isSecondUserResponse && !hasMinimumData ? `- O usuário respondeu, mas ainda faltam informações. Liste claramente o que falta: ${missingData.join(', ')}. Seja específico e peça essas informações.` : ''}
-${isSecondUserResponse && hasMinimumData ? '- O usuário já respondeu suas perguntas e TEM DADOS SUFICIENTES. Agora confirme brevemente as informações e informe que o site será gerado. NÃO faça mais perguntas, apenas confirme e inicie a geração.' : ''}
+${isSecondUserResponse && hasMinimumData ? '- O usuário já respondeu suas perguntas e TEM DADOS SUFICIENTES. Agora confirme brevemente as informações e informe que o site será gerado e exibido como PREVIEW. NÃO faça mais perguntas, apenas confirme e inicie a geração. NUNCA mencione ZIP ou arquivo.' : ''}
 ${userConfirmed && !hasMinimumData ? `- O usuário pediu para gerar, mas AINDA FALTAM DADOS: ${missingData.join(', ')}. Explique educadamente que precisa dessas informações antes de gerar e liste o que falta especificamente.` : ''}
 - Use markdown para formatação quando apropriado (**negrito**, listas, etc.)
 - Seja conciso mas completo
-${hasUserResponseAfterQuestions && hasMinimumData ? '- IMPORTANTE: O usuário já forneceu informações suficientes. Confirme brevemente e informe que o site será gerado agora.' : ''}
+${hasUserResponseAfterQuestions && hasMinimumData ? '- IMPORTANTE: O usuário já forneceu informações suficientes. Confirme brevemente e informe que o site será gerado agora e exibido como PREVIEW. NUNCA mencione ZIP ou arquivo.' : ''}
 ${hasUserResponseAfterQuestions && !hasMinimumData ? `- O usuário já interagiu, mas AINDA FALTAM: ${missingData.join(', ')}. Liste claramente o que precisa e peça essas informações.` : ''}`;
 
     const userPrompt = `Histórico da conversa:
@@ -331,8 +338,10 @@ ${isSecondUserResponse || hasUserResponseAfterQuestions ? '✅ O usuário já re
     console.log('✅ [Claude-Chat] Resposta gerada:', {
       responseLength: result.response.length,
       nextStage: result.nextStage,
+      shouldGeneratePreview: result.shouldGeneratePreview, // ✅ Log explícito
       phase,
-      hasAllData: !!(projectData.company_name && projectData.business_type && projectData.pages_needed && projectData.design_style)
+      hasAllData: !!(projectData.company_name && projectData.business_type && projectData.pages_needed && projectData.design_style),
+      userConfirmed: result.userConfirmed
     });
 
     return result;

@@ -193,6 +193,14 @@ export async function POST(request: NextRequest) {
         if (aiResponse?.response) {
           initialResponse = aiResponse.response;
           
+          // ✅ Log explícito do shouldGeneratePreview
+          console.log('📊 [start-conversation] Resposta da IA recebida:', {
+            hasResponse: !!aiResponse.response,
+            nextStage: aiResponse.nextStage,
+            shouldGeneratePreview: aiResponse.shouldGeneratePreview,
+            responseLength: aiResponse.response.length
+          });
+          
           // Salvar primeira resposta da IA
           await DatabaseService.addMessage({
             conversation_id: conversation.id,
@@ -250,12 +258,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ✅ Log antes de retornar
+    console.log('📤 [start-conversation] Retornando resposta:', {
+      conversationId: conversation.id,
+      stage: aiResponse?.nextStage || 1,
+      shouldGeneratePreview: aiResponse?.shouldGeneratePreview || false,
+      hasCompleteData: extractedData.has_complete_info || false,
+      responseLength: initialResponse.length
+    });
+    
     return NextResponse.json({
       success: true,
       conversationId: conversation.id,
       initialResponse: initialResponse,
       stage: aiResponse?.nextStage || 1,
-      shouldGeneratePreview: aiResponse?.shouldGeneratePreview || false, // ✅ Retornar flag de geração
+      shouldGeneratePreview: aiResponse?.shouldGeneratePreview === true, // ✅ Garantir que seja boolean true
       hasCompleteData: extractedData.has_complete_info || false // ✅ Indicar se tem dados completos
     });
 
