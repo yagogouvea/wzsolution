@@ -29,24 +29,37 @@ function checkSupabaseConfigured(): boolean {
   const key = getSupabaseAnonKey();
   const isConfigured = !!(url && key);
   
-  // Log apenas em desenvolvimento ou se não estiver configurado
-  if (!isConfigured && process.env.NODE_ENV === 'development') {
-    console.warn('⚠️ [Auth] Supabase não configurado:', {
+  // Log detalhado para diagnóstico (apenas quando não está configurado)
+  if (!isConfigured) {
+    // No cliente, process.env pode não ter todas as variáveis
+    // Mas NEXT_PUBLIC_* devem estar disponíveis após o build
+    const envKeys = typeof process !== 'undefined' && process.env
+      ? Object.keys(process.env).filter(k => k.includes('SUPABASE') || k.startsWith('NEXT_PUBLIC_'))
+      : [];
+    
+    console.warn('⚠️ [Auth] Supabase não configurado. Diagnóstico:', {
       url: url ? '✅' : '❌',
       key: key ? '✅' : '❌',
-      urlValue: url?.substring(0, 30) || 'undefined',
-      keyLength: key?.length || 0
+      urlLength: url?.length || 0,
+      keyLength: key?.length || 0,
+      urlPrefix: url?.substring(0, 30) || 'undefined',
+      envKeysFound: envKeys,
+      isClient: typeof window !== 'undefined',
+      // Tentar ler diretamente do process.env para debug
+      directUrl: typeof process !== 'undefined' && process.env 
+        ? process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30) || 'undefined'
+        : 'process.env não disponível',
+      directKey: typeof process !== 'undefined' && process.env
+        ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? `***${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.length} chars***` : 'undefined'
+        : 'process.env não disponível'
     });
   }
   
   return isConfigured;
 }
 
-const supabaseUrl = getSupabaseUrl();
-const supabaseAnonKey = getSupabaseAnonKey();
-
-// ✅ Verificar se as variáveis estão configuradas
-const isSupabaseConfigured = checkSupabaseConfigured();
+// ✅ NÃO calcular no nível do módulo - sempre verificar em runtime
+// As variáveis NEXT_PUBLIC_* podem não estar disponíveis durante a inicialização do módulo
 
 // ✅ Cliente Supabase lazy-loaded para evitar erros de inicialização
 let _supabaseAuthInstance: SupabaseClient | null = null;
@@ -111,8 +124,28 @@ const fakeAuth = {
 // Export para compatibilidade - usando Proxy seguro
 export const supabaseAuth = new Proxy({} as SupabaseClient, {
   get(_target, prop) {
+    // ✅ SEMPRE verificar em runtime, não usar constante do módulo
+    const isConfigured = checkSupabaseConfigured();
+    
     // ✅ Se Supabase não está configurado, retornar objeto fake
-    if (!isSupabaseConfigured) {
+    if (!isConfigured) {
+      // Log apenas uma vez para evitar spam
+      if (prop === 'auth' && typeof window !== 'undefined') {
+        const key = '__supabase_config_warned';
+        if (!(window as any)[key]) {
+          console.warn('⚠️ [Auth] Supabase não configurado. Verificando variáveis:', {
+            url: getSupabaseUrl() ? '✅' : '❌',
+            key: getSupabaseAnonKey() ? '✅' : '❌',
+            urlValue: getSupabaseUrl()?.substring(0, 30) || 'undefined',
+            keyLength: getSupabaseAnonKey()?.length || 0,
+            allEnvKeys: typeof process !== 'undefined' && process.env 
+              ? Object.keys(process.env).filter(k => k.includes('SUPABASE'))
+              : []
+          });
+          (window as any)[key] = true;
+        }
+      }
+      
       if (prop === 'auth') {
         return fakeAuth;
       }
@@ -160,9 +193,21 @@ export interface User {
  */
 export async function signIn(email: string, password: string) {
   try {
-    // ✅ Verificar se Supabase está configurado
-    if (!isSupabaseConfigured) {
-      console.error('❌ [Auth] Supabase não configurado. Verifique NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY');
+    // ✅ Verificar se Supabase está configurado (sempre em runtime)
+    if (!checkSupabaseConfigured()) {
+      const url = getSupabaseUrl();
+      const key = getSupabaseAnonKey();
+      console.error('❌ [Auth] Supabase não configurado:', {
+        hasUrl: !!url,
+        hasKey: !!key,
+        urlLength: url?.length || 0,
+        keyLength: key?.length || 0,
+        urlPrefix: url?.substring(0, 30) || 'undefined',
+        // Logar todas as variáveis NEXT_PUBLIC_* disponíveis para debug
+        availableEnvKeys: typeof process !== 'undefined' && process.env
+          ? Object.keys(process.env).filter(k => k.startsWith('NEXT_PUBLIC_'))
+          : []
+      });
       return {
         success: false,
         error: 'Serviço de autenticação temporariamente indisponível. Nossa equipe foi notificada.'
@@ -248,9 +293,21 @@ export async function checkEmailExists(email: string): Promise<boolean> {
  */
 export async function signUp(email: string, password: string, name?: string) {
   try {
-    // ✅ Verificar se Supabase está configurado
-    if (!isSupabaseConfigured) {
-      console.error('❌ [Auth] Supabase não configurado. Verifique NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY');
+    // ✅ Verificar se Supabase está configurado (sempre em runtime)
+    if (!checkSupabaseConfigured()) {
+      const url = getSupabaseUrl();
+      const key = getSupabaseAnonKey();
+      console.error('❌ [Auth] Supabase não configurado:', {
+        hasUrl: !!url,
+        hasKey: !!key,
+        urlLength: url?.length || 0,
+        keyLength: key?.length || 0,
+        urlPrefix: url?.substring(0, 30) || 'undefined',
+        // Logar todas as variáveis NEXT_PUBLIC_* disponíveis para debug
+        availableEnvKeys: typeof process !== 'undefined' && process.env
+          ? Object.keys(process.env).filter(k => k.startsWith('NEXT_PUBLIC_'))
+          : []
+      });
       return {
         success: false,
         error: 'Serviço de autenticação temporariamente indisponível. Nossa equipe foi notificada.'
@@ -394,11 +451,16 @@ export async function getCurrentUser() {
       return null;
     }
 
-    // ✅ Verificar se as variáveis de ambiente estão configuradas
-    if (!isSupabaseConfigured) {
+    // ✅ Verificar se as variáveis de ambiente estão configuradas (sempre em runtime)
+    if (!checkSupabaseConfigured()) {
       // Não logar como erro em produção - apenas avisar silenciosamente
       if (process.env.NODE_ENV === 'development') {
-        console.warn('⚠️ [Auth] Variáveis de ambiente do Supabase não configuradas!');
+        const url = getSupabaseUrl();
+        const key = getSupabaseAnonKey();
+        console.warn('⚠️ [Auth] Variáveis de ambiente do Supabase não configuradas!', {
+          hasUrl: !!url,
+          hasKey: !!key
+        });
       }
       return null;
     }

@@ -16,6 +16,9 @@ COPY . .
 # Set environment to production before build
 ENV NODE_ENV=production
 
+# ⚠️ IMPORTANTE: Variáveis NEXT_PUBLIC_* precisam estar disponíveis aqui!
+# No Railway, certifique-se de configurar as variáveis no SERVIÇO (não no projeto)
+# antes de fazer o build. Essas variáveis são injetadas no código durante o build.
 # Build the application (usando build normal para produção)
 RUN npm run build
 
