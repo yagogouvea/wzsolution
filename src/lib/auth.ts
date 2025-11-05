@@ -5,11 +5,48 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// ✅ Ler variáveis em runtime para garantir que sejam atualizadas
+// Isso permite que as variáveis sejam lidas mesmo se não estiverem disponíveis no build
+function getSupabaseUrl(): string | undefined {
+  if (typeof window !== 'undefined') {
+    // No cliente, tentar ler do window se disponível (fallback)
+    return (window as any).__NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  }
+  return process.env.NEXT_PUBLIC_SUPABASE_URL;
+}
+
+function getSupabaseAnonKey(): string | undefined {
+  if (typeof window !== 'undefined') {
+    // No cliente, tentar ler do window se disponível (fallback)
+    return (window as any).__NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  }
+  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+}
+
+// ✅ Verificar se as variáveis estão configuradas (em runtime)
+function checkSupabaseConfigured(): boolean {
+  const url = getSupabaseUrl();
+  const key = getSupabaseAnonKey();
+  const isConfigured = !!(url && key);
+  
+  // Log apenas em desenvolvimento ou se não estiver configurado
+  if (!isConfigured && process.env.NODE_ENV === 'development') {
+    console.warn('⚠️ [Auth] Supabase não configurado:', {
+      url: url ? '✅' : '❌',
+      key: key ? '✅' : '❌',
+      urlValue: url?.substring(0, 30) || 'undefined',
+      keyLength: key?.length || 0
+    });
+  }
+  
+  return isConfigured;
+}
+
+const supabaseUrl = getSupabaseUrl();
+const supabaseAnonKey = getSupabaseAnonKey();
 
 // ✅ Verificar se as variáveis estão configuradas
-const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
+const isSupabaseConfigured = checkSupabaseConfigured();
 
 // ✅ Cliente Supabase lazy-loaded para evitar erros de inicialização
 let _supabaseAuthInstance: SupabaseClient | null = null;
@@ -19,14 +56,24 @@ function getSupabaseAuth(): SupabaseClient {
     return _supabaseAuthInstance;
   }
 
-  if (!isSupabaseConfigured) {
+  // ✅ Re-verificar em runtime antes de criar o cliente
+  const url = getSupabaseUrl();
+  const key = getSupabaseAnonKey();
+  
+  if (!url || !key) {
+    console.error('❌ [Auth] Tentativa de criar cliente Supabase sem variáveis:', {
+      hasUrl: !!url,
+      hasKey: !!key,
+      urlLength: url?.length || 0,
+      keyLength: key?.length || 0
+    });
     throw new Error('Supabase URL e Anon Key são obrigatórios');
   }
 
   // Usar storage key única para evitar conflitos com outras instâncias
   const storageKey = 'wz-solution-auth';
   
-  _supabaseAuthInstance = createClient(supabaseUrl, supabaseAnonKey, {
+  _supabaseAuthInstance = createClient(url, key, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
