@@ -64,7 +64,7 @@ export async function generateSiteWithClaude(prompt: string): Promise<string> {
     try {
       const response = await anthropic.messages.create({
         model: process.env.CLAUDE_MODEL || "claude-sonnet-4-5-20250929",
-        max_tokens: 15000, // ✅ Configurado para 15k tokens
+        max_tokens: 17000, // ✅ Configurado para 17k tokens
         temperature: 0.6,
         stream: true, // ✅ Streaming habilitado (melhor performance)
         messages: [

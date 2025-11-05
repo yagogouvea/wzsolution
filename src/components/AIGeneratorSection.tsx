@@ -87,6 +87,23 @@ export default function AIGeneratorSection() {
         setUser(currentUser);
         setCheckingAuth(false);
         clearTimeout(timeoutId);
+        
+        // ✅ Se usuário acabou de fazer login, recuperar dados pendentes do sessionStorage
+        if (currentUser && typeof window !== 'undefined') {
+          const pendingData = sessionStorage.getItem('pending_site_creation');
+          if (pendingData) {
+            try {
+              const data = JSON.parse(pendingData);
+              console.log('✅ [AIGenerator] Recuperando dados pendentes após login:', data);
+              setSelectedType(data.selectedType || '');
+              setIdea(data.idea || '');
+              // ✅ Remover dados do sessionStorage após recuperar
+              sessionStorage.removeItem('pending_site_creation');
+            } catch (error) {
+              console.error('❌ [AIGenerator] Erro ao recuperar dados pendentes:', error);
+            }
+          }
+        }
       })
       .catch((error) => {
         console.error('❌ [AIGenerator] Erro ao verificar usuário:', error);
@@ -98,6 +115,69 @@ export default function AIGeneratorSection() {
       clearTimeout(timeoutId);
     };
   }, []);
+  
+  // ✅ Verificar mudanças na autenticação quando o componente recebe foco novamente
+  useEffect(() => {
+    const handleFocus = () => {
+      // Quando a página recebe foco novamente (usuário voltou do login)
+      if (typeof window !== 'undefined' && user) {
+        const pendingData = sessionStorage.getItem('pending_site_creation');
+        if (pendingData) {
+          try {
+            const data = JSON.parse(pendingData);
+            console.log('✅ [AIGenerator] Dados pendentes encontrados após voltar do login:', data);
+            setSelectedType(data.selectedType || '');
+            setIdea(data.idea || '');
+            sessionStorage.removeItem('pending_site_creation');
+          } catch (error) {
+            console.error('❌ [AIGenerator] Erro ao recuperar dados pendentes:', error);
+          }
+        }
+      }
+    };
+    
+    // Verificar quando a página recebe foco
+    window.addEventListener('focus', handleFocus);
+    
+    // Verificar imediatamente também (caso já tenha foco)
+    handleFocus();
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [user]);
+  
+  // ✅ Polling para verificar mudanças no sessionStorage (fallback)
+  useEffect(() => {
+    if (!user) return; // Só fazer polling se usuário estiver logado
+    
+    const checkPendingData = () => {
+      if (typeof window !== 'undefined') {
+        const pendingData = sessionStorage.getItem('pending_site_creation');
+        if (pendingData) {
+          try {
+            const data = JSON.parse(pendingData);
+            console.log('✅ [AIGenerator] Dados pendentes encontrados via polling:', data);
+            setSelectedType(data.selectedType || '');
+            setIdea(data.idea || '');
+            sessionStorage.removeItem('pending_site_creation');
+          } catch (error) {
+            console.error('❌ [AIGenerator] Erro ao recuperar dados pendentes:', error);
+          }
+        }
+      }
+    };
+    
+    // Verificar a cada 500ms se há dados pendentes
+    const intervalId = setInterval(checkPendingData, 500);
+    
+    // Verificar imediatamente também
+    checkPendingData();
+    
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [user]);
 
   const handleSubmit = () => {
     console.log('🚀 [AIGenerator] handleSubmit chamado', {
@@ -145,9 +225,11 @@ export default function AIGeneratorSection() {
 
     console.log('✅ [AIGenerator] Usuário logado, criando site...');
 
-    // ✅ Ativar estado de loading para mostrar animação
+    // ✅ Ativar estado de loading para mostrar animação ANTES de qualquer outra coisa
     setIsSubmitting(true);
     setIsAnimating(true);
+    
+    console.log('🎬 [AIGenerator] Animação iniciada, aguardando renderização...');
 
     // ✅ Preparar dados básicos para o chat
     const basicData = {
@@ -191,16 +273,22 @@ export default function AIGeneratorSection() {
     // ✅ Construir URL do chat
     const chatUrl = `/chat/${newConversationId}?${queryParams.toString()}`;
     
-    // ✅ Adicionar um pequeno delay para garantir que a animação seja visível
-    // e então redirecionar suavemente
-    setTimeout(() => {
-      router.push(chatUrl);
-      // ✅ Manter o estado de loading por mais um pouco para transição suave
-      setTimeout(() => {
-        setIsSubmitting(false);
-        setIsAnimating(false);
-      }, 500);
-    }, 300);
+    // ✅ CRÍTICO: Aguardar um tempo suficiente para a animação aparecer antes de redirecionar
+    // Usar requestAnimationFrame para garantir que o DOM foi atualizado
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        console.log('⏳ [AIGenerator] Aguardando 800ms para mostrar animação antes de redirecionar...');
+        setTimeout(() => {
+          console.log('🚀 [AIGenerator] Redirecionando para:', chatUrl);
+          router.push(chatUrl);
+          // ✅ Manter o estado de loading por mais um pouco para transição suave
+          setTimeout(() => {
+            setIsSubmitting(false);
+            setIsAnimating(false);
+          }, 1000);
+        }, 800); // ✅ Aumentar delay para 800ms para garantir que a animação seja visível
+      });
+    });
   };
 
   // Função removida - chat agora é página dedicada

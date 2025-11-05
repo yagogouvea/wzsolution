@@ -1826,7 +1826,9 @@ ${getRedirectMessage(messageToSend)}`,
           
           // ✅ CRÍTICO: Se shouldGenerate é true, INICIAR GERAÇÃO IMEDIATAMENTE
           if (shouldGenerate) {
+            console.log('🚀🚀🚀 [sendMessage] ============================================');
             console.log('🚀🚀🚀 [sendMessage] GERANDO AGORA - shouldGenerate é TRUE!');
+            console.log('🚀🚀🚀 [sendMessage] ============================================');
             
             // ✅ ADICIONAR MENSAGEM DA IA PRIMEIRO
             const aiMessage: Message = {
@@ -1837,31 +1839,51 @@ ${getRedirectMessage(messageToSend)}`,
               type: 'text'
             };
             
+            console.log('💬 [sendMessage] Adicionando mensagem da IA ao estado...');
             setMessages(prev => [...prev, aiMessage]);
             
             // ✅ SALVAR VARIÁVEIS ANTES DO TIMEOUT
             const promptToUse = messageToSend;
             const conversationIdToUse = conversationId;
             
-            // ✅ CHAMAR generateSitePreview IMEDIATAMENTE (sem aguardar delay desnecessário)
-            console.log('🎯 [sendMessage] Chamando generateSitePreview AGORA...');
+            console.log('📝 [sendMessage] Variáveis salvas:', {
+              promptToUse: promptToUse.substring(0, 50),
+              conversationIdToUse
+            });
             
-            // ✅ Usar setTimeout apenas para garantir que a mensagem foi renderizada
+            // ✅ NÃO definir setIsLoading(false) aqui - deixar generateSitePreview controlar o loading
+            // ✅ CHAMAR generateSitePreview IMEDIATAMENTE após um pequeno delay para renderizar mensagem
+            console.log('🎯 [sendMessage] Configurando setTimeout para chamar generateSitePreview...');
+            
             setTimeout(() => {
+              console.log('⏳ [sendMessage] ============================================');
               console.log('⏳ [sendMessage] Delay concluído - INICIANDO GERAÇÃO');
+              console.log('⏳ [sendMessage] ============================================');
+              console.log('📝 [sendMessage] Prompt:', promptToUse.substring(0, 100));
+              console.log('🆔 [sendMessage] ConversationId:', conversationIdToUse);
               
-              // ✅ Chamar diretamente sem try/catch complexo - deixar o erro subir
+              // ✅ Verificar se generateSitePreview existe
+              if (typeof generateSitePreview !== 'function') {
+                console.error('❌ [sendMessage] ERRO CRÍTICO: generateSitePreview não é uma função!');
+                setIsLoading(false);
+                return;
+              }
+              
+              console.log('✅ [sendMessage] generateSitePreview existe, chamando agora...');
+              
+              // ✅ Chamar diretamente
               generateSitePreview(promptToUse)
                 .then(() => {
                   console.log('✅ [sendMessage] Geração concluída com sucesso!');
+                  setIsLoading(false);
                 })
                 .catch((error) => {
                   console.error('❌ [sendMessage] Erro na geração:', error);
+                  setIsLoading(false);
                 });
-            }, 300); // ✅ Reduzir delay para 300ms
+            }, 500); // ✅ Aumentar delay para 500ms para garantir renderização
             
             // ✅ DEFINITIVAMENTE NÃO CONTINUAR COM O RESTO DO CÓDIGO
-            setIsLoading(false);
             return;
           }
           
