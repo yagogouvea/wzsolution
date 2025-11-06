@@ -234,13 +234,9 @@ function ChatPageContent() {
   // ✅ Timer só desaparece quando generationStartTime for null (limpo explicitamente)
   // NÃO depende de isLoading - isso é setado como false no finally antes do preview aparecer
   // NÃO desaparece quando currentSiteCode é definido - isso acontece antes do preview ser renderizado
-  const shouldShowGenerationTimer = isGenerating && generationStartTime !== null && (() => {
-    const previewMessage = messages.find(m => m.type === 'site_preview');
-    if (!previewMessage) return true; // Sem preview, mostrar timer
-    // Se tem preview, verificar se foi adicionado há menos de 15 segundos (tempo para renderizar completamente)
-    const previewAge = Date.now() - previewMessage.timestamp.getTime();
-    return previewAge < 15000; // Mostrar timer por mais 15 segundos após preview aparecer
-  })();
+  // ✅ REGRA SIMPLES: Se generationStartTime não é null E isGenerating é true, mostrar timer
+  // A verificação de visibilidade do preview acontece em checkPreviewInDOM, que limpa o timer quando apropriado
+  const shouldShowGenerationTimer = isGenerating && generationStartTime !== null;
 
   // ✅ Carregar mensagens existentes do banco de dados
   const loadExistingMessages = async (): Promise<{ hasMessages: boolean; formattedMessages: Message[] }> => {
@@ -1204,33 +1200,101 @@ Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis.
           // O timer só deve desaparecer quando generationStartTime for null (limpo explicitamente)
           
           // ✅ Retornar mensagens PRIMEIRO para que o preview seja adicionado ao estado
-          // DEPOIS, criar os timeouts baseados no timestamp real do preview
+          // DEPOIS, verificar quando o preview está realmente visível no DOM
           setTimeout(() => {
-            console.log('✅ [generateSitePreview] Preview adicionado ao estado, aguardando renderização completa...');
+            console.log('✅ [generateSitePreview] Preview adicionado ao estado, aguardando renderização no DOM...');
             // ✅ Definir currentSiteCode após preview ser adicionado ao estado (mas timer continua)
             setCurrentSiteCode(previewId);
             
-            // ✅ AGORA criar o timeout para limpar o timer baseado no timestamp do preview
-            // Calcular quanto tempo já passou desde que o preview foi adicionado
-            const timeSincePreview = Date.now() - previewTimestamp;
-            const remainingTime = Math.max(0, 15000 - timeSincePreview); // 15 segundos total desde o preview
+            // ✅ Verificar periodicamente se o preview está visível no DOM
+            // ✅ IMPORTANTE: A geração pode levar 170-180 segundos, então vamos verificar por até 200 segundos
+            let checkCount = 0;
+            const maxChecks = 400; // ✅ Verificar por até 200 segundos (400 * 500ms = 200s)
+            let timerCleared = false; // ✅ Flag para evitar limpar múltiplas vezes
             
-            console.log(`⏱️ [generateSitePreview] Tempo desde preview: ${timeSincePreview}ms, aguardando mais ${remainingTime}ms`);
+            const checkPreviewInDOM = () => {
+              // ✅ Se o timer já foi limpo, não continuar verificando
+              if (timerCleared || !generationStartTime) {
+                return;
+              }
+              
+              checkCount++;
+              
+              // Procurar pela mensagem de preview no DOM usando data-message-type
+              const previewMessageElement = document.querySelector('[data-message-type="site_preview"]') as HTMLElement | null;
+              
+              // Verificar se o elemento está visível (não apenas no DOM, mas também visível na tela)
+              if (previewMessageElement) {
+                const rect = previewMessageElement.getBoundingClientRect();
+                const isVisible = rect.width > 0 && rect.height > 0 && 
+                                 rect.top < window.innerHeight && 
+                                 rect.bottom > 0;
+                
+                if (isVisible) {
+                  console.log('✅ [generateSitePreview] Preview detectado e visível no DOM! Aguardando mais 2 segundos para garantir renderização completa...');
+                  timerCleared = true; // ✅ Marcar como limpo para evitar múltiplas limpezas
+                  
+                  // ✅ Preview encontrado e visível! Aguardar mais 2 segundos para garantir que está completamente renderizado
+                  setTimeout(() => {
+                    // ✅ Verificar novamente se ainda está visível antes de limpar
+                    const stillVisible = document.querySelector('[data-message-type="site_preview"]') as HTMLElement | null;
+                    if (stillVisible) {
+                      const stillRect = stillVisible.getBoundingClientRect();
+                      const stillIsVisible = stillRect.width > 0 && stillRect.height > 0 && 
+                                           stillRect.top < window.innerHeight && 
+                                           stillRect.bottom > 0;
+                      
+                      if (stillIsVisible) {
+                        console.log('✅ [generateSitePreview] Preview está visível e confirmado - limpando timer');
+                        setGenerationStartTime(null);
+                        setElapsedTime(0);
+                        setIsGenerating(false);
+                      } else {
+                        console.log('⚠️ [generateSitePreview] Preview não está mais visível, continuando verificação...');
+                        timerCleared = false; // ✅ Resetar flag se não está mais visível
+                        setTimeout(checkPreviewInDOM, 500);
+                      }
+                    } else {
+                      console.log('⚠️ [generateSitePreview] Preview não encontrado no DOM, continuando verificação...');
+                      timerCleared = false; // ✅ Resetar flag se não encontrou
+                      setTimeout(checkPreviewInDOM, 500);
+                    }
+                  }, 2000); // ✅ 2 segundos após detectar preview visível no DOM
+                  return;
+                } else {
+                  if (checkCount % 10 === 0) { // ✅ Log a cada 5 segundos (10 * 500ms)
+                    console.log(`⏳ [generateSitePreview] Preview no DOM mas ainda não visível (verificação ${checkCount}/${maxChecks})...`);
+                  }
+                }
+              } else {
+                if (checkCount % 10 === 0) { // ✅ Log a cada 5 segundos
+                  console.log(`⏳ [generateSitePreview] Preview ainda não encontrado no DOM (verificação ${checkCount}/${maxChecks})...`);
+                }
+              }
+              
+              // ✅ Se não encontrou e ainda não excedeu o limite, continuar verificando
+              if (checkCount < maxChecks) {
+                setTimeout(checkPreviewInDOM, 500); // ✅ Verificar a cada 500ms
+              } else {
+                // ✅ Timeout de segurança: se não encontrou após 200 segundos, limpar mesmo assim
+                // Mas só se realmente não há preview (pode ter falhado)
+                const finalCheck = document.querySelector('[data-message-type="site_preview"]') as HTMLElement | null;
+                if (!finalCheck) {
+                  console.log('⚠️ [generateSitePreview] Timeout: Preview não detectado visível no DOM após 200s - limpando timer de segurança');
+                  timerCleared = true;
+                  setGenerationStartTime(null);
+                  setElapsedTime(0);
+                  setIsGenerating(false);
+                } else {
+                  console.log('⚠️ [generateSitePreview] Timeout mas preview existe no DOM - continuando verificação...');
+                  // ✅ Continuar verificando mesmo após timeout se preview existe
+                  setTimeout(checkPreviewInDOM, 500);
+                }
+              }
+            };
             
-            if (remainingTime > 0) {
-              setTimeout(() => {
-                console.log('✅ [generateSitePreview] Limpando timer - preview está pronto e renderizado');
-                setGenerationStartTime(null);
-                setElapsedTime(0);
-                setIsGenerating(false); // ✅ Só definir isGenerating como false quando timer for limpo
-              }, remainingTime);
-            } else {
-              // Se já passou mais de 15 segundos, limpar imediatamente
-              console.log('✅ [generateSitePreview] Limpando timer imediatamente (já passou tempo suficiente)');
-              setGenerationStartTime(null);
-              setElapsedTime(0);
-              setIsGenerating(false);
-            }
+            // ✅ Iniciar verificação após um pequeno delay para dar tempo do React renderizar
+            setTimeout(checkPreviewInDOM, 1000); // ✅ Aumentar para 1 segundo para dar mais tempo ao React
           }, 100); // ✅ Pequeno delay para garantir que o preview foi adicionado ao estado
           
           return newMessages;
@@ -2946,6 +3010,8 @@ ${getRedirectMessage(messageToSend)}`,
             {messages.map((message) => (
               <motion.div
                 key={message.id}
+                data-message-id={message.id}
+                data-message-type={message.type}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={`flex gap-4 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
