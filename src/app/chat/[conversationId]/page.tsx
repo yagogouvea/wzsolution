@@ -1952,10 +1952,13 @@ ${getRedirectMessage(messageToSend)}`,
           // ✅ VERIFICAÇÃO ALTERNATIVA (fallback) - apenas se shouldGenerate não for true
           const trimmedMessage = messageToSend.trim().toLowerCase();
           
-          // ✅ Padrões de confirmação básicos
-          const exactConfirmationPattern = /^(gerar|sim|ok|pode gerar|pronto|pode|vamos|está bom|está ok|vai|confirmo|confirmado|pode criar|pode fazer|pode começar|okay|okay okay)$/i;
+          // ✅ Padrões de confirmação básicos (expandidos)
+          const exactConfirmationPattern = /^(gerar|sim|ok|pode gerar|pronto|pode|vamos|está bom|está ok|vai|confirmo|confirmado|pode criar|pode fazer|pode começar|okay|okay okay|estao boas|estão boas|tá bom|ta bom|perfeito|ótimo|excelente)$/i;
           const repeatedConfirmation = /^(ok|sim|gerar|pronto|pode)\s+(ok|sim|gerar|pronto|pode)$/i.test(trimmedMessage);
           const isOkOk = /^ok\s+ok$/i.test(trimmedMessage) || trimmedMessage === 'ok ok' || trimmedMessage === 'ok  ok' || trimmedMessage === 'ok   ok';
+          
+          // ✅ Padrões de confirmação implícita (mensagens curtas que indicam aprovação)
+          const implicitConfirmationPattern = /(est[aá]o?\s+boa?s?|est[aá]\s+bom|t[áa]\s+bom|perfeito|ótimo|excelente|pode\s+gerar|pode\s+criar|apenas\s+(isso|essa|esse)|somente\s+(isso|essa|esse)|só\s+(isso|essa|esse)|quero\s+(isso|essa|esse)|isso\s+(mesmo|mesma)|isso\s+mesmo)/i.test(trimmedMessage);
           
           // ✅ Padrões de confirmação de páginas
           const pagesConfirmationPattern = /(todas as páginas|aceito a sugestão|aceitar|confirmar páginas|está bom|quero todas|todas|pode gerar|pode criar|está ok)/i.test(trimmedMessage);
@@ -1972,11 +1975,22 @@ ${getRedirectMessage(messageToSend)}`,
             lastAIMessage.content.includes('Aceitar minha sugestão')
           );
           
+          // ✅ Verificar se a IA estava perguntando algo que espera confirmação
+          const aiWasAskingAnything = lastAIMessage?.content && (
+            lastAIMessage.content.includes('?') ||
+            lastAIMessage.content.includes('confirme') ||
+            lastAIMessage.content.includes('confirma') ||
+            lastAIMessage.content.includes('Quer') ||
+            lastAIMessage.content.includes('Precisa') ||
+            lastAIMessage.content.includes('Falta')
+          );
+          
           const userMessageIsConfirmation = exactConfirmationPattern.test(trimmedMessage) || 
                                              repeatedConfirmation ||
                                              isOkOk ||
                                              pagesConfirmationPattern ||
-                                             (trimmedMessage.length < 100 && /(sim|ok|gerar|pronto|pode|confirmo|tudo certo|todas|aceito)/i.test(trimmedMessage) && !/(não|nao|nada|cancelar|desistir|parar)/i.test(trimmedMessage));
+                                             implicitConfirmationPattern ||
+                                             (trimmedMessage.length < 100 && /(sim|ok|gerar|pronto|pode|confirmo|tudo certo|todas|aceito|isso|essa|esse|boa|bom)/i.test(trimmedMessage) && !/(não|nao|nada|cancelar|desistir|parar|mudar|alterar|quero outro)/i.test(trimmedMessage));
           
           const responseIndicatesGeneration = chatData.response && (
             chatData.response.includes('Gerando seu site') ||
@@ -1998,26 +2012,57 @@ ${getRedirectMessage(messageToSend)}`,
             chatData.response.includes('visualização')
           );
           
-          // ✅ FALLBACK MELHORADO: Se o usuário confirmou páginas OU outras confirmações E há dados completos, gerar
+          // ✅ FALLBACK MELHORADO: Condições mais flexíveis para gerar
           const hasCompleteData = chatData.hasCompleteData !== false; // Assumir true se não especificado
           
           console.log('🔍 [sendMessage] Verificação FALLBACK:', {
             userMessageIsConfirmation,
             pagesConfirmationPattern,
+            implicitConfirmationPattern,
             aiWasAskingForPages,
+            aiWasAskingAnything,
             responseIndicatesGeneration,
             hasCompleteData,
+            shouldGenerate,
+            messageLength: trimmedMessage.length,
             messagePreview: trimmedMessage.substring(0, 50)
           });
           
-          // ✅ Se usuário confirmou páginas OU confirmação geral + resposta indica geração OU tem dados completos
-          if ((userMessageIsConfirmation && (responseIndicatesGeneration || hasCompleteData || aiWasAskingForPages)) && !shouldGenerate) {
+          // ✅ FALLBACK CRÍTICO: Gerar se QUALQUER uma dessas condições for verdadeira:
+          // 1. Usuário confirmou E (IA vai gerar OU tem dados completos OU IA perguntou algo)
+          // 2. Tem dados completos E resposta indica geração (MESMO SEM confirmação explícita) - MAIS AGRESSIVO
+          // 3. Usuário confirmou páginas especificamente
+          // 4. Resposta indica geração + mensagem curta (assumir confirmação implícita)
+          
+          const shouldGenerateFallback = 
+            // Condição 1: Confirmação do usuário + qualquer indicador positivo
+            (userMessageIsConfirmation && (responseIndicatesGeneration || hasCompleteData || aiWasAskingForPages || aiWasAskingAnything)) ||
+            // Condição 2: Dados completos + resposta indica geração (SEM precisar de confirmação) - CRÍTICO!
+            (hasCompleteData && responseIndicatesGeneration) ||
+            // Condição 3: Confirmação específica de páginas
+            (pagesConfirmationPattern && aiWasAskingForPages) ||
+            // Condição 4: Resposta indica geração + mensagem curta (assumir confirmação implícita)
+            (responseIndicatesGeneration && trimmedMessage.length < 50 && !/(não|nao|nada|cancelar|desistir|parar|mudar|alterar)/i.test(trimmedMessage)) ||
+            // Condição 5: Confirmação implícita detectada + dados completos
+            (implicitConfirmationPattern && hasCompleteData);
+          
+          if (shouldGenerateFallback && !shouldGenerate) {
+            console.log('⚠️ [sendMessage] ============================================');
             console.log('⚠️ [sendMessage] FALLBACK ATIVADO: Gerando mesmo sem flag shouldGeneratePreview');
-            console.log('📊 [sendMessage] Razão:', {
+            console.log('⚠️ [sendMessage] ============================================');
+            console.log('📊 [sendMessage] Razão do FALLBACK:', {
+              condition1: userMessageIsConfirmation && (responseIndicatesGeneration || hasCompleteData || aiWasAskingForPages || aiWasAskingAnything),
+              condition2: hasCompleteData && responseIndicatesGeneration,
+              condition3: pagesConfirmationPattern && aiWasAskingForPages,
+              condition4: responseIndicatesGeneration && trimmedMessage.length < 50,
+              condition5: implicitConfirmationPattern && hasCompleteData,
               confirmedPages: pagesConfirmationPattern && aiWasAskingForPages,
               confirmedGeneral: userMessageIsConfirmation,
+              implicitConfirmation: implicitConfirmationPattern,
               responseIndicatesGeneration,
-              hasCompleteData
+              hasCompleteData,
+              aiWasAskingAnything,
+              finalDecision: shouldGenerateFallback
             });
             
             const promptToUse = messageToSend;
