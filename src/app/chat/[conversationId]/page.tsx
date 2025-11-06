@@ -230,6 +230,15 @@ function ChatPageContent() {
     return () => clearInterval(interval);
   }, [generationStartTime]);
 
+  // ✅ Calcular se deve mostrar o timer de geração
+  const shouldShowGenerationTimer = isLoading && isGenerating && generationStartTime && !currentSiteCode && (() => {
+    const previewMessage = messages.find(m => m.type === 'site_preview');
+    if (!previewMessage) return true; // Sem preview, mostrar timer
+    // Se tem preview, verificar se foi adicionado há menos de 7 segundos (tempo para renderizar)
+    const previewAge = Date.now() - previewMessage.timestamp.getTime();
+    return previewAge < 7000; // Mostrar timer por mais 7 segundos após preview aparecer
+  })();
+
   // ✅ Carregar mensagens existentes do banco de dados
   const loadExistingMessages = async (): Promise<{ hasMessages: boolean; formattedMessages: Message[] }> => {
     try {
@@ -257,7 +266,8 @@ function ChatPageContent() {
           content: msg.content,
           timestamp: new Date(msg.created_at),
           type: (msg.message_type as 'text' | 'image' | 'site_preview') || 'text',
-          metadata: msg.metadata,
+          // ✅ Garantir que metadados estão incluídos (incluindo showCreateButton)
+          metadata: msg.metadata || {},
           siteCodeId: msg.metadata?.siteCodeId as string | undefined
         }));
         
@@ -265,7 +275,11 @@ function ChatPageContent() {
           sender: m.sender,
           type: m.type,
           hasPreview: !!m.siteCodeId,
-          previewContent: m.content.includes('gerado com sucesso')
+          previewContent: m.content.includes('gerado com sucesso'),
+          hasMetadata: !!m.metadata,
+          showCreateButton: m.metadata?.showCreateButton,
+          hasCompleteProjectData: m.metadata?.hasCompleteProjectData,
+          userConfirmed: m.metadata?.userConfirmed
         })));
         
         setMessages(formattedMessages);
@@ -699,16 +713,34 @@ Clique no link abaixo para:
           });
           
           if (chatData.success && chatData.response) {
-            // Adicionar resposta da IA
-            const aiMessage: Message = {
-              id: crypto.randomUUID(),
-              sender: 'ai',
-              content: chatData.response,
-              timestamp: new Date(),
-              type: 'text'
-            };
-            
-            setMessages(prev => [...prev, aiMessage]);
+            // ✅ Verificar duplicatas antes de adicionar
+            setMessages(prev => {
+              const responseContent = chatData.response?.trim() || '';
+              const recentMessages = prev.slice(-5);
+              const isDuplicate = recentMessages.some(m => 
+                m.sender === 'ai' && 
+                m.type === 'text' &&
+                m.content?.trim() === responseContent
+              );
+              
+              if (isDuplicate) {
+                console.log('⚠️ [initializeConversation] Mensagem duplicada detectada, não adicionando');
+                return prev;
+              }
+              
+              // Adicionar resposta da IA
+              const aiMessage: Message = {
+                id: crypto.randomUUID(),
+                sender: 'ai',
+                content: chatData.response,
+                timestamp: new Date(),
+                type: 'text',
+                // ✅ Incluir metadados para mostrar botão "Pode criar" se necessário
+                metadata: chatData.metadata || {}
+              };
+              
+              return [...prev, aiMessage];
+            });
             
             // ✅ Se a IA indicar que deve gerar preview (shouldGeneratePreview), gerar agora
             // ✅ TAMBÉM verificar se a mensagem indica que vai gerar (fallback para casos onde a flag não vem)
@@ -1038,17 +1070,56 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
           chatUrl: `/chat/${conversationId}`
         });
         const previewId = data.previewId || conversationId || data.versionId || 'preview';
-        setCurrentSiteCode(previewId);
         
         const fullPrompt = initialData.additionalPrompt || prompt;
         const promptDisplay = fullPrompt.length > 500
           ? `${fullPrompt.substring(0, 500)}... (${fullPrompt.length - 500} caracteres restantes)`
           : fullPrompt;
         
-        const previewMessage: Message = {
-          id: crypto.randomUUID(),
-          sender: 'ai',
-          content: `🎉 **Seu site foi gerado com sucesso pela WZ Solutions IA!**
+        // ✅ Verificar se já existe mensagem de preview para evitar duplicatas
+        // ✅ TAMBÉM verificar se já existe mensagem de confirmação duplicada
+        setMessages(prev => {
+          const hasPreview = prev.some(m => m.type === 'site_preview' && m.siteCodeId === (data.versionId || previewId));
+          if (hasPreview) {
+            console.log('⚠️ [generateSitePreview] Mensagem de preview já existe, não duplicando');
+            // ✅ Limpar timer mesmo se já existe preview (para evitar timer infinito)
+            setTimeout(() => {
+              setGenerationStartTime(null);
+              setElapsedTime(0);
+            }, 100);
+            return prev;
+          }
+          
+          // ✅ Remover TODAS as mensagens de confirmação recentes (últimas 5 mensagens)
+          // Verificar mensagens que contêm palavras-chave de confirmação
+          let filteredPrev = prev;
+          const recentMessages = prev.slice(-5);
+          const confirmationKeywords = ['vou criar', 'gerando', 'confirmado', 'perfeito', 'em instantes', 'aguarde', 'iniciando'];
+          
+          // ✅ Remover TODAS as mensagens de confirmação recentes antes de adicionar preview
+          filteredPrev = prev.filter((m) => {
+            // Verificar se é mensagem de confirmação duplicada (últimas 5 mensagens)
+            const isRecent = prev.indexOf(m) >= prev.length - 5;
+            if (isRecent && m.sender === 'ai' && m.type === 'text') {
+              const content = m.content.toLowerCase();
+              const isConfirmation = confirmationKeywords.some(keyword => content.includes(keyword));
+              if (isConfirmation) {
+                console.log('🗑️ [generateSitePreview] Removendo mensagem de confirmação duplicada:', m.content.substring(0, 50));
+                return false; // Remover mensagem de confirmação
+              }
+            }
+            return true; // Manter outras mensagens
+          });
+          
+          // ✅ Log se houve remoção
+          if (filteredPrev.length < prev.length) {
+            console.log(`⚠️ [generateSitePreview] Removidas ${prev.length - filteredPrev.length} mensagem(ns) de confirmação duplicada(s)`);
+          }
+          
+          const previewMessage: Message = {
+            id: crypto.randomUUID(),
+            sender: 'ai',
+            content: `🎉 **Seu site foi gerado com sucesso pela WZ Solutions IA!**
 
 Criei um site profissional e responsivo baseado nas suas especificações.
 
@@ -1059,13 +1130,35 @@ Criei um site profissional e responsivo baseado nas suas especificações.
 **👆 Veja o preview abaixo!** 
 
 Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis. Quer fazer alguma modificação? É só me dizer! 🚀`,
-          timestamp: new Date(),
-          type: 'site_preview',
-          siteCodeId: data.versionId || previewId,
-          metadata: { showEndButton: true } // ✅ Marcar para mostrar botão de encerrar
-        };
-
-        setMessages(prev => [...prev, previewMessage]);
+            timestamp: new Date(),
+            type: 'site_preview',
+            siteCodeId: data.versionId || previewId,
+            metadata: { showEndButton: true } // ✅ Marcar para mostrar botão de encerrar
+          };
+          
+          // ✅ ADICIONAR preview ao estado PRIMEIRO
+          const newMessages = [...filteredPrev, previewMessage];
+          
+          // ✅ NÃO definir currentSiteCode ainda - aguardar preview ser renderizado
+          // O timer continuará até que o preview esteja realmente visível
+          
+          // ✅ Limpar timer APENAS após preview estar realmente pronto e renderizado na tela
+          // Usar um delay maior para garantir que o preview foi renderizado completamente
+          // O timer será limpo após 5 segundos para garantir que o usuário veja o preview
+          setTimeout(() => {
+            console.log('✅ [generateSitePreview] Preview adicionado, aguardando renderização...');
+            // ✅ Definir currentSiteCode apenas após preview ser renderizado
+            setCurrentSiteCode(previewId);
+            // ✅ Limpar timer após mais um delay para garantir que preview está visível
+            setTimeout(() => {
+              console.log('✅ [generateSitePreview] Limpando timer - preview está pronto e renderizado');
+              setGenerationStartTime(null);
+              setElapsedTime(0);
+            }, 2000); // ✅ Delay adicional de 2 segundos após definir currentSiteCode
+          }, 5000); // ✅ Aumentar delay para 5 segundos para garantir renderização completa do preview
+          
+          return newMessages;
+        });
       }
     } catch (error: any) {
       // ✅ Remover controller da lista mesmo em caso de erro
@@ -1075,10 +1168,17 @@ Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis.
       // ✅ Se foi cancelado, não mostrar erro
       if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
         console.log('ℹ️ Requisição cancelada pelo usuário');
+        // ✅ Limpar timer em caso de cancelamento
+        setGenerationStartTime(null);
+        setElapsedTime(0);
         return;
       }
       
       console.error('❌ Erro ao gerar preview:', error);
+      
+      // ✅ Limpar timer em caso de erro
+      setGenerationStartTime(null);
+      setElapsedTime(0);
       
       // ✅ Tratar erro de rate limit especificamente
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -1103,8 +1203,7 @@ O serviço de IA está processando muitas solicitações no momento. Por favor, 
       setIsLoading(false);
       setIsGenerating(false);
       generationLockRef.current = false; // ✅ Unlock após completar
-      setGenerationStartTime(null); // ✅ Limpar tempo de início
-      setElapsedTime(0); // ✅ Limpar tempo decorrido
+      // ✅ NÃO limpar timer aqui - já foi limpo quando preview ficou pronto ou em caso de erro
       generationStateRef.current = null; // ✅ Limpar estado de geração após completar
     }
   };
@@ -1191,9 +1290,14 @@ Digite seu prompt primeiro para gerar o site.`,
           setCurrentSiteCode(data.previewId);
         }
         
-        // ✅ NOVA ESTRATÉGIA: Usar versionNumber retornado pela API para contagem imediata
-        // A API já salvou e retornou o versionNumber, então podemos calcular diretamente
-        const expectedModifications = data.versionNumber ? data.versionNumber - 1 : modificationsUsed + 1;
+        // ✅ CORRIGIDO: Usar versionNumber retornado pela API para contagem correta
+        // A versão inicial é sempre 1, então modificações = versionNumber - 1
+        // Se versionNumber = 1 (geração inicial) -> 0 modificações
+        // Se versionNumber = 2 (1ª modificação) -> 1 modificação
+        // Se versionNumber = 3 (2ª modificação) -> 2 modificações
+        const expectedModifications = data.versionNumber && data.versionNumber > 1 
+          ? data.versionNumber - 1  // Subtrair 1 porque versão 1 é a geração inicial
+          : modificationsUsed + 1;   // Fallback: incrementar contador atual
         
         console.log('🔍 [modifySite] Usando versionNumber da API para contagem:', {
           versionNumber: data.versionNumber,
@@ -1229,13 +1333,33 @@ Digite seu prompt primeiro para gerar o site.`,
             versions: versions?.map(v => ({ version: v.version_number, id: v.id?.substring(0, 8) }))
           });
           
-          // Se encontrou mais versões do que esperado, usar a contagem do banco
-          const dbCount = versions && versions.length > 0 ? versions.length - 1 : 0;
-          if (dbCount >= expectedModifications) {
+          // ✅ CORRIGIDO: Contar modificações corretamente
+          // Versão 1 = geração inicial (0 modificações)
+          // Versão 2 = 1ª modificação (1 modificação)
+          // Versão 3 = 2ª modificação (2 modificações)
+          // Modificações = total de versões - 1 (subtrair a versão inicial)
+          const dbCount = versions && versions.length > 0 ? Math.max(0, versions.length - 1) : 0;
+          
+          console.log('🔍 [modifySite] Contagem detalhada:', {
+            totalVersions: versions?.length || 0,
+            dbCount,
+            expectedModifications,
+            versionNumbers: versions?.map(v => v.version_number)
+          });
+          
+          // ✅ Usar contagem do banco se for maior ou igual à esperada (pode ter havido atualização)
+          // Mas garantir que não seja maior que o esperado + 1 (evitar contagem duplicada)
+          if (dbCount >= expectedModifications && dbCount <= expectedModifications + 1) {
             updatedLimits.modificationsUsed = dbCount;
             updatedLimits.modificationsRemaining = Math.max(0, PROJECT_LIMITS.MODIFICATIONS - dbCount);
             updatedLimits.allowed = dbCount < PROJECT_LIMITS.MODIFICATIONS;
             console.log('✅ [modifySite] Usando contagem do banco (mais atualizada):', dbCount);
+          } else if (dbCount > expectedModifications + 1) {
+            console.warn('⚠️ [modifySite] Contagem do banco muito maior que esperada, usando esperada:', {
+              dbCount,
+              expectedModifications
+            });
+            // Manter expectedModifications se dbCount for muito maior (pode ser erro de contagem)
           }
         } catch (err) {
           console.error('❌ [modifySite] Erro ao buscar versões:', err);
@@ -1710,6 +1834,12 @@ ${getRedirectMessage(messageToSend)}`,
       return;
     }
 
+    // ✅ PROTEGER CONTRA MÚLTIPLAS CHAMADAS SIMULTÂNEAS
+    if (isLoading) {
+      console.log('⚠️ [sendMessage] Já está processando uma mensagem, ignorando chamada duplicada');
+      return;
+    }
+
     console.log('📤 [sendMessage] ============================================');
     console.log('📤 [sendMessage] FUNÇÃO sendMessage CHAMADA!');
     console.log('📤 [sendMessage] ============================================');
@@ -1717,7 +1847,8 @@ ${getRedirectMessage(messageToSend)}`,
       messageToSend,
       conversationId,
       hasCurrentSiteCode: !!currentSiteCode,
-      messagesCount: messages.length
+      messagesCount: messages.length,
+      isLoading
     });
     
     setIsLoading(true);
@@ -1822,16 +1953,45 @@ ${getRedirectMessage(messageToSend)}`,
         if (chatData.shouldGeneratePreview === true || chatData.shouldGeneratePreviewRaw === true) {
           console.warn('🚨🚨🚨 [sendMessage] CRÍTICO: shouldGeneratePreview é TRUE! Forçando geração...');
           
-          // ✅ Mesmo sem response, se shouldGeneratePreview é true, devemos gerar
-          if (chatData.response) {
-            const aiMessage: Message = {
-              id: crypto.randomUUID(),
-              sender: 'ai',
-              content: chatData.response,
-              timestamp: new Date(),
-              type: 'text'
-            };
-            setMessages(prev => [...prev, aiMessage]);
+          // ✅ Verificar se a resposta é uma mensagem de confirmação antes de adicionar
+          const responseContent = chatData.response?.trim() || '';
+          const isConfirmationMessage = responseContent.toLowerCase().includes('vou criar') || 
+                                      responseContent.toLowerCase().includes('gerando') || 
+                                      responseContent.toLowerCase().includes('confirmado') ||
+                                      responseContent.toLowerCase().includes('iniciando') ||
+                                      responseContent.toLowerCase().includes('perfeito') ||
+                                      responseContent.toLowerCase().includes('em instantes') ||
+                                      responseContent.toLowerCase().includes('aguarde') ||
+                                      responseContent.toLowerCase().includes('opa');
+          
+          // ✅ NÃO adicionar mensagem de confirmação - será substituída pelo preview
+          if (chatData.response && !isConfirmationMessage) {
+            setMessages(prev => {
+              // ✅ Verificar duplicatas antes de adicionar
+              const recentMessages = prev.slice(-3);
+              const isDuplicate = recentMessages.some(m => 
+                m.sender === 'ai' && 
+                m.type === 'text' &&
+                m.content?.trim().toLowerCase() === responseContent.toLowerCase()
+              );
+              
+              if (isDuplicate) {
+                console.log('⚠️ [sendMessage] Mensagem duplicada detectada (forçado), não adicionando');
+                return prev;
+              }
+              
+              const aiMessage: Message = {
+                id: crypto.randomUUID(),
+                sender: 'ai',
+                content: chatData.response,
+                timestamp: new Date(),
+                type: 'text',
+                metadata: chatData.metadata || {}
+              };
+              return [...prev, aiMessage];
+            });
+          } else if (isConfirmationMessage) {
+            console.log('⚠️ [sendMessage] Mensagem de confirmação detectada (forçado) - será substituída pelo preview');
           }
           
           // ✅ FORÇAR GERAÇÃO IMEDIATAMENTE
@@ -1888,17 +2048,67 @@ ${getRedirectMessage(messageToSend)}`,
             console.log('🚀🚀🚀 [sendMessage] GERANDO AGORA - shouldGenerate é TRUE!');
             console.log('🚀🚀🚀 [sendMessage] ============================================');
             
-            // ✅ ADICIONAR MENSAGEM DA IA PRIMEIRO
-            const aiMessage: Message = {
-              id: crypto.randomUUID(),
-              sender: 'ai',
-              content: chatData.response,
-              timestamp: new Date(),
-              type: 'text'
-            };
+            // ✅ NÃO adicionar mensagem de confirmação quando vai gerar - será substituída pelo preview
+            // A mensagem de confirmação será removida quando o preview for adicionado
+            const responseContent = chatData.response?.trim() || '';
+            const isConfirmationMessage = responseContent.toLowerCase().includes('vou criar') || 
+                                        responseContent.toLowerCase().includes('gerando') || 
+                                        responseContent.toLowerCase().includes('confirmado') ||
+                                        responseContent.toLowerCase().includes('iniciando a geração') ||
+                                        responseContent.toLowerCase().includes('perfeito') ||
+                                        responseContent.toLowerCase().includes('em instantes') ||
+                                        responseContent.toLowerCase().includes('aguarde') ||
+                                        responseContent.toLowerCase().includes('criando') ||
+                                        responseContent.toLowerCase().includes('processando');
             
-            console.log('💬 [sendMessage] Adicionando mensagem da IA ao estado...');
-            setMessages(prev => [...prev, aiMessage]);
+            // ✅ REMOVER mensagens de confirmação ANTES de iniciar geração
+            setMessages(prev => {
+              // ✅ Remover TODAS as mensagens de confirmação recentes (últimas 5 mensagens)
+              const confirmationKeywords = ['vou criar', 'gerando', 'confirmado', 'perfeito', 'em instantes', 'aguarde', 'iniciando', 'criando', 'processando'];
+              const filteredPrev = prev.filter((m) => {
+                const isRecent = prev.indexOf(m) >= prev.length - 5;
+                if (isRecent && m.sender === 'ai' && m.type === 'text') {
+                  const content = m.content?.toLowerCase() || '';
+                  const isConfirmation = confirmationKeywords.some(keyword => content.includes(keyword));
+                  if (isConfirmation) {
+                    console.log('🗑️ [sendMessage] Removendo mensagem de confirmação antes de gerar:', m.content?.substring(0, 50));
+                    return false;
+                  }
+                }
+                return true;
+              });
+              
+              // ✅ Se é mensagem de confirmação, NÃO adicionar - será substituída pelo preview
+              if (isConfirmationMessage) {
+                console.log('⚠️ [sendMessage] Mensagem de confirmação detectada - será substituída pelo preview, não adicionando');
+                return filteredPrev;
+              }
+              
+              // ✅ Verificar se já existe mensagem idêntica recente (últimas 3 mensagens)
+              const recentMessages = filteredPrev.slice(-3);
+              const isDuplicate = recentMessages.some(m => 
+                m.sender === 'ai' && 
+                m.type === 'text' &&
+                m.content?.trim().toLowerCase() === responseContent.toLowerCase()
+              );
+              
+              if (isDuplicate) {
+                console.log('⚠️ [sendMessage] Mensagem duplicada detectada, não adicionando novamente');
+                return filteredPrev;
+              }
+              
+              // ✅ Apenas adicionar mensagem se NÃO for mensagem de confirmação e NÃO for duplicada
+              const aiMessage: Message = {
+                id: crypto.randomUUID(),
+                sender: 'ai',
+                content: chatData.response,
+                timestamp: new Date(),
+                type: 'text',
+                metadata: chatData.metadata || {}
+              };
+              
+              return [...filteredPrev, aiMessage];
+            });
             
             // ✅ SALVAR VARIÁVEIS ANTES DO TIMEOUT
             const promptToUse = messageToSend;
@@ -1946,15 +2156,33 @@ ${getRedirectMessage(messageToSend)}`,
           }
           
           // ✅ Se não deve gerar, apenas adicionar mensagem normalmente
-          const aiMessage: Message = {
-            id: crypto.randomUUID(),
-            sender: 'ai',
-            content: chatData.response,
-            timestamp: new Date(),
-            type: 'text'
-          };
-          
-          setMessages(prev => [...prev, aiMessage]);
+          // ✅ Verificar duplicatas antes de adicionar
+          setMessages(prev => {
+            const responseContent = chatData.response?.trim() || '';
+            const recentMessages = prev.slice(-3);
+            const isDuplicate = recentMessages.some(m => 
+              m.sender === 'ai' && 
+              m.type === 'text' &&
+              m.content?.trim().toLowerCase() === responseContent.toLowerCase()
+            );
+            
+            if (isDuplicate) {
+              console.log('⚠️ [sendMessage] Mensagem duplicada detectada (normal), não adicionando');
+              return prev;
+            }
+            
+            const aiMessage: Message = {
+              id: crypto.randomUUID(),
+              sender: 'ai',
+              content: chatData.response,
+              timestamp: new Date(),
+              type: 'text',
+              // ✅ Incluir metadados para mostrar botão "Pode criar" se necessário
+              metadata: chatData.metadata || {}
+            };
+            
+            return [...prev, aiMessage];
+          });
           
           // ✅ VERIFICAÇÃO ALTERNATIVA (fallback) - apenas se shouldGenerate não for true
           const trimmedMessage = messageToSend.trim().toLowerCase();
@@ -1970,7 +2198,7 @@ ${getRedirectMessage(messageToSend)}`,
           // ✅ Padrões de confirmação de páginas
           const pagesConfirmationPattern = /(todas as páginas|aceito a sugestão|aceitar|confirmar páginas|está bom|quero todas|todas|pode gerar|pode criar|está ok)/i.test(trimmedMessage);
           
-          // ✅ Verificar se a resposta anterior da IA estava pedindo confirmação
+          // ✅ Verificar se a resposta ANTERIOR da IA estava pedindo confirmação
           const lastAIMessage = messages.filter(m => m.sender === 'ai').slice(-1)[0];
           const aiWasAskingForPages = lastAIMessage?.content && (
             lastAIMessage.content.includes('confirme as páginas') ||
@@ -1982,7 +2210,7 @@ ${getRedirectMessage(messageToSend)}`,
             lastAIMessage.content.includes('Aceitar minha sugestão')
           );
           
-          // ✅ Verificar se a IA estava perguntando algo que espera confirmação
+          // ✅ Verificar se a resposta ANTERIOR da IA estava perguntando algo que espera confirmação
           const aiWasAskingAnything = lastAIMessage?.content && (
             lastAIMessage.content.includes('?') ||
             lastAIMessage.content.includes('confirme') ||
@@ -1990,6 +2218,39 @@ ${getRedirectMessage(messageToSend)}`,
             lastAIMessage.content.includes('Quer') ||
             lastAIMessage.content.includes('Precisa') ||
             lastAIMessage.content.includes('Falta')
+          );
+          
+          // ✅ NOVO: Verificar se a RESPOSTA ATUAL da IA está fazendo uma pergunta ou pedindo mais informações
+          // Isso é CRÍTICO para evitar gerar quando a IA ainda está esperando resposta
+          const aiCurrentResponseHasQuestion = chatData.response && (
+            chatData.response.includes('?') ||
+            chatData.response.includes('Qual') ||
+            chatData.response.includes('qual') ||
+            chatData.response.includes('Por favor') ||
+            chatData.response.includes('por favor') ||
+            chatData.response.includes('Pode me informar') ||
+            chatData.response.includes('pode me informar') ||
+            chatData.response.includes('Preciso saber') ||
+            chatData.response.includes('preciso saber') ||
+            chatData.response.includes('Só mais uma informação') ||
+            chatData.response.includes('só mais uma informação') ||
+            chatData.response.includes('Mais uma pergunta') ||
+            chatData.response.includes('mais uma pergunta') ||
+            chatData.response.includes('Diga-me') ||
+            chatData.response.includes('diga-me') ||
+            /Qual\s+(tema|atmosfera|estilo|cor|deseja|prefere|quer)/i.test(chatData.response)
+          );
+          
+          // ✅ Verificar se a resposta atual está dizendo que vai gerar DEPOIS (não agora)
+          const aiWillGenerateLater = chatData.response && (
+            chatData.response.includes('vou gerar') && (
+              chatData.response.includes('depois') ||
+              chatData.response.includes('então') ||
+              chatData.response.includes('após') ||
+              chatData.response.includes('com essa informação') ||
+              chatData.response.includes('com essa última informação') ||
+              aiCurrentResponseHasQuestion // Se tem pergunta, definitivamente é "depois"
+            )
           );
           
           const userMessageIsConfirmation = exactConfirmationPattern.test(trimmedMessage) || 
@@ -2028,6 +2289,8 @@ ${getRedirectMessage(messageToSend)}`,
             implicitConfirmationPattern,
             aiWasAskingForPages,
             aiWasAskingAnything,
+            aiCurrentResponseHasQuestion,
+            aiWillGenerateLater,
             responseIndicatesGeneration,
             hasCompleteData,
             shouldGenerate,
@@ -2035,56 +2298,115 @@ ${getRedirectMessage(messageToSend)}`,
             messagePreview: trimmedMessage.substring(0, 50)
           });
           
-          // ✅ FALLBACK CRÍTICO: Gerar se QUALQUER uma dessas condições for verdadeira:
-          // 1. Usuário confirmou E (IA vai gerar OU tem dados completos OU IA perguntou algo)
-          // 2. Tem dados completos E resposta indica geração (MESMO SEM confirmação explícita) - MAIS AGRESSIVO
-          // 3. Usuário confirmou páginas especificamente
-          // 4. Resposta indica geração + mensagem curta (assumir confirmação implícita)
+          // ✅ FALLBACK CRÍTICO: Gerar SOMENTE se NÃO houver perguntas pendentes da IA
+          // REGRA PRINCIPAL: NÃO gerar se a IA está fazendo uma pergunta ou dizendo que vai gerar DEPOIS
+          // 
+          // Condições para gerar:
+          // 1. Usuário confirmou E (IA vai gerar OU tem dados completos) E IA NÃO está perguntando nada AGORA
+          // 2. Tem dados completos E resposta indica geração AGORA (não depois) E usuário confirmou implícita OU explicitamente
+          // 3. Usuário confirmou páginas especificamente E IA não está perguntando nada
+          // 4. Resposta indica geração AGORA + mensagem curta (confirmação implícita) E IA não está perguntando nada
           
-          const shouldGenerateFallback = 
-            // Condição 1: Confirmação do usuário + qualquer indicador positivo
-            (userMessageIsConfirmation && (responseIndicatesGeneration || hasCompleteData || aiWasAskingForPages || aiWasAskingAnything)) ||
-            // Condição 2: Dados completos + resposta indica geração (SEM precisar de confirmação) - CRÍTICO!
-            (hasCompleteData && responseIndicatesGeneration) ||
-            // Condição 3: Confirmação específica de páginas
-            (pagesConfirmationPattern && aiWasAskingForPages) ||
-            // Condição 4: Resposta indica geração + mensagem curta (assumir confirmação implícita)
-            (responseIndicatesGeneration && trimmedMessage.length < 50 && !/(não|nao|nada|cancelar|desistir|parar|mudar|alterar)/i.test(trimmedMessage)) ||
-            // Condição 5: Confirmação implícita detectada + dados completos
-            (implicitConfirmationPattern && hasCompleteData);
+          // ✅ PROTEÇÃO: NÃO gerar se a IA está fazendo pergunta ou vai gerar DEPOIS
+          const shouldBlockGeneration = aiCurrentResponseHasQuestion || aiWillGenerateLater;
+          
+          const shouldGenerateFallback = !shouldBlockGeneration && (
+            // Condição 1: Confirmação explícita do usuário + IA vai gerar AGORA (não depois)
+            (userMessageIsConfirmation && responseIndicatesGeneration && !aiCurrentResponseHasQuestion) ||
+            // Condição 2: Confirmação do usuário + dados completos + IA não está perguntando
+            (userMessageIsConfirmation && hasCompleteData && !aiCurrentResponseHasQuestion) ||
+            // Condição 3: Confirmação específica de páginas + IA não está perguntando
+            (pagesConfirmationPattern && aiWasAskingForPages && !aiCurrentResponseHasQuestion) ||
+            // Condição 4: Dados completos + resposta indica geração AGORA + usuário confirmou implícita OU explicitamente + IA não está perguntando
+            (hasCompleteData && responseIndicatesGeneration && (userMessageIsConfirmation || implicitConfirmationPattern) && !aiCurrentResponseHasQuestion) ||
+            // Condição 5: Resposta indica geração AGORA + mensagem curta (confirmação implícita) + IA não está perguntando
+            (responseIndicatesGeneration && trimmedMessage.length < 50 && !/(não|nao|nada|cancelar|desistir|parar|mudar|alterar)/i.test(trimmedMessage) && !aiCurrentResponseHasQuestion)
+          );
           
           if (shouldGenerateFallback && !shouldGenerate) {
             console.log('⚠️ [sendMessage] ============================================');
             console.log('⚠️ [sendMessage] FALLBACK ATIVADO: Gerando mesmo sem flag shouldGeneratePreview');
             console.log('⚠️ [sendMessage] ============================================');
             console.log('📊 [sendMessage] Razão do FALLBACK:', {
-              condition1: userMessageIsConfirmation && (responseIndicatesGeneration || hasCompleteData || aiWasAskingForPages || aiWasAskingAnything),
-              condition2: hasCompleteData && responseIndicatesGeneration,
-              condition3: pagesConfirmationPattern && aiWasAskingForPages,
-              condition4: responseIndicatesGeneration && trimmedMessage.length < 50,
-              condition5: implicitConfirmationPattern && hasCompleteData,
+              shouldBlockGeneration,
+              aiCurrentResponseHasQuestion,
+              aiWillGenerateLater,
+              condition1: userMessageIsConfirmation && responseIndicatesGeneration && !aiCurrentResponseHasQuestion,
+              condition2: userMessageIsConfirmation && hasCompleteData && !aiCurrentResponseHasQuestion,
+              condition3: pagesConfirmationPattern && aiWasAskingForPages && !aiCurrentResponseHasQuestion,
+              condition4: hasCompleteData && responseIndicatesGeneration && (userMessageIsConfirmation || implicitConfirmationPattern) && !aiCurrentResponseHasQuestion,
+              condition5: responseIndicatesGeneration && trimmedMessage.length < 50 && !aiCurrentResponseHasQuestion,
               confirmedPages: pagesConfirmationPattern && aiWasAskingForPages,
               confirmedGeneral: userMessageIsConfirmation,
               implicitConfirmation: implicitConfirmationPattern,
               responseIndicatesGeneration,
               hasCompleteData,
-              aiWasAskingAnything,
               finalDecision: shouldGenerateFallback
             });
             
             const promptToUse = messageToSend;
+            const responseContent = chatData.response?.trim() || '';
+            const isConfirmationMessage = responseContent.toLowerCase().includes('vou criar') || 
+                                        responseContent.toLowerCase().includes('gerando') || 
+                                        responseContent.toLowerCase().includes('confirmado') ||
+                                        responseContent.toLowerCase().includes('iniciando a geração') ||
+                                        responseContent.toLowerCase().includes('perfeito') ||
+                                        responseContent.toLowerCase().includes('em instantes') ||
+                                        responseContent.toLowerCase().includes('aguarde') ||
+                                        responseContent.toLowerCase().includes('criando') ||
+                                        responseContent.toLowerCase().includes('processando');
             
-            // ✅ Adicionar mensagem da IA primeiro
-            if (chatData.response) {
-              const aiMessage: Message = {
-                id: crypto.randomUUID(),
-                sender: 'ai',
-                content: chatData.response,
-                timestamp: new Date(),
-                type: 'text'
-              };
-              setMessages(prev => [...prev, aiMessage]);
-            }
+            // ✅ REMOVER mensagens de confirmação ANTES de iniciar geração (mesma lógica do código principal)
+            setMessages(prev => {
+              // ✅ Remover TODAS as mensagens de confirmação recentes (últimas 5 mensagens)
+              const confirmationKeywords = ['vou criar', 'gerando', 'confirmado', 'perfeito', 'em instantes', 'aguarde', 'iniciando', 'criando', 'processando'];
+              const filteredPrev = prev.filter((m) => {
+                const isRecent = prev.indexOf(m) >= prev.length - 5;
+                if (isRecent && m.sender === 'ai' && m.type === 'text') {
+                  const content = m.content?.toLowerCase() || '';
+                  const isConfirmation = confirmationKeywords.some(keyword => content.includes(keyword));
+                  if (isConfirmation) {
+                    console.log('🗑️ [sendMessage-FALLBACK] Removendo mensagem de confirmação antes de gerar:', m.content?.substring(0, 50));
+                    return false;
+                  }
+                }
+                return true;
+              });
+              
+              // ✅ Se é mensagem de confirmação, NÃO adicionar - será substituída pelo preview
+              if (isConfirmationMessage) {
+                console.log('⚠️ [sendMessage-FALLBACK] Mensagem de confirmação detectada - será substituída pelo preview, não adicionando');
+                return filteredPrev;
+              }
+              
+              // ✅ Verificar se já existe mensagem idêntica recente (últimas 3 mensagens)
+              const recentMessages = filteredPrev.slice(-3);
+              const isDuplicate = recentMessages.some(m => 
+                m.sender === 'ai' && 
+                m.type === 'text' &&
+                m.content?.trim().toLowerCase() === responseContent.toLowerCase()
+              );
+              
+              if (isDuplicate) {
+                console.log('⚠️ [sendMessage-FALLBACK] Mensagem duplicada detectada, não adicionando novamente');
+                return filteredPrev;
+              }
+              
+              // ✅ Apenas adicionar mensagem se NÃO for mensagem de confirmação e NÃO for duplicada
+              if (chatData.response) {
+                const aiMessage: Message = {
+                  id: crypto.randomUUID(),
+                  sender: 'ai',
+                  content: chatData.response,
+                  timestamp: new Date(),
+                  type: 'text',
+                  metadata: chatData.metadata || {}
+                };
+                return [...filteredPrev, aiMessage];
+              }
+              
+              return filteredPrev;
+            });
             
             setTimeout(() => {
               console.log('🚀 [sendMessage] Iniciando geração via FALLBACK...');
@@ -2488,6 +2810,156 @@ ${getRedirectMessage(messageToSend)}`,
                     {formatMessage(message.content)}
                   </div>
 
+                  {/* ✅ Botão "Pode criar" - aparece quando IA compilou projeto mas usuário não confirmou */}
+                  {(() => {
+                    const shouldShowButton = message.sender === 'ai' && 
+                     message.type === 'text' && 
+                     !currentSiteCode && // ✅ Só mostrar botão se ainda não tem site gerado
+                     (message.metadata?.showCreateButton === true || 
+                      (message.metadata?.hasCompleteProjectData === true && 
+                       message.metadata?.userConfirmed === false && 
+                       message.metadata?.shouldGeneratePreview !== true)) && 
+                     !isLoading && 
+                     !isGenerating && // ✅ Não mostrar botão quando está gerando
+                     !isBlocked && 
+                     !hasEndedManually && 
+                     // ✅ Verificação adicional: garantir que realmente não está gerando
+                     generationStartTime === null;
+                    
+                    // ✅ Log de debug para entender por que o botão não aparece
+                    if (message.sender === 'ai' && message.type === 'text' && !currentSiteCode) {
+                      console.log('🔍 [Botão] Verificando condições para mostrar botão:', {
+                        messageId: message.id,
+                        sender: message.sender,
+                        type: message.type,
+                        hasCurrentSiteCode: !!currentSiteCode,
+                        showCreateButton: message.metadata?.showCreateButton,
+                        hasCompleteProjectData: message.metadata?.hasCompleteProjectData,
+                        userConfirmed: message.metadata?.userConfirmed,
+                        shouldGeneratePreview: message.metadata?.shouldGeneratePreview,
+                        isLoading,
+                        isGenerating,
+                        isBlocked,
+                        hasEndedManually,
+                        generationStartTime: generationStartTime,
+                        shouldShowButton
+                      });
+                    }
+                    
+                    return shouldShowButton;
+                  })() && (
+                    <div className="mt-4 pt-4 border-t border-slate-700">
+                      <button
+                        onClick={async () => {
+                          console.log('✅ [Botão] "Pode criar" clicado');
+                          // Enviar mensagem de confirmação explícita diretamente
+                          const confirmationMessage = 'pode criar';
+                          
+                          // Criar mensagem do usuário
+                          const userMessage: Message = {
+                            id: crypto.randomUUID(),
+                            sender: 'user',
+                            content: confirmationMessage,
+                            timestamp: new Date(),
+                            type: 'text'
+                          };
+                          
+                          setMessages(prev => [...prev, userMessage]);
+                          setInputMessage('');
+                          setIsLoading(true);
+                          
+                          // Enviar para a API
+                          try {
+                            const chatResponse = await fetch('/api/chat', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                conversationId,
+                                message: confirmationMessage,
+                                stage: 1
+                              })
+                            });
+                            
+                            const chatData = await chatResponse.json();
+                            
+                            if (chatData.success && chatData.response) {
+                              const responseContent = chatData.response?.trim() || '';
+                              const isConfirmationMessage = responseContent.toLowerCase().includes('vou criar') || 
+                                                          responseContent.toLowerCase().includes('gerando') || 
+                                                          responseContent.toLowerCase().includes('confirmado') ||
+                                                          responseContent.toLowerCase().includes('iniciando a geração') ||
+                                                          responseContent.toLowerCase().includes('criando') ||
+                                                          responseContent.toLowerCase().includes('processando');
+                              
+                              // ✅ Se deve gerar e é mensagem de confirmação, NÃO adicionar mensagem
+                              if (chatData.shouldGeneratePreview && isConfirmationMessage) {
+                                console.log('⚠️ [Botão] Mensagem de confirmação detectada - não adicionando, iniciando geração');
+                                // Remover mensagens de confirmação antes de gerar
+                                setMessages(prev => {
+                                  const confirmationKeywords = ['vou criar', 'gerando', 'confirmado', 'perfeito', 'em instantes', 'aguarde', 'iniciando', 'criando', 'processando'];
+                                  return prev.filter((m) => {
+                                    const isRecent = prev.indexOf(m) >= prev.length - 5;
+                                    if (isRecent && m.sender === 'ai' && m.type === 'text') {
+                                      const content = m.content?.toLowerCase() || '';
+                                      const isConfirmation = confirmationKeywords.some(keyword => content.includes(keyword));
+                                      if (isConfirmation) {
+                                        console.log('🗑️ [Botão] Removendo mensagem de confirmação:', m.content?.substring(0, 50));
+                                        return false;
+                                      }
+                                    }
+                                    return true;
+                                  });
+                                });
+                                
+                                // Iniciar geração sem adicionar mensagem de confirmação
+                                setTimeout(() => {
+                                  generateSitePreview(confirmationMessage)
+                                    .then(() => setIsLoading(false))
+                                    .catch(() => setIsLoading(false));
+                                }, 500);
+                              } else {
+                                // Adicionar mensagem normalmente se não for confirmação ou não deve gerar
+                                const aiMessage: Message = {
+                                  id: crypto.randomUUID(),
+                                  sender: 'ai',
+                                  content: chatData.response,
+                                  timestamp: new Date(),
+                                  type: 'text',
+                                  metadata: chatData.metadata || {}
+                                };
+                                
+                                setMessages(prev => [...prev, aiMessage]);
+                                
+                                // Se deve gerar, iniciar geração
+                                if (chatData.shouldGeneratePreview) {
+                                  setTimeout(() => {
+                                    generateSitePreview(confirmationMessage)
+                                      .then(() => setIsLoading(false))
+                                      .catch(() => setIsLoading(false));
+                                  }, 500);
+                                } else {
+                                  setIsLoading(false);
+                                }
+                              }
+                            } else {
+                              setIsLoading(false);
+                            }
+                          } catch (error) {
+                            console.error('Erro ao enviar confirmação:', error);
+                            setIsLoading(false);
+                          }
+                        }}
+                        className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 active:from-green-700 active:to-emerald-800 text-white font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105 touch-manipulation"
+                        style={{ WebkitTapHighlightColor: 'transparent', minHeight: '48px' }}
+                      >
+                        <span className="text-base sm:text-lg">🚀 Pode criar</span>
+                      </button>
+                      <p className="text-xs text-slate-400 mt-2 text-center">
+                        Clique para confirmar e iniciar a criação do seu site
+                      </p>
+                    </div>
+                  )}
+
                   {message.type === 'image' && message.metadata && (message.metadata.imageUrl as string) && (
                     <div className="mt-4">
                       <motion.img
@@ -2563,7 +3035,9 @@ ${getRedirectMessage(messageToSend)}`,
             ))}
           </AnimatePresence>
 
-          {isLoading && (
+          {/* ✅ Mostrar timer de geração APENAS quando está gerando */}
+          {/* O timer só desaparece quando o preview está realmente visível na tela (após 2 segundos do preview ser adicionado) */}
+          {shouldShowGenerationTimer && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -2593,6 +3067,20 @@ ${getRedirectMessage(messageToSend)}`,
                   </div>
                 </div>
               </div>
+            </motion.div>
+          )}
+          
+          {/* ✅ Mostrar loading simples quando não está gerando site */}
+          {isLoading && (!isGenerating || !generationStartTime || currentSiteCode) && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex gap-3 sm:gap-4 justify-start"
+            >
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 animate-pulse">
+                <Bot className="text-white" size={16} />
+              </div>
+              <AIThinkingIndicator message="Processando sua mensagem..." />
             </motion.div>
           )}
 

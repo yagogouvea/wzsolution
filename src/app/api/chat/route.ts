@@ -387,6 +387,30 @@ export async function POST(request: NextRequest) {
       };
     }
 
+    // ✅ Garantir que shouldGeneratePreview seja sempre boolean (definir ANTES de usar)
+    const shouldGeneratePreview = aiResponse.shouldGeneratePreview === true;
+    
+    // ✅ Verificar se tem dados completos mas usuário não confirmou (para mostrar botão)
+    // Isso será usado no frontend para mostrar o botão "Pode criar"
+    // ✅ Usar a mesma lógica do claude-chat.ts para consistência
+    const hasCompleteProjectData = !!(
+      (projectData?.company_name || projectData?.business_type) && // ✅ Aceita qualquer um dos dois
+      projectData?.pages_needed &&
+      Array.isArray(projectData.pages_needed) &&
+      projectData.pages_needed.length > 0 &&
+      projectData?.design_style // ✅ Precisa ter estilo também
+    );
+    
+    console.log('🔍 [chat] Verificando dados completos para botão:', {
+      hasCompanyName: !!projectData?.company_name,
+      hasBusinessType: !!projectData?.business_type,
+      hasPages: !!(projectData?.pages_needed && Array.isArray(projectData.pages_needed) && projectData.pages_needed.length > 0),
+      hasStyle: !!projectData?.design_style,
+      hasCompleteProjectData,
+      userConfirmed: aiResponse.userConfirmed || false,
+      shouldGeneratePreview
+    });
+    
     // Salvar resposta da IA
     await DatabaseService.addMessage({
       conversation_id: conversationId,
@@ -395,7 +419,10 @@ export async function POST(request: NextRequest) {
       message_type: 'text',
       metadata: {
         stage: aiResponse.nextStage,
-        shouldGenerateImages: aiResponse.shouldGenerateImages
+        shouldGenerateImages: aiResponse.shouldGenerateImages,
+        hasCompleteProjectData: hasCompleteProjectData,
+        userConfirmed: aiResponse.userConfirmed || false,
+        showCreateButton: hasCompleteProjectData && !aiResponse.userConfirmed && !shouldGeneratePreview
       }
     });
 
@@ -432,9 +459,6 @@ export async function POST(request: NextRequest) {
       status: aiResponse.nextStage >= 6 ? 'completed' : 'active'
     });
 
-    // ✅ Garantir que shouldGeneratePreview seja sempre boolean
-    const shouldGeneratePreview = aiResponse.shouldGeneratePreview === true;
-
     // ✅ Log detalhado antes de retornar
     console.log('📤 [chat] Retornando resposta:', {
       success: true,
@@ -446,13 +470,25 @@ export async function POST(request: NextRequest) {
       conversationComplete: aiResponse.nextStage >= 6
     });
 
+    // ✅ Log dos metadados antes de retornar
+    const metadata = {
+      hasCompleteProjectData: hasCompleteProjectData,
+      userConfirmed: aiResponse.userConfirmed || false,
+      showCreateButton: hasCompleteProjectData && !aiResponse.userConfirmed && !shouldGeneratePreview,
+      shouldGeneratePreview: shouldGeneratePreview
+    };
+    
+    console.log('📤 [chat] Metadados retornados:', metadata);
+    
     return NextResponse.json({
       success: true,
       response: aiResponse.response,
       nextStage: aiResponse.nextStage,
       shouldGenerateImages: aiResponse.shouldGenerateImages,
       shouldGeneratePreview: shouldGeneratePreview, // ✅ Garantir boolean
-      conversationComplete: aiResponse.nextStage >= 6
+      conversationComplete: aiResponse.nextStage >= 6,
+      // ✅ Metadados para mostrar botão "Pode criar"
+      metadata: metadata
     });
 
   } catch (error: unknown) {

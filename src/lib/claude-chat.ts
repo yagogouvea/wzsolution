@@ -173,6 +173,12 @@ Sua função é ajudar o usuário a criar um site profissional através de uma c
 - Exemplo CORRETO: "Vou gerar seu site agora e você poderá visualizá-lo em instantes!"
 - Exemplo ERRADO: "Vou entregar seu site em um arquivo ZIP"
 
+⚠️ **REGRA ABSOLUTA SOBRE GERAÇÃO:**
+- Você NUNCA pode dizer que vai criar/gerar o site SEM que o usuário tenha confirmado explicitamente
+- SEMPRE compile o projeto primeiro e peça confirmação
+- SÓ diga que vai criar quando o usuário disser "ok", "gerar", "pode gerar", "sim", etc.
+- Se você disser que vai criar sem confirmação, está ERRADO
+
 CONTEXTO DO PROJETO:
 ${projectContext.length > 0 ? projectContext.join('\n') : 'Projeto em estágio inicial'}
 
@@ -180,20 +186,22 @@ FASE ATUAL: ${phase}
 ESTÁGIO: ${stage}
 
 DADOS DISPONÍVEIS:
-${hasCompleteProjectData ? '✅ TEM TODOS OS DADOS NECESSÁRIOS - PODE GERAR O SITE' : `⚠️ FALTAM DADOS: ${missingData.join(', ')}`}
+${hasCompleteProjectData ? '✅ TEM TODOS OS DADOS NECESSÁRIOS' : `⚠️ FALTAM DADOS: ${missingData.join(', ')}`}
+${hasCompleteProjectData ? (userConfirmed ? '✅ USUÁRIO CONFIRMOU - PODE GERAR AGORA' : '⚠️ USUÁRIO AINDA NÃO CONFIRMOU - NÃO PODE GERAR AINDA') : ''}
 
 INSTRUÇÕES:
 - Seja amigável e profissional
-${hasCompleteProjectData && !userConfirmed ? `- ⚠️ **REGRA CRÍTICA:** Você TEM todos os dados necessários, mas o usuário AINDA NÃO CONFIRMOU.
+${hasCompleteProjectData && !userConfirmed ? `- ⚠️ **REGRA CRÍTICA ABSOLUTA:** Você TEM todos os dados necessários, mas o usuário AINDA NÃO CONFIRMOU.
   
   Você DEVE:
   1. COMPILAR um resumo detalhado e organizado de TODAS as informações do projeto
   2. Apresentar esse resumo de forma clara e visual
   3. PERGUNTAR EXPLICITAMENTE se está tudo correto ANTES de gerar
-  4. NUNCA dizer que está gerando ou criando o site - apenas que está COMPILANDO o projeto
+  4. NUNCA diga que está gerando, criando, ou que vai gerar o site - apenas que está COMPILANDO o projeto
   5. Aguardar confirmação explícita do usuário antes de gerar
+  6. Se você disser "Vou criar", "Vou gerar", "Gerando agora" ou similar SEM confirmação, está ERRADO
   
-  Use este formato:
+  Use este formato EXATO:
   
   "📋 **COMPILAÇÃO DO PROJETO**
   
@@ -216,7 +224,7 @@ ${hasCompleteProjectData && !userConfirmed ? `- ⚠️ **REGRA CRÍTICA:** Você
   - Se estiver tudo OK, diga "gerar", "ok" ou "pode gerar" para eu criar seu site
   - Se quiser alterar algo, me diga o que deseja ajustar"
   
-  ⚠️ NUNCA diga "Vou gerar" ou "Gerando agora" - você está apenas COMPILANDO e aguardando confirmação!` : ''}
+  ⚠️ PROIBIDO dizer "Vou gerar", "Gerando agora", "Vou criar seu site", "Preparando a visualização" ou qualquer frase que indique que você está gerando SEM confirmação!` : ''}
 ${hasCompleteProjectData && userConfirmed ? '- ✅ **IMPORTANTE:** O usuário CONFIRMOU explicitamente após você ter compilado o projeto. Agora SIM você DEVE gerar o site. Informe que está iniciando a geração e será exibido como PREVIEW na plataforma. Exemplo: "Perfeito! Recebi sua confirmação. Vou iniciar a geração do seu site agora... Isso pode levar alguns minutos. Você poderá visualizar o preview completo em instantes!" NUNCA mencione ZIP ou arquivo para download.' : ''}
 ${isFirstUserResponse && !hasCompleteProjectData ? '- Esta é a primeira mensagem do usuário. Confirme o recebimento e faça 2-3 perguntas básicas essenciais (nome da empresa, tipo de negócio, principais funcionalidades desejadas)' : ''}
 ${isSecondUserResponse && !hasMinimumData ? `- O usuário respondeu, mas ainda faltam informações. Liste claramente o que falta: ${missingData.join(', ')}. Seja específico e peça essas informações.` : ''}
@@ -240,21 +248,24 @@ Mensagem atual do usuário: ${userMessage}
 `;
     
     if (hasCompleteProjectData && !userConfirmed) {
-      userPromptText += `⚠️ ATENÇÃO: Você TEM todos os dados necessários, mas o usuário NÃO confirmou ainda. 
+      userPromptText += `⚠️ ATENÇÃO CRÍTICA: Você TEM todos os dados necessários, mas o usuário NÃO confirmou ainda. 
       
       Você DEVE:
       1. COMPILAR um resumo detalhado e organizado de TODAS as informações
       2. Apresentar de forma clara e visual
       3. PERGUNTAR EXPLICITAMENTE: "Está tudo correto? Se sim, diga 'gerar' ou 'ok' para eu criar seu site"
-      4. NÃO diga que está gerando - apenas que compilou e está aguardando confirmação
+      4. NÃO diga que está gerando, criando, ou que vai gerar - apenas que compilou e está aguardando confirmação
+      5. PROIBIDO usar frases como: "Vou criar", "Vou gerar", "Gerando agora", "Preparando a visualização"
       
-      Formato: Apresente o resumo de forma organizada e peça confirmação clara.`;
+      Formato: Apresente o resumo de forma organizada e peça confirmação clara. NUNCA diga que está gerando sem confirmação!`;
     } else if (hasCompleteProjectData && userConfirmed) {
       userPromptText += `✅ O usuário CONFIRMOU após você ter compilado o projeto. Agora você DEVE iniciar a geração do site. Informe que está começando a criar o site agora.`;
     } else if (missingData.length > 0) {
       userPromptText += `⚠️ Ainda faltam informações: ${missingData.join(', ')}. Liste claramente o que falta e peça essas informações de forma amigável.`;
-    } else if (isUserAddingInfo) {
-      userPromptText += `📝 O usuário está adicionando ou modificando informações. COMPILE novamente o projeto completo com todas as informações atualizadas e peça confirmação novamente.`;
+    } else if (isUserAddingInfo && hasCompleteProjectData) {
+      userPromptText += `📝 O usuário está adicionando ou modificando informações. COMPILE novamente o projeto completo com todas as informações atualizadas e peça confirmação novamente. NÃO diga que está gerando - apenas compile e peça confirmação.`;
+    } else if (isUserAddingInfo && !hasCompleteProjectData) {
+      userPromptText += `📝 O usuário está adicionando informações. Continue coletando as informações que faltam: ${missingData.join(', ')}.`;
     } else {
       userPromptText += `Responda de forma natural e ajudando o usuário a avançar na criação do site.`;
     }
@@ -279,6 +290,50 @@ Mensagem atual do usuário: ${userMessage}
       aiResponse = response.content[0].text;
     } else {
       aiResponse = 'Olá! Como posso ajudar você a criar seu site?';
+    }
+    
+    // ✅ VERIFICAÇÃO CRÍTICA: Se tem dados completos mas usuário NÃO confirmou, 
+    // garantir que a resposta NÃO contenha frases de geração
+    if (hasCompleteProjectData && !userConfirmed) {
+      const forbiddenPhrases = [
+        'vou criar',
+        'vou gerar',
+        'gerando agora',
+        'preparando a visualização',
+        'criando seu site',
+        'gerando seu site',
+        'vou iniciar a geração',
+        'iniciando a geração',
+        'preparando seu projeto',
+        'em instantes você poderá ver'
+      ];
+      
+      const responseLower = aiResponse.toLowerCase();
+      const hasForbiddenPhrase = forbiddenPhrases.some(phrase => responseLower.includes(phrase));
+      
+      if (hasForbiddenPhrase) {
+        console.warn('⚠️ [Claude-Chat] IA tentou dizer que vai gerar sem confirmação! Corrigindo resposta...');
+        // Substituir a resposta por uma compilação correta
+        const companyName = projectData.company_name || projectData.business_type || 'sua empresa';
+        const pages = Array.isArray(projectData.pages_needed) ? projectData.pages_needed.join(', ') : projectData.pages_needed || 'A definir';
+        const style = projectData.design_style || 'A definir';
+        
+        aiResponse = `📋 **COMPILAÇÃO DO PROJETO**
+
+Analisei todas as informações e compilei seu projeto com os seguintes detalhes:
+
+${projectData.company_name ? `🏢 **Empresa:** ${projectData.company_name}` : ''}
+${projectData.business_type ? `🏢 **Tipo de Negócio:** ${projectData.business_type}` : ''}
+${projectData.pages_needed && Array.isArray(projectData.pages_needed) ? `📄 **Páginas:** ${projectData.pages_needed.join(', ')}` : ''}
+${projectData.design_style ? `🎨 **Estilo Visual:** ${projectData.design_style}` : ''}
+${projectData.design_colors && Array.isArray(projectData.design_colors) ? `🎨 **Cores:** ${projectData.design_colors.join(', ')}` : ''}
+
+---
+
+✅ **Confirme se está tudo correto ou se quer ajustar algo:**
+- Se estiver tudo OK, diga "gerar", "ok" ou "pode gerar" para eu criar seu site
+- Se quiser alterar algo, me diga o que deseja ajustar`;
+      }
     }
 
     // Determinar nextStage baseado na fase e resposta

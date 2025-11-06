@@ -82,19 +82,21 @@ export default function LoginModal({
             }));
           }
           
-          // Se tem dados pendentes, processar
+          // ✅ Se tem dados pendentes, manter animação e processar
+          // A animação já está visível desde o clique inicial, então não precisa esconder
           if (pendingData && typeof window !== 'undefined' && user) {
-            setTimeout(() => {
-              onSuccess?.();
-              onClose();
-            }, 1000);
+            // Chamar onSuccess imediatamente (que vai processar e redirecionar)
+            // A animação continuará visível até o redirecionamento
+            onSuccess?.();
+            // Não fechar modal imediatamente - deixar o onSuccess processar
             return;
           }
           
+          // Sem dados pendentes, apenas fechar modal após pequeno delay
           setTimeout(() => {
             onSuccess?.();
             onClose();
-          }, 1000);
+          }, 500);
         } else {
           const errorMsg = result.error || 'Erro ao fazer login';
           setError(errorMsg);
@@ -160,19 +162,21 @@ export default function LoginModal({
               }));
             }
             
-            // Se tem dados pendentes, processar
+            // ✅ Se tem dados pendentes, manter animação e processar
+            // A animação já está visível desde o clique inicial
             if (pendingData && typeof window !== 'undefined') {
-              setTimeout(() => {
-                onSuccess?.();
-                onClose();
-              }, 1500);
+              // Chamar onSuccess imediatamente (que vai processar e redirecionar)
+              // A animação continuará visível até o redirecionamento
+              onSuccess?.();
+              // Não fechar modal imediatamente - deixar o onSuccess processar
               return;
             }
             
+            // Sem dados pendentes, apenas fechar modal após pequeno delay
             setTimeout(() => {
               onSuccess?.();
               onClose();
-            }, 1500);
+            }, 500);
           } else {
             // Email precisa ser confirmado
             setSuccess('Conta criada! Verifique seu email para confirmar antes de fazer login.');

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import LoginModal from './LoginModal';
 
 /**
@@ -15,6 +16,142 @@ export default function StaticAIGeneratedHome() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [loginModalMode, setLoginModalMode] = useState<'login' | 'signup'>('login');
   const [pendingPromptData, setPendingPromptData] = useState<any>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  // ✅ Criar funções globais IMEDIATAMENTE, antes de qualquer coisa
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    // ✅ Função global para mostrar animação de loading (pode ser chamada de qualquer lugar)
+    (window as any).showLoadingAnimation = () => {
+      console.log('🎬 [GLOBAL] Mostrando animação de loading...');
+      setIsAnimating(true);
+      
+      // Também criar elemento diretamente no DOM para garantir que apareça mesmo se React não renderizar
+      const existingOverlay = document.getElementById('loading-overlay-global');
+      if (existingOverlay) {
+        existingOverlay.remove();
+      }
+      
+      const overlay = document.createElement('div');
+      overlay.id = 'loading-overlay-global';
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.2s ease-in;
+      `;
+      
+      const content = document.createElement('div');
+      content.style.cssText = `
+        background: white;
+        border-radius: 1rem;
+        padding: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        max-width: 28rem;
+        margin: 1rem;
+        text-align: center;
+        transform: scale(0.8);
+        transition: transform 0.3s ease-out;
+      `;
+      
+      const spinner = document.createElement('div');
+      spinner.style.cssText = `
+        width: 4rem;
+        height: 4rem;
+        border: 4px solid #3b82f6;
+        border-top-color: transparent;
+        border-radius: 50%;
+        margin: 0 auto 1rem;
+        animation: spin 1s linear infinite;
+      `;
+      
+      const title = document.createElement('h3');
+      title.textContent = 'Preparando seu projeto...';
+      title.style.cssText = `
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 0.5rem;
+      `;
+      
+      const description = document.createElement('p');
+      description.textContent = 'Estamos redirecionando você para o assistente de IA';
+      description.style.cssText = `
+        color: #475569;
+        margin-bottom: 1rem;
+      `;
+      
+      const progressBar = document.createElement('div');
+      progressBar.style.cssText = `
+        height: 0.25rem;
+        background: linear-gradient(to right, #3b82f6, #9333ea);
+        border-radius: 9999px;
+        animation: progress 0.8s ease-in-out infinite alternate;
+      `;
+      
+      // Adicionar keyframes CSS se não existirem
+      if (!document.getElementById('loading-animation-styles')) {
+        const style = document.createElement('style');
+        style.id = 'loading-animation-styles';
+        style.textContent = `
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+          @keyframes progress {
+            from { width: 0%; }
+            to { width: 100%; }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+      
+      content.appendChild(spinner);
+      content.appendChild(title);
+      content.appendChild(description);
+      content.appendChild(progressBar);
+      overlay.appendChild(content);
+      document.body.appendChild(overlay);
+      
+      // Animar entrada
+      requestAnimationFrame(() => {
+        overlay.style.opacity = '1';
+        content.style.transform = 'scale(1)';
+      });
+    };
+    
+    // ✅ Função global para esconder animação
+    (window as any).hideLoadingAnimation = () => {
+      console.log('🧹 [GLOBAL] Escondendo animação de loading...');
+      setIsAnimating(false);
+      
+      const overlay = document.getElementById('loading-overlay-global');
+      if (overlay) {
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+          overlay.remove();
+        }, 200);
+      }
+    };
+    
+    console.log('✅ [GLOBAL] Funções globais de animação criadas');
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete (window as any).showLoadingAnimation;
+        delete (window as any).hideLoadingAnimation;
+      }
+    };
+  }, []); // ✅ Executar apenas uma vez na montagem
 
   useEffect(() => {
     // Carregar HTML estático do arquivo baixado
@@ -598,20 +735,40 @@ export default function StaticAIGeneratedHome() {
                   const data = await response.json();
                   console.log('📥 [INJECTED] Resposta da API:', data);
                   
-                  if (data.success && data.conversationId) {
-                    // Redirecionar para a página de chat com os dados
-                    const prompt = encodeURIComponent(projectDescription);
-                    const companyName = encodeURIComponent('Meu Negócio');
-                    const businessSector = encodeURIComponent('Negócios');
-                    const chatUrl = '/chat/' + data.conversationId + '?prompt=' + prompt + '&companyName=' + companyName + '&businessSector=' + businessSector;
+          if (data.success && data.conversationId) {
+            // Redirecionar para a página de chat com os dados
+            const prompt = encodeURIComponent(projectDescription);
+            const companyName = encodeURIComponent('Meu Negócio');
+            const businessSector = encodeURIComponent('Negócios');
+            const chatUrl = '/chat/' + data.conversationId + '?prompt=' + prompt + '&companyName=' + companyName + '&businessSector=' + businessSector;
                     
                     console.log('✅ [INJECTED] Redirecionando para:', chatUrl);
-                    window.location.href = chatUrl;
+                    
+                    // ✅ Mostrar animação ANTES de redirecionar
+                    // Aguardar função global estar disponível (pode não estar pronta ainda)
+                    const showAnimation = () => {
+                      if ((window as any).showLoadingAnimation) {
+                        (window as any).showLoadingAnimation();
+                      } else {
+                        // Tentar novamente após um pequeno delay se não estiver disponível
+                        setTimeout(showAnimation, 50);
+                      }
+                    };
+                    showAnimation();
+                    
+                    // ✅ Aguardar tempo suficiente para a animação aparecer
+                    setTimeout(() => {
+                      window.location.href = chatUrl;
+                    }, 1200);
                   } else {
                     throw new Error(data.error || 'Erro ao criar conversa');
                   }
                 } catch (error) {
                   console.error('❌ [INJECTED] Erro ao criar conversa:', error);
+                  // ✅ Esconder animação em caso de erro
+                  if ((window as any).hideLoadingAnimation) {
+                    (window as any).hideLoadingAnimation();
+                  }
                   alert('Erro ao iniciar conversa: ' + (error.message || 'Erro desconhecido'));
                   if (submitButton) {
                     submitButton.disabled = false;
@@ -803,35 +960,6 @@ export default function StaticAIGeneratedHome() {
         
         console.log('🖱️ [REACT] Botão clicado!');
         
-        // ✅ VERIFICAR AUTENTICAÇÃO PRIMEIRO
-        console.log('🔐 [REACT] Verificando autenticação...');
-        const user = await checkAuthReact();
-        
-        if (!user) {
-          console.log('🔐 [REACT] Usuário não logado, abrindo modal de login...');
-          const promptEl = document.getElementById('initial-prompt') as HTMLTextAreaElement;
-          const prompt = promptEl?.value.trim() || '';
-          
-          // Salvar dados pendentes
-          if (prompt) {
-            const pendingData = {
-              selectedType: 'site',
-              idea: prompt,
-              companyName: prompt.split('para')[1]?.trim() || 'Meu Negócio',
-              businessSector: 'A definir'
-            };
-            setPendingPromptData(pendingData);
-            sessionStorage.setItem('pending_site_creation', JSON.stringify(pendingData));
-          }
-          
-          // Abrir modal de login
-          setLoginModalMode('login');
-          setIsLoginModalOpen(true);
-          return false;
-        }
-        
-        console.log('✅ [REACT] Usuário autenticado:', user.email);
-        
         const promptEl = document.getElementById('initial-prompt') as HTMLTextAreaElement;
         const buttonEl = document.getElementById('submit-button') as HTMLButtonElement;
         const buttonTextEl = document.getElementById('submit-button-text');
@@ -851,13 +979,61 @@ export default function StaticAIGeneratedHome() {
         
         console.log('📝 [REACT] Prompt capturado:', prompt);
         
+        // Desabilitar botão
         if (buttonEl) {
           buttonEl.disabled = true;
           buttonEl.style.opacity = '0.7';
           buttonEl.style.cursor = 'not-allowed';
         }
         if (buttonTextEl) {
-          buttonTextEl.textContent = 'Criando conversa...';
+          buttonTextEl.textContent = 'Verificando...';
+        }
+        
+        // ✅ VERIFICAR AUTENTICAÇÃO PRIMEIRO (antes de mostrar animação)
+        console.log('🔐 [REACT] Verificando autenticação...');
+        const user = await checkAuthReact();
+        
+        if (!user) {
+          console.log('🔐 [REACT] Usuário não logado, abrindo modal de login...');
+          
+          // Salvar dados pendentes (mantém prompt)
+          const pendingData = {
+            selectedType: 'site',
+            idea: prompt,
+            companyName: prompt.split('para')[1]?.trim() || 'Meu Negócio',
+            businessSector: 'A definir'
+          };
+          setPendingPromptData(pendingData);
+          sessionStorage.setItem('pending_site_creation', JSON.stringify(pendingData));
+          
+          // ✅ NÃO mostrar animação - apenas abrir modal de login
+          setLoginModalMode('login');
+          setIsLoginModalOpen(true);
+          
+          // Reabilitar botão
+          if (buttonEl) {
+            buttonEl.disabled = false;
+            buttonEl.style.opacity = '1';
+            buttonEl.style.cursor = 'pointer';
+          }
+          if (buttonTextEl) {
+            buttonTextEl.textContent = 'Gerar Site com IA';
+          }
+          return false;
+        }
+        
+        // ✅ USUÁRIO ESTÁ LOGADO - Agora sim mostrar animação e enviar prompt
+        console.log('✅ [REACT] Usuário autenticado:', user.email);
+        
+        // ✅ MOSTRAR ANIMAÇÃO AGORA que confirmamos que está logado
+        setIsAnimating(true);
+        if ((window as any).showLoadingAnimation) {
+          (window as any).showLoadingAnimation();
+        }
+        
+        // Atualizar texto do botão
+        if (buttonTextEl) {
+          buttonTextEl.textContent = 'Preparando...';
         }
         
         try {
@@ -865,19 +1041,16 @@ export default function StaticAIGeneratedHome() {
           
           const apiBaseUrl = window.location.origin;
           
-          // Preparar payload com userId se disponível
+          // Preparar payload com userId
           const payload: any = {
             initialPrompt: prompt,
             projectType: 'site',
             clientName: 'Cliente'
           };
           
-          // Adicionar userId apenas se o usuário estiver logado e tiver ID válido
           if (user && user.id && typeof user.id === 'string') {
             payload.userId = user.id;
             console.log('📤 [REACT] Enviando com userId:', user.id);
-          } else {
-            console.log('⚠️ [REACT] Enviando sem userId (usuário não logado ou ID inválido)');
           }
           
           const response = await fetch(`${apiBaseUrl}/api/start-conversation`, {
@@ -899,12 +1072,22 @@ export default function StaticAIGeneratedHome() {
           if (data.success && data.conversationId) {
             const chatUrl = `${apiBaseUrl}/chat/${data.conversationId}?prompt=${encodeURIComponent(prompt)}&companyName=${encodeURIComponent('Meu Negócio')}&businessSector=${encodeURIComponent('Negócios')}`;
             console.log('🚀 [REACT] Redirecionando para:', chatUrl);
-            window.location.href = chatUrl;
+            
+            // ✅ Redirecionar IMEDIATAMENTE (animação já está visível)
+            // Pequeno delay apenas para garantir que a animação foi renderizada
+            setTimeout(() => {
+              window.location.href = chatUrl;
+            }, 300); // ✅ Delay mínimo apenas para garantir renderização
           } else {
             throw new Error(data.error || 'Erro ao criar conversa');
           }
         } catch (error: any) {
           console.error('❌ [REACT] Erro completo:', error);
+          // ✅ Resetar estado de animação em caso de erro
+          setIsAnimating(false);
+          if ((window as any).hideLoadingAnimation) {
+            (window as any).hideLoadingAnimation();
+          }
           alert('Erro: ' + (error.message || 'Erro desconhecido'));
           if (buttonEl) {
             buttonEl.disabled = false;
@@ -1336,8 +1519,19 @@ export default function StaticAIGeneratedHome() {
 
   // Função para processar criação pendente após login
   const handleLoginSuccess = async () => {
+    console.log('✅ [REACT] Login bem-sucedido, processando criação pendente...');
+    
+    // ✅ Fechar modal primeiro
+    setIsLoginModalOpen(false);
+    
+    // ✅ Mostrar animação AGORA que o usuário está logado e vamos enviar o prompt
+    setIsAnimating(true);
+    if ((window as any).showLoadingAnimation) {
+      (window as any).showLoadingAnimation();
+    }
+    
     // Atualizar botão do header após login bem-sucedido
-    console.log('✅ [REACT] Login bem-sucedido, atualizando header...');
+    console.log('✅ [REACT] Atualizando header...');
     
     // Disparar evento customizado para atualizar header
     if (typeof window !== 'undefined') {
@@ -1463,7 +1657,17 @@ export default function StaticAIGeneratedHome() {
           
           if (data.success && data.conversationId) {
             const chatUrl = `/chat/${data.conversationId}?prompt=${encodeURIComponent(pendingPromptData.idea)}&companyName=${encodeURIComponent(pendingPromptData.companyName || 'Meu Negócio')}&businessSector=${encodeURIComponent(pendingPromptData.businessSector || 'Negócios')}`;
-            window.location.href = chatUrl;
+            
+            // ✅ Garantir que animação está visível (já deve estar desde o clique inicial)
+            setIsAnimating(true);
+            if ((window as any).showLoadingAnimation) {
+              (window as any).showLoadingAnimation();
+            }
+            
+            // ✅ Redirecionar IMEDIATAMENTE (animação já está visível desde o início)
+            setTimeout(() => {
+              window.location.href = chatUrl;
+            }, 300); // ✅ Delay mínimo apenas para garantir renderização
           }
         }
       } catch (error) {
@@ -1475,6 +1679,61 @@ export default function StaticAIGeneratedHome() {
   // Renderizar HTML usando dangerouslySetInnerHTML
   return (
     <>
+      {/* ✅ Overlay de Loading durante submissão */}
+      {/* ✅ Animação só aparece quando usuário está logado e prompt está sendo enviado */}
+      {isAnimating && !isLoginModalOpen && (
+        <motion.div
+          key="loading-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center"
+          style={{ pointerEvents: 'auto' }}
+        >
+          <motion.div
+            key="loading-content"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.8, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="bg-white rounded-2xl p-8 shadow-2xl max-w-md mx-4 text-center"
+          >
+            <motion.div
+              key="spinner"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"
+            />
+            <motion.h3 
+              key="title"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="text-xl font-bold text-slate-900 mb-2"
+            >
+              Preparando seu projeto...
+            </motion.h3>
+            <motion.p 
+              key="description"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="text-slate-600 mb-4"
+            >
+              Estamos redirecionando você para o assistente de IA
+            </motion.p>
+            <motion.div
+              key="progress-bar"
+              initial={{ width: 0 }}
+              animate={{ width: "100%" }}
+              transition={{ duration: 0.8, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }}
+              className="h-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"
+            />
+          </motion.div>
+        </motion.div>
+      )}
+
       <div 
         id="ai-generated-site-root"
         dangerouslySetInnerHTML={{ __html: html }}

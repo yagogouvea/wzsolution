@@ -86,6 +86,15 @@ export default function FullscreenChat({
     return () => clearInterval(interval);
   }, [generationStartTime]);
 
+  // ✅ Calcular se deve mostrar o timer de geração
+  const shouldShowGenerationTimer = isLoading && isGenerating && generationStartTime && (() => {
+    const previewMessage = messages.find(m => m.type === 'site_preview');
+    if (!previewMessage) return true; // Sem preview, mostrar timer
+    // Se tem preview, verificar se foi adicionado há menos de 3 segundos
+    const previewAge = Date.now() - previewMessage.timestamp.getTime();
+    return previewAge < 3000; // Mostrar timer por mais 3 segundos após preview aparecer
+  })();
+
   useEffect(() => {
     if (isOpen && !isMinimized) {
       inputRef.current?.focus();
@@ -401,10 +410,32 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
           ? `${fullPrompt.substring(0, 500)}... (${fullPrompt.length - 500} caracteres restantes)`
           : fullPrompt;
         
-        const previewMessage: Message = {
-          id: crypto.randomUUID(),
-          sender: 'ai',
-          content: `🎉 **Seu site foi gerado com sucesso pela WZ Solutions IA!**
+          // ✅ Remover TODAS as mensagens de confirmação recentes antes de adicionar preview
+        setMessages(prev => {
+          const confirmationKeywords = ['vou criar', 'vou gerar', 'gerando', 'confirmado', 'perfeito', 'em instantes', 'aguarde', 'iniciando', 'opa', 'preparando', 'estou criando', 'criando o site', 'preparando os arquivos'];
+          
+          // ✅ Remover TODAS as mensagens de confirmação (não apenas recentes)
+          const filteredPrev = prev.filter((m) => {
+            if (m.sender === 'ai' && m.type === 'text') {
+              const content = m.content.toLowerCase();
+              const isConfirmation = confirmationKeywords.some(keyword => content.includes(keyword));
+              if (isConfirmation) {
+                console.log('🗑️ [FullscreenChat] Removendo mensagem de confirmação duplicada:', m.content.substring(0, 50));
+                return false; // Remover mensagem de confirmação
+              }
+            }
+            return true; // Manter outras mensagens
+          });
+          
+          // ✅ Log se houve remoção
+          if (filteredPrev.length < prev.length) {
+            console.log(`⚠️ [FullscreenChat] Removidas ${prev.length - filteredPrev.length} mensagem(ns) de confirmação duplicada(s)`);
+          }
+          
+          const previewMessage: Message = {
+            id: crypto.randomUUID(),
+            sender: 'ai',
+            content: `🎉 **Seu site foi gerado com sucesso pela WZ Solutions IA!**
 
 Criei um site profissional e responsivo baseado nas suas especificações.
 
@@ -415,13 +446,25 @@ Criei um site profissional e responsivo baseado nas suas especificações.
 **👆 Veja o preview à direita!** 
 
 Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis. Quer fazer alguma modificação? É só me dizer! 🚀`,
-          timestamp: new Date(),
-          type: 'site_preview',
-          siteCodeId: data.versionId || previewId,
-          metadata: { showEndButton: true } // ✅ Marcar para mostrar botão de encerrar
-        };
-
-        setMessages(prev => [...prev, previewMessage]);
+            timestamp: new Date(),
+            type: 'site_preview',
+            siteCodeId: data.versionId || previewId,
+            metadata: { showEndButton: true } // ✅ Marcar para mostrar botão de encerrar
+          };
+          
+          // ✅ DEFINIR currentSiteCode DEPOIS de criar a mensagem mas ANTES de adicionar ao estado
+          // Isso garante que o timer continue até o preview ser renderizado
+          setCurrentSiteCode(previewId);
+          
+          // ✅ Limpar timer APENAS após preview estar realmente pronto e renderizado na tela
+          setTimeout(() => {
+            console.log('✅ [FullscreenChat] Limpando timer - preview está pronto e renderizado');
+            setGenerationStartTime(null);
+            setElapsedTime(0);
+          }, 3000); // ✅ Delay de 3 segundos para garantir renderização completa do preview
+          
+          return [...filteredPrev, previewMessage];
+        });
       }
     } catch (error: any) {
       // ✅ Remover controller da lista mesmo em caso de erro
@@ -431,16 +474,22 @@ Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis.
       // ✅ Se foi cancelado, não mostrar erro
       if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
         console.log('ℹ️ Requisição cancelada pelo usuário');
+        // ✅ Limpar timer em caso de cancelamento
+        setGenerationStartTime(null);
+        setElapsedTime(0);
         return;
       }
       
       console.error('❌ Erro ao gerar preview:', error);
+      
+      // ✅ Limpar timer em caso de erro
+      setGenerationStartTime(null);
+      setElapsedTime(0);
     } finally {
       setIsLoading(false);
       setIsGenerating(false);
       generationLockRef.current = false;
-      setGenerationStartTime(null);
-      setElapsedTime(0);
+      // ✅ NÃO limpar timer aqui - já foi limpo quando preview ficou pronto ou em caso de erro
     }
   };
 
@@ -992,9 +1041,112 @@ ${getRedirectMessage(messageToSend)}`,
         console.log('🔧 Site já existe, usando modify-ai-site:', messageToSend);
         await modifySite(messageToSend, imageData);
       } else {
-        // Só gerar novo site se NÃO tiver site ainda
-        console.log('🆕 Primeira geração, usando generate-ai-site');
-        await generateSitePreview(messageToSend);
+        // ✅ Não tem site ainda - enviar para IA perguntar ou gerar preview
+        console.log('📨 [FullscreenChat] Enviando mensagem para IA (sem site gerado ainda)...');
+        
+        const chatResponse = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversationId,
+            message: messageToSend,
+            stage: 1
+          })
+        });
+        
+        const chatData = await chatResponse.json();
+        
+        // ✅ Verificar se deve gerar preview
+        const shouldGenerate = chatData.shouldGeneratePreview === true || chatData.shouldGeneratePreviewRaw === true;
+        
+        if (shouldGenerate) {
+          console.log('🚀 [FullscreenChat] shouldGeneratePreview é TRUE! Gerando site...');
+          
+          // ✅ NUNCA adicionar mensagem quando vai gerar - será substituída pelo preview
+          // Verificar se a resposta é uma mensagem de confirmação
+          const responseContent = chatData.response?.trim() || '';
+          const isConfirmationMessage = responseContent.toLowerCase().includes('vou criar') || 
+                                      responseContent.toLowerCase().includes('vou gerar') ||
+                                      responseContent.toLowerCase().includes('gerando') ||
+                                      responseContent.toLowerCase().includes('confirmado') ||
+                                      responseContent.toLowerCase().includes('iniciando') ||
+                                      responseContent.toLowerCase().includes('perfeito') ||
+                                      responseContent.toLowerCase().includes('em instantes') ||
+                                      responseContent.toLowerCase().includes('aguarde') ||
+                                      responseContent.toLowerCase().includes('opa') ||
+                                      responseContent.toLowerCase().includes('preparando') ||
+                                      responseContent.toLowerCase().includes('estou criando') ||
+                                      responseContent.toLowerCase().includes('criando o site');
+          
+          // ✅ SEMPRE remover mensagens de confirmação existentes quando vai gerar
+          if (isConfirmationMessage || shouldGenerate) {
+            console.log('⚠️ [FullscreenChat] Vai gerar - removendo mensagens de confirmação existentes');
+            setMessages(prev => {
+              const confirmationKeywords = ['vou criar', 'vou gerar', 'gerando', 'confirmado', 'perfeito', 'em instantes', 'aguarde', 'iniciando', 'opa', 'preparando', 'estou criando', 'criando o site'];
+              return prev.filter((m) => {
+                if (m.sender === 'ai' && m.type === 'text') {
+                  const content = m.content.toLowerCase();
+                  const isConfirmation = confirmationKeywords.some(keyword => content.includes(keyword));
+                  if (isConfirmation) {
+                    console.log('🗑️ [FullscreenChat] Removendo mensagem de confirmação antes de gerar:', m.content.substring(0, 50));
+                    return false;
+                  }
+                }
+                return true;
+              });
+            });
+          }
+          
+          // ✅ NÃO adicionar mensagem de confirmação - será substituída pelo preview
+          console.log('⚠️ [FullscreenChat] Mensagem de confirmação detectada - NÃO adicionando, será substituída pelo preview');
+          
+          // ✅ Gerar site após pequeno delay
+          setTimeout(() => {
+            generateSitePreview(messageToSend)
+              .then(() => setIsLoading(false))
+              .catch(() => setIsLoading(false));
+          }, 500);
+        } else {
+          // ✅ Se não deve gerar, apenas adicionar mensagem normalmente
+          // ✅ Verificar duplicatas antes de adicionar
+          setMessages(prev => {
+            const responseContent = chatData.response?.trim() || '';
+            
+            // ✅ Verificar duplicatas exatas (últimas 3 mensagens)
+            const recentMessages = prev.slice(-3);
+            const isDuplicate = recentMessages.some(m => 
+              m.sender === 'ai' && 
+              m.type === 'text' &&
+              m.content?.trim().toLowerCase() === responseContent.toLowerCase()
+            );
+            
+            if (isDuplicate) {
+              console.log('⚠️ [FullscreenChat] Mensagem duplicada detectada (normal), não adicionando');
+              return prev;
+            }
+            
+            // ✅ Log dos metadados para debug do botão
+            console.log('📋 [FullscreenChat] Metadados da mensagem:', {
+              showCreateButton: chatData.metadata?.showCreateButton,
+              hasCompleteProjectData: chatData.metadata?.hasCompleteProjectData,
+              userConfirmed: chatData.metadata?.userConfirmed,
+              shouldGeneratePreview: chatData.metadata?.shouldGeneratePreview,
+              fullMetadata: chatData.metadata
+            });
+            
+            const aiMessage: Message = {
+              id: crypto.randomUUID(),
+              sender: 'ai',
+              content: chatData.response,
+              timestamp: new Date(),
+              type: 'text',
+              metadata: chatData.metadata || {}
+            };
+            
+            return [...prev, aiMessage];
+          });
+          setIsLoading(false);
+        }
       }
     } catch (error) {
       console.error('❌ Erro ao enviar mensagem:', error);
@@ -1224,6 +1376,93 @@ ${getRedirectMessage(messageToSend)}`,
                       {formatMessage(message.content) as React.ReactNode}
                     </div>
 
+                    {/* ✅ Botão "Pode criar" - aparece quando IA compilou projeto mas usuário não confirmou */}
+                    {message.sender === 'ai' && 
+                     message.type === 'text' && 
+                     !currentSiteCode && // ✅ Só mostrar botão se ainda não tem site gerado
+                     !isGenerating && // ✅ Não mostrar botão quando está gerando (verificar primeiro)
+                     (message.metadata?.showCreateButton === true || 
+                      (message.metadata?.hasCompleteProjectData === true && 
+                       message.metadata?.userConfirmed === false && 
+                       message.metadata?.shouldGeneratePreview !== true)) && 
+                     !isLoading && 
+                     !isBlocked && 
+                     !hasEndedManually && (
+                      <div className="mt-4 pt-4 border-t border-slate-700">
+                        <button
+                          onClick={async () => {
+                            console.log('✅ [FullscreenChat] Botão "Pode criar" clicado');
+                            // Enviar mensagem de confirmação explícita diretamente
+                            const confirmationMessage = 'pode criar';
+                            
+                            // Criar mensagem do usuário
+                            const userMessage: Message = {
+                              id: crypto.randomUUID(),
+                              sender: 'user',
+                              content: confirmationMessage,
+                              timestamp: new Date(),
+                              type: 'text'
+                            };
+                            
+                            setMessages(prev => [...prev, userMessage]);
+                            setInputMessage('');
+                            setIsLoading(true);
+                            
+                            // Enviar para a API
+                            try {
+                              const chatResponse = await fetch('/api/chat', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  conversationId,
+                                  message: confirmationMessage,
+                                  stage: 1
+                                })
+                              });
+                              
+                              const chatData = await chatResponse.json();
+                              
+                              if (chatData.success && chatData.response) {
+                                // ✅ Verificar se deve gerar
+                                const shouldGenerate = chatData.shouldGeneratePreview === true || chatData.shouldGeneratePreviewRaw === true;
+                                
+                                if (shouldGenerate) {
+                                  // ✅ Não adicionar mensagem de confirmação - será substituída pelo preview
+                                  setTimeout(() => {
+                                    generateSitePreview(confirmationMessage)
+                                      .then(() => setIsLoading(false))
+                                      .catch(() => setIsLoading(false));
+                                  }, 500);
+                                } else {
+                                  const aiMessage: Message = {
+                                    id: crypto.randomUUID(),
+                                    sender: 'ai',
+                                    content: chatData.response,
+                                    timestamp: new Date(),
+                                    type: 'text',
+                                    metadata: chatData.metadata || {}
+                                  };
+                                  setMessages(prev => [...prev, aiMessage]);
+                                  setIsLoading(false);
+                                }
+                              } else {
+                                setIsLoading(false);
+                              }
+                            } catch (error) {
+                              console.error('Erro ao enviar confirmação:', error);
+                              setIsLoading(false);
+                            }
+                          }}
+                          className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105"
+                        >
+                          <span className="text-base sm:text-lg">🚀 Pode criar</span>
+                        </button>
+                        <p className="text-xs text-slate-400 mt-2 text-center">
+                          Clique para confirmar e iniciar a criação do seu site
+                        </p>
+                      </div>
+                    )}
+
                     {/* Renderizar imagens enviadas */}
                     {message.type === 'image' && message.metadata?.imageUrl && (
                       <div className="mt-4">
@@ -1299,7 +1538,9 @@ ${getRedirectMessage(messageToSend)}`,
               ))}
             </AnimatePresence>
 
-            {isLoading && (
+            {/* ✅ Mostrar timer de geração APENAS quando está gerando */}
+            {/* O timer só desaparece quando o preview está realmente visível na tela (após 3 segundos do preview ser adicionado) */}
+            {shouldShowGenerationTimer && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1327,6 +1568,32 @@ ${getRedirectMessage(messageToSend)}`,
                       )}
                       <p className="text-slate-500 italic">Por favor, aguarde... não feche esta página.</p>
                     </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+            
+            {/* ✅ Mostrar loading simples quando não está gerando site */}
+            {isLoading && (!isGenerating || !generationStartTime || (() => {
+              const previewMessage = messages.find(m => m.type === 'site_preview');
+              if (!previewMessage) return false;
+              const previewAge = Date.now() - previewMessage.timestamp.getTime();
+              return previewAge >= 3000;
+            })()) && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex gap-4 justify-start"
+              >
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 animate-pulse">
+                  <Bot className="text-white" size={20} />
+                </div>
+                <div className="bg-slate-800 p-4 rounded-2xl">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    <span className="text-slate-400 text-sm ml-2">IA está trabalhando...</span>
                   </div>
                 </div>
               </motion.div>
