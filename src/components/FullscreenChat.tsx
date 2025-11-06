@@ -95,9 +95,10 @@ export default function FullscreenChat({
     const previewMessage = messages.find(msg => msg.type === 'site_preview' && msg.siteCodeId);
     
     if (previewMessage && isGenerating && generationStartTime !== null) {
-      console.log('🔍 [FullscreenChat] Preview encontrado no estado, verificando visibilidade no DOM...', {
+      console.log('🔍 [FullscreenChat] Preview encontrado no estado, aguardando renderização completa...', {
         messageId: previewMessage.id,
-        siteCodeId: previewMessage.siteCodeId
+        siteCodeId: previewMessage.siteCodeId,
+        timestamp: new Date().toISOString()
       });
       
       // ✅ Limpar intervalo anterior se existir
@@ -129,9 +130,15 @@ export default function FullscreenChat({
         
         // ✅ PROCURAR ESPECIFICAMENTE PELO BOTÃO "Ver Preview do Site"
         // Este botão é o indicador mais confiável de que o preview está completamente renderizado
-        const previewButton = Array.from(previewElement.querySelectorAll('button')).find(btn => {
+        const allButtons = Array.from(previewElement.querySelectorAll('button'));
+        console.log('🔍 [FullscreenChat] Botões encontrados na mensagem:', allButtons.length, allButtons.map(b => b.textContent?.substring(0, 30)));
+        
+        const previewButton = allButtons.find(btn => {
           const buttonText = btn.textContent || btn.innerText || '';
-          return buttonText.includes('Ver Preview') || buttonText.includes('Preview do Site');
+          const hasPreviewText = buttonText.includes('Ver Preview') || 
+                                buttonText.includes('Preview do Site') ||
+                                buttonText.includes('👁️');
+          return hasPreviewText;
         });
         
         if (previewButton) {
@@ -141,30 +148,42 @@ export default function FullscreenChat({
                                  buttonRect.top < window.innerHeight &&
                                  buttonRect.bottom > 0;
           
-          if (isButtonVisible) {
-            console.log('✅ [FullscreenChat] Botão do preview encontrado e visível - LIMPANDO TIMER AGORA!', {
+          // ✅ Verificar também se o botão tem altura mínima (não está colapsado)
+          const hasValidSize = buttonRect.height >= 40; // Altura mínima esperada para um botão
+          
+          if (isButtonVisible && hasValidSize) {
+            console.log('✅ [FullscreenChat] Botão do preview encontrado e visível - AGUARDANDO 500ms ANTES DE LIMPAR TIMER!', {
               buttonText: previewButton.textContent?.substring(0, 50),
               buttonRect: {
                 width: buttonRect.width,
                 height: buttonRect.height,
                 top: buttonRect.top,
                 bottom: buttonRect.bottom
-              }
+              },
+              timestamp: new Date().toISOString()
             });
             
-            // ✅ LIMPAR TIMER IMEDIATAMENTE - preview está pronto!
-            setGenerationStartTime(null);
-            setElapsedTime(0);
-            setIsGenerating(false);
+            // ✅ AGUARDAR 500ms ANTES DE LIMPAR - garantir que está realmente renderizado
+            setTimeout(() => {
+              console.log('✅ [FullscreenChat] Limpando timer após confirmação de renderização completa');
+              setGenerationStartTime(null);
+              setElapsedTime(0);
+              setIsGenerating(false);
+              
+              // ✅ Limpar intervalo se existir
+              if (previewCheckIntervalRef.current) {
+                clearInterval(previewCheckIntervalRef.current);
+                previewCheckIntervalRef.current = null;
+              }
+            }, 500); // ✅ Aguardar 500ms para garantir renderização completa
             
-            // ✅ Limpar intervalo se existir
-            if (previewCheckIntervalRef.current) {
-              clearInterval(previewCheckIntervalRef.current);
-              previewCheckIntervalRef.current = null;
-            }
             return true; // ✅ Preview encontrado e pronto
           } else {
-            console.log('⏳ [FullscreenChat] Botão encontrado mas ainda não está visível');
+            console.log('⏳ [FullscreenChat] Botão encontrado mas ainda não está visível ou tem tamanho válido', {
+              isButtonVisible,
+              hasValidSize,
+              height: buttonRect.height
+            });
           }
         } else {
           console.log('⏳ [FullscreenChat] Botão do preview ainda não encontrado no DOM');
@@ -173,53 +192,63 @@ export default function FullscreenChat({
         return false; // ✅ Preview não encontrado ainda
       };
       
-      // ✅ Aguardar um pouco para o React renderizar e verificar imediatamente
-      // Usar requestAnimationFrame para garantir que o DOM foi atualizado
-      let animationFrameId: number | null = null;
-      let secondFrameId: number | null = null;
-      
-      animationFrameId = requestAnimationFrame(() => {
-        // ✅ Aguardar mais um frame para garantir renderização completa
-        secondFrameId = requestAnimationFrame(() => {
-          if (checkPreview()) {
-            return; // ✅ Preview já encontrado, não precisa de retry
-          }
-          
-          // ✅ Se não encontrou, verificar novamente a cada 200ms (mais rápido)
-          // Mas limitar a 25 tentativas (5 segundos máximo)
-          let retryCount = 0;
-          const maxRetries = 25;
-          
-          previewCheckIntervalRef.current = setInterval(() => {
-            retryCount++;
-            
+      // ✅ IMPORTANTE: Aguardar pelo menos 1 segundo antes de começar a verificar
+      // Isso garante que o React teve tempo suficiente para renderizar completamente
+      const initialDelay = setTimeout(() => {
+        console.log('🔍 [FullscreenChat] Iniciando verificação após delay inicial de 1s');
+        
+        // ✅ Usar requestAnimationFrame para garantir que o DOM foi atualizado
+        let animationFrameId: number | null = null;
+        let secondFrameId: number | null = null;
+        
+        animationFrameId = requestAnimationFrame(() => {
+          // ✅ Aguardar mais um frame para garantir renderização completa
+          secondFrameId = requestAnimationFrame(() => {
             if (checkPreview()) {
-              return; // ✅ Preview encontrado
+              return; // ✅ Preview já encontrado, não precisa de retry
             }
             
-            if (retryCount >= maxRetries) {
-              console.log('⚠️ [FullscreenChat] Timeout após 5 segundos - limpando timer de segurança');
-              setGenerationStartTime(null);
-              setElapsedTime(0);
-              setIsGenerating(false);
+            // ✅ Se não encontrou, verificar novamente a cada 300ms
+            // Mas limitar a 20 tentativas (6 segundos máximo após o delay inicial)
+            let retryCount = 0;
+            const maxRetries = 20;
+            
+            previewCheckIntervalRef.current = setInterval(() => {
+              retryCount++;
               
-              if (previewCheckIntervalRef.current) {
-                clearInterval(previewCheckIntervalRef.current);
-                previewCheckIntervalRef.current = null;
+              if (checkPreview()) {
+                return; // ✅ Preview encontrado
               }
-            }
-          }, 200); // ✅ Verificar a cada 200ms (mais responsivo)
+              
+              if (retryCount >= maxRetries) {
+                console.log('⚠️ [FullscreenChat] Timeout após 6 segundos - limpando timer de segurança');
+                setGenerationStartTime(null);
+                setElapsedTime(0);
+                setIsGenerating(false);
+                
+                if (previewCheckIntervalRef.current) {
+                  clearInterval(previewCheckIntervalRef.current);
+                  previewCheckIntervalRef.current = null;
+                }
+              }
+            }, 300); // ✅ Verificar a cada 300ms
+          });
         });
-      });
+        
+        // ✅ Cleanup dos animation frames
+        return () => {
+          if (animationFrameId !== null) {
+            cancelAnimationFrame(animationFrameId);
+          }
+          if (secondFrameId !== null) {
+            cancelAnimationFrame(secondFrameId);
+          }
+        };
+      }, 1000); // ✅ Aguardar 1 segundo antes de começar a verificar
       
-      // ✅ Cleanup: limpar tanto o requestAnimationFrame quanto o setInterval se existir
+      // ✅ Cleanup: limpar tanto o setTimeout quanto o setInterval se existir
       return () => {
-        if (animationFrameId !== null) {
-          cancelAnimationFrame(animationFrameId);
-        }
-        if (secondFrameId !== null) {
-          cancelAnimationFrame(secondFrameId);
-        }
+        clearTimeout(initialDelay);
         if (previewCheckIntervalRef.current) {
           clearInterval(previewCheckIntervalRef.current);
           previewCheckIntervalRef.current = null;

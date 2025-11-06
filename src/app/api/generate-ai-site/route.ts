@@ -1,9 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { generateSiteWithClaude } from "@/lib/claude";
 import { DatabaseService } from "@/lib/supabase";
 import { moderateMessage } from "@/lib/message-moderation";
 import { logger } from "@/lib/logger";
 import { generateProjectId } from "@/lib/project-limits";
+import { 
+  validateRequest, 
+  getSecurityHeaders, 
+  checkRateLimit,
+  containsSensitiveData,
+  removeSensitiveData,
+  isProduction 
+} from "@/lib/security";
 
 // ✅ Função auxiliar para construir seção do histórico da conversa
 function buildConversationHistorySection(conversationHistory: any[]): string {
@@ -74,7 +82,43 @@ function buildConversationHistorySection(conversationHistory: any[]): string {
 
 export async function POST(req: Request) {
   const startTime = Date.now();
+  
   try {
+    // ✅ VALIDAÇÃO DE SEGURANÇA (aceita Request padrão)
+    const validation = validateRequest(req as unknown as NextRequest);
+    if (!validation.valid) {
+      logger.warn("🚫 [generate-ai-site] Requisição bloqueada:", validation.error);
+      return NextResponse.json(
+        { ok: false, error: validation.error || "Requisição não autorizada" },
+        { 
+          status: 403,
+          headers: getSecurityHeaders()
+        }
+      );
+    }
+    
+    // ✅ RATE LIMITING
+    const headers = req.headers as Headers;
+    const clientId = headers.get('x-forwarded-for') || 
+                     headers.get('x-real-ip') || 
+                     'unknown';
+    const rateLimit = checkRateLimit(clientId, 5, 60000); // 5 requisições por minuto
+    if (!rateLimit.allowed) {
+      logger.warn("🚫 [generate-ai-site] Rate limit excedido:", clientId);
+      return NextResponse.json(
+        { ok: false, error: "Muitas requisições. Aguarde um momento." },
+        { 
+          status: 429,
+          headers: {
+            ...getSecurityHeaders(),
+            'Retry-After': '60',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': new Date(rateLimit.resetAt).toISOString()
+          }
+        }
+      );
+    }
+    
     logger.info("🏗️ [generate-ai-site] Iniciando com Claude...");
     
     let body;
@@ -85,7 +129,10 @@ export async function POST(req: Request) {
       console.error("❌ [generate-ai-site] Erro ao parsear JSON:", parseError);
       return NextResponse.json(
         { ok: false, error: "JSON inválido no body" },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: getSecurityHeaders()
+        }
       );
     }
 
@@ -283,6 +330,12 @@ export async function POST(req: Request) {
     if (!code || code.trim().length === 0) {
       throw new Error("Código gerado está vazio!");
     }
+    
+    // ✅ SEGURANÇA: Verificar se código contém dados sensíveis
+    if (containsSensitiveData(code)) {
+      logger.warn("⚠️ [generate-ai-site] Código contém dados sensíveis, removendo...");
+      code = removeSensitiveData(code);
+    }
 
     // ✅ Otimizado: Salvar código no Supabase de forma paralela e assíncrona
     let savedVersionId: string | null = null;
@@ -349,14 +402,31 @@ export async function POST(req: Request) {
     // ✅ Executar em background (não bloquear resposta)
     saveToDatabase().catch(console.error);
 
-    return NextResponse.json({
+    // ✅ SEGURANÇA: Em produção, NÃO retornar código completo
+    // O código só estará disponível via preview protegido ou download autorizado
+    const response: any = {
       ok: true,
       message: "✅ Site gerado com sucesso via Claude IA!",
-      siteCode: code,
-      code: code, // Compatibilidade
-      versionId: savedVersionId, // Manter para histórico
-      previewId: conversationId, // ✅ NOVO: ID fixo do preview (sempre o mesmo)
-      previewUrl: `/preview/${conversationId}`, // ✅ SEMPRE o mesmo link (usa conversationId)
+      versionId: savedVersionId,
+      previewId: conversationId,
+      previewUrl: `/preview/${conversationId}`,
+    };
+    
+    // ✅ Apenas em desenvolvimento retornar código completo
+    if (!isProduction) {
+      response.siteCode = code;
+      response.code = code; // Compatibilidade
+    } else {
+      // Em produção, apenas confirmar que foi gerado
+      response.message = "✅ Site gerado com sucesso! Veja o preview abaixo. Para obter o código fonte, entre em contato com nossa equipe.";
+    }
+    
+    return NextResponse.json(response, {
+      headers: {
+        ...getSecurityHeaders(),
+        'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+        'X-RateLimit-Reset': new Date(rateLimit.resetAt).toISOString()
+      }
     });
   } catch (error) {
     console.error("❌ [generate-ai-site] Erro ao gerar site:", error);

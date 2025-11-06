@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DatabaseService } from '@/lib/supabase';
 import { convertJSXToHTML, processAIGeneratedCode } from '@/lib/jsx-to-html';
+import { 
+  addWatermark, 
+  sanitizePreviewCode, 
+  getSecurityHeaders,
+  isProduction 
+} from '@/lib/security';
 
 export async function GET(
   request: NextRequest,
@@ -87,11 +93,23 @@ export async function GET(
       if (logoUrl) siteCode = siteCode.replace(wzLogoRegex, logoUrl);
       siteCode = siteCode.replace(/<title>\s*[^<]*\s*<\/title>/i, `<title>${companyTitle}<\/title>`);
     } catch {}
+    
+    // ✅ SEGURANÇA: Adicionar watermark e sanitizar preview
+    if (isProduction) {
+      siteCode = addWatermark(siteCode, {
+        text: 'PREVIEW • WZ SOLUTION • CÓDIGO PROTEGIDO',
+        opacity: 0.15,
+        position: 'fixed'
+      });
+      siteCode = sanitizePreviewCode(siteCode);
+    }
 
     return new NextResponse(siteCode, {
       headers: {
+        ...getSecurityHeaders(),
         'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'X-Robots-Tag': 'noindex, nofollow' // Prevenir indexação do preview
       }
     });
   } catch (error) {
