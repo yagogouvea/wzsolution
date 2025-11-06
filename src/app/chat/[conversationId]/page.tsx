@@ -237,9 +237,9 @@ function ChatPageContent() {
   const shouldShowGenerationTimer = isGenerating && generationStartTime !== null && (() => {
     const previewMessage = messages.find(m => m.type === 'site_preview');
     if (!previewMessage) return true; // Sem preview, mostrar timer
-    // Se tem preview, verificar se foi adicionado há menos de 10 segundos (tempo para renderizar completamente)
+    // Se tem preview, verificar se foi adicionado há menos de 15 segundos (tempo para renderizar completamente)
     const previewAge = Date.now() - previewMessage.timestamp.getTime();
-    return previewAge < 10000; // Mostrar timer por mais 10 segundos após preview aparecer
+    return previewAge < 15000; // Mostrar timer por mais 15 segundos após preview aparecer
   })();
 
   // ✅ Carregar mensagens existentes do banco de dados
@@ -1194,28 +1194,44 @@ Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis.
           // ✅ ADICIONAR preview ao estado PRIMEIRO
           const newMessages = [...filteredPrev, previewMessage];
           
+          // ✅ IMPORTANTE: Capturar timestamp do preview ANTES de adicionar ao estado
+          const previewTimestamp = previewMessage.timestamp.getTime();
+          
           // ✅ NÃO definir currentSiteCode ainda - aguardar preview ser renderizado
           // O timer continuará até que o preview esteja realmente visível
           
           // ✅ IMPORTANTE: NÃO definir currentSiteCode aqui - isso faz o timer desaparecer antes do preview
           // O timer só deve desaparecer quando generationStartTime for null (limpo explicitamente)
           
-          // ✅ Limpar timer APENAS após preview estar realmente pronto e renderizado na tela
-          // Usar um delay maior para garantir que o preview foi renderizado completamente
-          // O timer será limpo após 10 segundos para garantir que o usuário veja o preview
+          // ✅ Retornar mensagens PRIMEIRO para que o preview seja adicionado ao estado
+          // DEPOIS, criar os timeouts baseados no timestamp real do preview
           setTimeout(() => {
-            console.log('✅ [generateSitePreview] Preview adicionado, aguardando renderização completa...');
-            // ✅ Definir currentSiteCode após preview ser renderizado (mas timer continua)
+            console.log('✅ [generateSitePreview] Preview adicionado ao estado, aguardando renderização completa...');
+            // ✅ Definir currentSiteCode após preview ser adicionado ao estado (mas timer continua)
             setCurrentSiteCode(previewId);
-          }, 3000); // ✅ Definir currentSiteCode após 3 segundos (mas timer continua)
-          
-          // ✅ Limpar timer APENAS após preview estar completamente renderizado e visível
-          setTimeout(() => {
-            console.log('✅ [generateSitePreview] Limpando timer - preview está pronto e renderizado');
-            setGenerationStartTime(null);
-            setElapsedTime(0);
-            setIsGenerating(false); // ✅ Só definir isGenerating como false quando timer for limpo
-          }, 10000); // ✅ Limpar timer após 10 segundos para garantir que preview está visível
+            
+            // ✅ AGORA criar o timeout para limpar o timer baseado no timestamp do preview
+            // Calcular quanto tempo já passou desde que o preview foi adicionado
+            const timeSincePreview = Date.now() - previewTimestamp;
+            const remainingTime = Math.max(0, 15000 - timeSincePreview); // 15 segundos total desde o preview
+            
+            console.log(`⏱️ [generateSitePreview] Tempo desde preview: ${timeSincePreview}ms, aguardando mais ${remainingTime}ms`);
+            
+            if (remainingTime > 0) {
+              setTimeout(() => {
+                console.log('✅ [generateSitePreview] Limpando timer - preview está pronto e renderizado');
+                setGenerationStartTime(null);
+                setElapsedTime(0);
+                setIsGenerating(false); // ✅ Só definir isGenerating como false quando timer for limpo
+              }, remainingTime);
+            } else {
+              // Se já passou mais de 15 segundos, limpar imediatamente
+              console.log('✅ [generateSitePreview] Limpando timer imediatamente (já passou tempo suficiente)');
+              setGenerationStartTime(null);
+              setElapsedTime(0);
+              setIsGenerating(false);
+            }
+          }, 100); // ✅ Pequeno delay para garantir que o preview foi adicionado ao estado
           
           return newMessages;
         });
