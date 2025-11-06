@@ -179,7 +179,7 @@ export default function AIGeneratorSection() {
     };
   }, [user]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     console.log('🚀 [AIGenerator] handleSubmit chamado', {
       selectedType,
       ideaLength: idea.trim().length,
@@ -225,11 +225,27 @@ export default function AIGeneratorSection() {
 
     console.log('✅ [AIGenerator] Usuário logado, criando site...');
 
-    // ✅ Ativar estado de loading para mostrar animação ANTES de qualquer outra coisa
+    // ✅ CRÍTICO: Ativar estado de loading para mostrar animação ANTES de qualquer outra coisa
+    // Usar função de callback para garantir que o estado seja atualizado imediatamente
     setIsSubmitting(true);
     setIsAnimating(true);
     
-    console.log('🎬 [AIGenerator] Animação iniciada, aguardando renderização...');
+    console.log('🎬 [AIGenerator] Estados ativados:', {
+      isSubmitting: true,
+      isAnimating: true,
+      timestamp: new Date().toISOString()
+    });
+    
+    // ✅ Forçar re-render imediato para garantir que a animação apareça
+    // Usar setTimeout para garantir que o estado foi atualizado antes de continuar
+    await new Promise(resolve => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          console.log('✅ [AIGenerator] DOM atualizado após definir estados');
+          resolve(null);
+        });
+      });
+    });
 
     // ✅ Preparar dados básicos para o chat
     const basicData = {
@@ -273,20 +289,37 @@ export default function AIGeneratorSection() {
     // ✅ Construir URL do chat
     const chatUrl = `/chat/${newConversationId}?${queryParams.toString()}`;
     
-    // ✅ CRÍTICO: Aguardar um tempo suficiente para a animação aparecer antes de redirecionar
-    // Usar requestAnimationFrame para garantir que o DOM foi atualizado
+    // ✅ CRÍTICO: Aguardar tempo suficiente para a animação aparecer ANTES de redirecionar
+    // Usar requestAnimationFrame duplo para garantir que o DOM foi atualizado e a animação foi renderizada
+    console.log('⏳ [AIGenerator] Configurando delay para mostrar animação...');
+    
+    // ✅ Aguardar múltiplos frames para garantir renderização
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        console.log('⏳ [AIGenerator] Aguardando 800ms para mostrar animação antes de redirecionar...');
-        setTimeout(() => {
-          console.log('🚀 [AIGenerator] Redirecionando para:', chatUrl);
-          router.push(chatUrl);
-          // ✅ Manter o estado de loading por mais um pouco para transição suave
+        requestAnimationFrame(() => {
+          console.log('✅ [AIGenerator] DOM atualizado, aguardando 1200ms para mostrar animação...');
+          
           setTimeout(() => {
-            setIsSubmitting(false);
-            setIsAnimating(false);
-          }, 1000);
-        }, 800); // ✅ Aumentar delay para 800ms para garantir que a animação seja visível
+            console.log('🚀 [AIGenerator] Redirecionando para:', chatUrl);
+            
+            // ✅ Verificar se isSubmitting ainda está true (deve estar)
+            console.log('🔍 [AIGenerator] Estado antes de redirecionar:', {
+              isSubmitting,
+              isAnimating,
+              chatUrl
+            });
+            
+            router.push(chatUrl);
+            
+            // ✅ Manter o estado de loading por mais um pouco para transição suave
+            // Não limpar imediatamente para que a animação continue durante o redirecionamento
+            setTimeout(() => {
+              console.log('🧹 [AIGenerator] Limpando estados de loading...');
+              setIsSubmitting(false);
+              setIsAnimating(false);
+            }, 2000);
+          }, 1200); // ✅ Aumentar para 1200ms para garantir que a animação seja claramente visível
+        });
       });
     });
   };
@@ -315,34 +348,53 @@ export default function AIGeneratorSection() {
   return (
     <>
       {/* ✅ Overlay de Loading durante submissão */}
-      {isSubmitting && (
+      {(isSubmitting || isAnimating) && (
         <motion.div
+          key="loading-overlay"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center"
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center"
+          style={{ pointerEvents: 'auto' }}
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
+            key="loading-content"
+            initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
+            exit={{ scale: 0.8, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
             className="bg-white rounded-2xl p-8 shadow-2xl max-w-md mx-4 text-center"
           >
             <motion.div
+              key="spinner"
               animate={{ rotate: 360 }}
-              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
               className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"
             />
-            <h3 className="text-xl font-bold text-slate-900 mb-2">
+            <motion.h3 
+              key="title"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="text-xl font-bold text-slate-900 mb-2"
+            >
               Preparando seu projeto...
-            </h3>
-            <p className="text-slate-600 mb-4">
+            </motion.h3>
+            <motion.p 
+              key="description"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="text-slate-600 mb-4"
+            >
               Estamos redirecionando você para o assistente de IA
-            </p>
+            </motion.p>
             <motion.div
+              key="progress-bar"
               initial={{ width: 0 }}
               animate={{ width: "100%" }}
-              transition={{ duration: 0.5, repeat: Infinity, repeatType: "reverse" }}
+              transition={{ duration: 0.8, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }}
               className="h-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"
             />
           </motion.div>

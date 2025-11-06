@@ -1704,6 +1704,16 @@ ${getRedirectMessage(messageToSend)}`,
       return;
     }
 
+    console.log('📤 [sendMessage] ============================================');
+    console.log('📤 [sendMessage] FUNÇÃO sendMessage CHAMADA!');
+    console.log('📤 [sendMessage] ============================================');
+    console.log('📤 [sendMessage] Parâmetros:', {
+      messageToSend,
+      conversationId,
+      hasCurrentSiteCode: !!currentSiteCode,
+      messagesCount: messages.length
+    });
+    
     setIsLoading(true);
     setInputMessage('');
 
@@ -1782,6 +1792,11 @@ ${getRedirectMessage(messageToSend)}`,
         
         const chatData = await chatResponse.json();
         
+        // ✅ ALERT TEMPORÁRIO PARA DEBUG - REMOVER DEPOIS
+        if (typeof window !== 'undefined' && chatData.shouldGeneratePreview === true) {
+          console.warn('🚨🚨🚨 DEBUG: shouldGeneratePreview é TRUE!');
+        }
+        
         console.log('📥 [sendMessage] ============================================');
         console.log('📥 [sendMessage] JSON PARSEADO - VERIFICAR AQUI!');
         console.log('📥 [sendMessage] ============================================');
@@ -1796,6 +1811,43 @@ ${getRedirectMessage(messageToSend)}`,
           keys: Object.keys(chatData),
           FULL_OBJECT: JSON.stringify(chatData, null, 2).substring(0, 1000)
         });
+        
+        // ✅ VERIFICAÇÃO CRÍTICA: Se shouldGeneratePreview é true, FORÇAR GERAÇÃO MESMO SEM response
+        if (chatData.shouldGeneratePreview === true || chatData.shouldGeneratePreviewRaw === true) {
+          console.warn('🚨🚨🚨 [sendMessage] CRÍTICO: shouldGeneratePreview é TRUE! Forçando geração...');
+          
+          // ✅ Mesmo sem response, se shouldGeneratePreview é true, devemos gerar
+          if (chatData.response) {
+            const aiMessage: Message = {
+              id: crypto.randomUUID(),
+              sender: 'ai',
+              content: chatData.response,
+              timestamp: new Date(),
+              type: 'text'
+            };
+            setMessages(prev => [...prev, aiMessage]);
+          }
+          
+          // ✅ FORÇAR GERAÇÃO IMEDIATAMENTE
+          console.log('🚀🚀🚀 [sendMessage] FORÇANDO GERAÇÃO - shouldGeneratePreview é TRUE!');
+          
+          const promptToUse = messageToSend || chatData.response || 'Gerar site';
+          
+          setTimeout(() => {
+            console.log('⏳ [sendMessage] Chamando generateSitePreview FORÇADO...');
+            generateSitePreview(promptToUse)
+              .then(() => {
+                console.log('✅ [sendMessage] Geração FORÇADA concluída!');
+                setIsLoading(false);
+              })
+              .catch((error) => {
+                console.error('❌ [sendMessage] Erro na geração FORÇADA:', error);
+                setIsLoading(false);
+              });
+          }, 500);
+          
+          return;
+        }
         
         if (chatData.success && chatData.response) {
           // ✅ LOG CRÍTICO: Verificar o que foi recebido do backend
