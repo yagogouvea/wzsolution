@@ -87,12 +87,14 @@ export default function FullscreenChat({
   }, [generationStartTime]);
 
   // ✅ Calcular se deve mostrar o timer de geração
-  const shouldShowGenerationTimer = isLoading && isGenerating && generationStartTime && (() => {
+  // ✅ Timer só desaparece quando generationStartTime for null (limpo explicitamente)
+  // NÃO depende de isLoading - isso é setado como false no finally antes do preview aparecer
+  const shouldShowGenerationTimer = isGenerating && generationStartTime !== null && (() => {
     const previewMessage = messages.find(m => m.type === 'site_preview');
     if (!previewMessage) return true; // Sem preview, mostrar timer
-    // Se tem preview, verificar se foi adicionado há menos de 3 segundos
+    // Se tem preview, verificar se foi adicionado há menos de 10 segundos (tempo para renderizar completamente)
     const previewAge = Date.now() - previewMessage.timestamp.getTime();
-    return previewAge < 3000; // Mostrar timer por mais 3 segundos após preview aparecer
+    return previewAge < 10000; // Mostrar timer por mais 10 segundos após preview aparecer
   })();
 
   useEffect(() => {
@@ -452,16 +454,25 @@ Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis.
             metadata: { showEndButton: true } // ✅ Marcar para mostrar botão de encerrar
           };
           
-          // ✅ DEFINIR currentSiteCode DEPOIS de criar a mensagem mas ANTES de adicionar ao estado
-          // Isso garante que o timer continue até o preview ser renderizado
-          setCurrentSiteCode(previewId);
+          // ✅ IMPORTANTE: NÃO definir currentSiteCode aqui - isso faz o timer desaparecer antes do preview
+          // O timer só deve desaparecer quando generationStartTime for null (limpo explicitamente)
           
           // ✅ Limpar timer APENAS após preview estar realmente pronto e renderizado na tela
+          // Usar um delay maior para garantir que o preview foi renderizado completamente
+          // O timer será limpo após 10 segundos para garantir que o usuário veja o preview
+          setTimeout(() => {
+            console.log('✅ [FullscreenChat] Preview adicionado, aguardando renderização completa...');
+            // ✅ Definir currentSiteCode após preview ser renderizado (mas timer continua)
+            setCurrentSiteCode(previewId);
+          }, 3000); // ✅ Definir currentSiteCode após 3 segundos (mas timer continua)
+          
+          // ✅ Limpar timer APENAS após preview estar completamente renderizado e visível
           setTimeout(() => {
             console.log('✅ [FullscreenChat] Limpando timer - preview está pronto e renderizado');
             setGenerationStartTime(null);
             setElapsedTime(0);
-          }, 3000); // ✅ Delay de 3 segundos para garantir renderização completa do preview
+            setIsGenerating(false); // ✅ Só definir isGenerating como false quando timer for limpo
+          }, 10000); // ✅ Limpar timer após 10 segundos para garantir que preview está visível
           
           return [...filteredPrev, previewMessage];
         });
@@ -487,7 +498,9 @@ Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis.
       setElapsedTime(0);
     } finally {
       setIsLoading(false);
-      setIsGenerating(false);
+      // ✅ NÃO definir setIsGenerating(false) aqui - deixar o timer controlar isso
+      // O setIsGenerating(false) será chamado apenas quando o timer for limpo (após preview aparecer)
+      // Isso garante que o timer continue visível até o preview ser renderizado
       generationLockRef.current = false;
       // ✅ NÃO limpar timer aqui - já foi limpo quando preview ficou pronto ou em caso de erro
     }

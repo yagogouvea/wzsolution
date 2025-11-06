@@ -232,8 +232,9 @@ function ChatPageContent() {
 
   // ✅ Calcular se deve mostrar o timer de geração
   // ✅ Timer só desaparece quando generationStartTime for null (limpo explicitamente)
+  // NÃO depende de isLoading - isso é setado como false no finally antes do preview aparecer
   // NÃO desaparece quando currentSiteCode é definido - isso acontece antes do preview ser renderizado
-  const shouldShowGenerationTimer = isLoading && isGenerating && generationStartTime !== null && (() => {
+  const shouldShowGenerationTimer = isGenerating && generationStartTime !== null && (() => {
     const previewMessage = messages.find(m => m.type === 'site_preview');
     if (!previewMessage) return true; // Sem preview, mostrar timer
     // Se tem preview, verificar se foi adicionado há menos de 10 segundos (tempo para renderizar completamente)
@@ -339,8 +340,14 @@ function ChatPageContent() {
               console.log('✅ [loadExistingMessages] Site encontrado nas versões:', conversationId);
               setCurrentSiteCode(conversationId);
             }
-          } catch (versionError) {
-            console.warn('⚠️ [loadExistingMessages] Erro ao buscar versões:', versionError);
+          } catch (versionError: any) {
+            // ✅ Tratar erro de Supabase não configurado (variáveis de ambiente não disponíveis)
+            const errorMessage = versionError?.message || String(versionError);
+            if (errorMessage.includes('supabaseUrl is required') || errorMessage.includes('supabaseAnonKey is required')) {
+              console.warn('⚠️ [loadExistingMessages] Supabase não configurado no cliente - ignorando busca de versões');
+            } else {
+              console.warn('⚠️ [loadExistingMessages] Erro ao buscar versões:', versionError);
+            }
             // Se houver current_site_code ou preview_url nos dados do projeto, usar
             if (data.projectData.current_site_code) {
               console.log('✅ [loadExistingMessages] Site encontrado em projectData.current_site_code');
@@ -1443,8 +1450,14 @@ Digite seu prompt primeiro para gerar o site.`,
             const { DatabaseService } = await import('@/lib/supabase');
             const versions = await DatabaseService.getSiteVersions(conversationId);
             console.log(`📊 [modifySite] Versões após tentativa ${retries + 1}:`, versions?.length || 0);
-          } catch (err) {
-            // Ignorar erro de debug
+          } catch (err: any) {
+            // ✅ Tratar erro de Supabase não configurado
+            const errorMessage = err?.message || String(err);
+            if (errorMessage.includes('supabaseUrl is required') || errorMessage.includes('supabaseAnonKey is required')) {
+              console.warn('⚠️ [modifySite] Supabase não configurado no cliente - ignorando busca de versões');
+            } else {
+              // Ignorar outros erros de debug
+            }
           }
           
           retries++;
@@ -2056,17 +2069,18 @@ ${getRedirectMessage(messageToSend)}`,
           
           const promptToUse = messageToSend || chatData.response || 'Gerar site';
           
-          setTimeout(() => {
-            console.log('⏳ [sendMessage] Chamando generateSitePreview FORÇADO...');
-            generateSitePreview(promptToUse)
-              .then(() => {
-                console.log('✅ [sendMessage] Geração FORÇADA concluída!');
-                setIsLoading(false);
-              })
-              .catch((error) => {
-                console.error('❌ [sendMessage] Erro na geração FORÇADA:', error);
-                setIsLoading(false);
-              });
+            setTimeout(() => {
+              console.log('⏳ [sendMessage] Chamando generateSitePreview FORÇADO...');
+              // ✅ NÃO definir setIsLoading(false) aqui - generateSitePreview controla isso no finally
+              generateSitePreview(promptToUse)
+                .then(() => {
+                  console.log('✅ [sendMessage] Geração FORÇADA concluída!');
+                  // ✅ NÃO definir setIsLoading(false) - já foi definido no finally do generateSitePreview
+                })
+                .catch((error) => {
+                  console.error('❌ [sendMessage] Erro na geração FORÇADA:', error);
+                  // ✅ NÃO definir setIsLoading(false) - já foi definido no finally do generateSitePreview
+                });
           }, 500);
           
           return;
@@ -2214,14 +2228,16 @@ ${getRedirectMessage(messageToSend)}`,
               console.log('✅ [sendMessage] generateSitePreview existe, chamando agora...');
               
               // ✅ Chamar diretamente
+              // ✅ NÃO definir setIsLoading(false) aqui - generateSitePreview controla isso no finally
+              // Mas o timer continuará visível porque isGenerating ainda é true
               generateSitePreview(promptToUse)
                 .then(() => {
                   console.log('✅ [sendMessage] Geração concluída com sucesso!');
-                  setIsLoading(false);
+                  // ✅ NÃO definir setIsLoading(false) - já foi definido no finally do generateSitePreview
                 })
                 .catch((error) => {
                   console.error('❌ [sendMessage] Erro na geração:', error);
-                  setIsLoading(false);
+                  // ✅ NÃO definir setIsLoading(false) - já foi definido no finally do generateSitePreview
                 });
             }, 500); // ✅ Aumentar delay para 500ms para garantir renderização
             
@@ -2535,14 +2551,15 @@ ${getRedirectMessage(messageToSend)}`,
             
             setTimeout(() => {
               console.log('🚀 [sendMessage] Iniciando geração via FALLBACK...');
+              // ✅ NÃO definir setIsLoading(false) aqui - generateSitePreview controla isso no finally
               generateSitePreview(promptToUse)
                 .then(() => {
                   console.log('✅ [sendMessage] Geração (fallback) concluída');
-                  setIsLoading(false);
+                  // ✅ NÃO definir setIsLoading(false) - já foi definido no finally do generateSitePreview
                 })
                 .catch((error) => {
                   console.error('❌ [sendMessage] Erro (fallback):', error);
-                  setIsLoading(false);
+                  // ✅ NÃO definir setIsLoading(false) - já foi definido no finally do generateSitePreview
                 });
             }, 500);
             
@@ -3053,10 +3070,15 @@ ${getRedirectMessage(messageToSend)}`,
                                 });
                                 
                                 // Iniciar geração sem adicionar mensagem de confirmação
+                                // ✅ NÃO definir setIsLoading(false) aqui - generateSitePreview controla isso no finally
                                 setTimeout(() => {
                                   generateSitePreview(confirmationMessage)
-                                    .then(() => setIsLoading(false))
-                                    .catch(() => setIsLoading(false));
+                                    .then(() => {
+                                      // ✅ NÃO definir setIsLoading(false) - já foi definido no finally do generateSitePreview
+                                    })
+                                    .catch(() => {
+                                      // ✅ NÃO definir setIsLoading(false) - já foi definido no finally do generateSitePreview
+                                    });
                                 }, 500);
                               } else {
                                 // Adicionar mensagem normalmente se não for confirmação ou não deve gerar
@@ -3073,10 +3095,15 @@ ${getRedirectMessage(messageToSend)}`,
                                 
                                 // Se deve gerar, iniciar geração
                                 if (chatData.shouldGeneratePreview) {
+                                  // ✅ NÃO definir setIsLoading(false) aqui - generateSitePreview controla isso no finally
                                   setTimeout(() => {
                                     generateSitePreview(confirmationMessage)
-                                      .then(() => setIsLoading(false))
-                                      .catch(() => setIsLoading(false));
+                                      .then(() => {
+                                        // ✅ NÃO definir setIsLoading(false) - já foi definido no finally do generateSitePreview
+                                      })
+                                      .catch(() => {
+                                        // ✅ NÃO definir setIsLoading(false) - já foi definido no finally do generateSitePreview
+                                      });
                                   }, 500);
                                 } else {
                                   setIsLoading(false);
