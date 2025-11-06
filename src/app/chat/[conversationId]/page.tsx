@@ -258,18 +258,35 @@ function ChatPageContent() {
           sender_type: 'user' | 'ai';
           content: string;
           message_type?: string;
-          metadata?: Record<string, unknown>;
+          metadata?: Record<string, unknown> | string;
           created_at: string;
-        }) => ({
-          id: msg.id,
-          sender: msg.sender_type,
-          content: msg.content,
-          timestamp: new Date(msg.created_at),
-          type: (msg.message_type as 'text' | 'image' | 'site_preview') || 'text',
-          // ✅ Garantir que metadados estão incluídos (incluindo showCreateButton)
-          metadata: msg.metadata || {},
-          siteCodeId: msg.metadata?.siteCodeId as string | undefined
-        }));
+        }) => {
+          // ✅ Parsear metadados se vierem como string JSON
+          let parsedMetadata: Record<string, unknown> = {};
+          if (msg.metadata) {
+            if (typeof msg.metadata === 'string') {
+              try {
+                parsedMetadata = JSON.parse(msg.metadata);
+              } catch (e) {
+                console.warn('⚠️ [loadExistingMessages] Erro ao parsear metadados como JSON:', e);
+                parsedMetadata = {};
+              }
+            } else {
+              parsedMetadata = msg.metadata as Record<string, unknown>;
+            }
+          }
+          
+          return {
+            id: msg.id,
+            sender: msg.sender_type,
+            content: msg.content,
+            timestamp: new Date(msg.created_at),
+            type: (msg.message_type as 'text' | 'image' | 'site_preview') || 'text',
+            // ✅ Garantir que metadados estão incluídos (incluindo showCreateButton)
+            metadata: parsedMetadata,
+            siteCodeId: parsedMetadata?.siteCodeId as string | undefined
+          };
+        });
         
         console.log('📨 [loadExistingMessages] Mensagens formatadas:', formattedMessages.map(m => ({
           sender: m.sender,
@@ -1101,6 +1118,7 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
             setTimeout(() => {
               setGenerationStartTime(null);
               setElapsedTime(0);
+              setIsGenerating(false); // ✅ Limpar isGenerating também
             }, 100);
             return prev;
           }
@@ -1108,17 +1126,19 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
           // ✅ Remover APENAS mensagens que REALMENTE são de confirmação (mais específico)
           // Padrões mais específicos para evitar remover mensagens normais
           const confirmationPatterns = [
-            /vou criar/i,
-            /estou criando/i,
+            /^vou criar/i, // Começa com "vou criar"
+            /^estou criando/i, // Começa com "estou criando"
             /gerando (seu|o) (site|código)/i,
-            /confirmado/i,
-            /iniciando (a )?gera(ção|r)/i,
-            /criando (seu|o) (site|código)/i,
-            /processando (seu|o) (site|código)/i,
+            /^confirmado!?$/i, // Apenas "confirmado" sozinho
+            /^iniciando (a )?gera(ção|r)/i, // Começa com "iniciando geração"
+            /^criando (seu|o) (site|código)/i,
+            /^processando (seu|o) (site|código)/i,
             /em instantes (você|o) (verá|ver)/i,
             /aguarde (enquanto|que)/i,
-            /perfeito!?\s*(vou|estou|vamos)/i, // Só "perfeito" seguido de ação
-            /perfeito!?\s*🎉/i, // "perfeito" com emoji de celebração
+            /^perfeito!?\s*(vou|estou|vamos|vamos criar|vou gerar|vou iniciar)/i, // "perfeito" seguido de ação de criação
+            /^perfeito!?\s*🎉\s*(vou|estou|vamos)/i, // "perfeito 🎉" seguido de ação
+            /^opa!?\s*🎉\s*\*\*confirmado/i, // "Opa! 🎉 **Confirmado"
+            /^confirmado!?\s*\*\*/i, // "Confirmado! **"
           ];
           
           // ✅ Remover APENAS mensagens de confirmação recentes antes de adicionar preview
@@ -1180,6 +1200,7 @@ Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis.
               console.log('✅ [generateSitePreview] Limpando timer - preview está pronto e renderizado');
               setGenerationStartTime(null);
               setElapsedTime(0);
+              setIsGenerating(false); // ✅ Só definir isGenerating como false quando timer for limpo
             }, 2000); // ✅ Delay adicional de 2 segundos após definir currentSiteCode
           }, 5000); // ✅ Aumentar delay para 5 segundos para garantir renderização completa do preview
           
@@ -1197,6 +1218,7 @@ Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis.
         // ✅ Limpar timer em caso de cancelamento
         setGenerationStartTime(null);
         setElapsedTime(0);
+        setIsGenerating(false); // ✅ Limpar isGenerating também
         return;
       }
       
@@ -1205,6 +1227,7 @@ Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis.
       // ✅ Limpar timer em caso de erro
       setGenerationStartTime(null);
       setElapsedTime(0);
+      setIsGenerating(false); // ✅ Limpar isGenerating também
       
       // ✅ Tratar erro de rate limit especificamente
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -1227,7 +1250,9 @@ O serviço de IA está processando muitas solicitações no momento. Por favor, 
       }
     } finally {
       setIsLoading(false);
-      setIsGenerating(false);
+      // ✅ NÃO definir setIsGenerating(false) aqui - deixar o timer controlar isso
+      // O setIsGenerating(false) será chamado apenas quando o timer for limpo (após preview aparecer)
+      // Isso garante que o timer continue visível até o preview ser renderizado
       generationLockRef.current = false; // ✅ Unlock após completar
       // ✅ NÃO limpar timer aqui - já foi limpo quando preview ficou pronto ou em caso de erro
       generationStateRef.current = null; // ✅ Limpar estado de geração após completar
@@ -2092,17 +2117,19 @@ ${getRedirectMessage(messageToSend)}`,
               // ✅ Remover APENAS mensagens que REALMENTE são de confirmação (mais específico)
               // Padrões mais específicos para evitar remover mensagens normais
               const confirmationPatterns = [
-                /vou criar/i,
-                /estou criando/i,
+                /^vou criar/i, // Começa com "vou criar"
+                /^estou criando/i, // Começa com "estou criando"
                 /gerando (seu|o) (site|código)/i,
-                /confirmado/i,
-                /iniciando (a )?gera(ção|r)/i,
-                /criando (seu|o) (site|código)/i,
-                /processando (seu|o) (site|código)/i,
+                /^confirmado!?$/i, // Apenas "confirmado" sozinho
+                /^iniciando (a )?gera(ção|r)/i, // Começa com "iniciando geração"
+                /^criando (seu|o) (site|código)/i,
+                /^processando (seu|o) (site|código)/i,
                 /em instantes (você|o) (verá|ver)/i,
                 /aguarde (enquanto|que)/i,
-                /perfeito!?\s*(vou|estou|vamos)/i, // Só "perfeito" seguido de ação
-                /perfeito!?\s*🎉/i, // "perfeito" com emoji de celebração
+                /^perfeito!?\s*(vou|estou|vamos|vamos criar|vou gerar|vou iniciar)/i, // "perfeito" seguido de ação de criação
+                /^perfeito!?\s*🎉\s*(vou|estou|vamos)/i, // "perfeito 🎉" seguido de ação
+                /^opa!?\s*🎉\s*\*\*confirmado/i, // "Opa! 🎉 **Confirmado"
+                /^confirmado!?\s*\*\*/i, // "Confirmado! **"
               ];
               
               const filteredPrev = prev.filter((m) => {
@@ -2402,17 +2429,19 @@ ${getRedirectMessage(messageToSend)}`,
               // ✅ Remover APENAS mensagens que REALMENTE são de confirmação (mais específico)
               // Padrões mais específicos para evitar remover mensagens normais
               const confirmationPatterns = [
-                /vou criar/i,
-                /estou criando/i,
+                /^vou criar/i, // Começa com "vou criar"
+                /^estou criando/i, // Começa com "estou criando"
                 /gerando (seu|o) (site|código)/i,
-                /confirmado/i,
-                /iniciando (a )?gera(ção|r)/i,
-                /criando (seu|o) (site|código)/i,
-                /processando (seu|o) (site|código)/i,
+                /^confirmado!?$/i, // Apenas "confirmado" sozinho
+                /^iniciando (a )?gera(ção|r)/i, // Começa com "iniciando geração"
+                /^criando (seu|o) (site|código)/i,
+                /^processando (seu|o) (site|código)/i,
                 /em instantes (você|o) (verá|ver)/i,
                 /aguarde (enquanto|que)/i,
-                /perfeito!?\s*(vou|estou|vamos)/i, // Só "perfeito" seguido de ação
-                /perfeito!?\s*🎉/i, // "perfeito" com emoji de celebração
+                /^perfeito!?\s*(vou|estou|vamos|vamos criar|vou gerar|vou iniciar)/i, // "perfeito" seguido de ação de criação
+                /^perfeito!?\s*🎉\s*(vou|estou|vamos)/i, // "perfeito 🎉" seguido de ação
+                /^opa!?\s*🎉\s*\*\*confirmado/i, // "Opa! 🎉 **Confirmado"
+                /^confirmado!?\s*\*\*/i, // "Confirmado! **"
               ];
               
               const filteredPrev = prev.filter((m) => {
@@ -2868,13 +2897,16 @@ ${getRedirectMessage(messageToSend)}`,
 
                   {/* ✅ Botão "Pode criar" - aparece quando IA compilou projeto mas usuário não confirmou */}
                   {(() => {
+                    // ✅ Simplificar condição: mostrar botão se tem dados completos e não foi confirmado
+                    const hasCompleteData = message.metadata?.hasCompleteProjectData === true;
+                    const notConfirmed = message.metadata?.userConfirmed !== true;
+                    const notGenerating = message.metadata?.shouldGeneratePreview !== true;
+                    const showButtonFlag = message.metadata?.showCreateButton === true;
+                    
                     const shouldShowButton = message.sender === 'ai' && 
                      message.type === 'text' && 
                      !currentSiteCode && // ✅ Só mostrar botão se ainda não tem site gerado
-                     (message.metadata?.showCreateButton === true || 
-                      (message.metadata?.hasCompleteProjectData === true && 
-                       message.metadata?.userConfirmed === false && 
-                       message.metadata?.shouldGeneratePreview !== true)) && 
+                     (showButtonFlag || (hasCompleteData && notConfirmed && notGenerating)) && 
                      !isLoading && 
                      !isGenerating && // ✅ Não mostrar botão quando está gerando
                      !isBlocked && 
@@ -2950,14 +2982,27 @@ ${getRedirectMessage(messageToSend)}`,
                               // ✅ Se deve gerar e é mensagem de confirmação, NÃO adicionar mensagem
                               if (chatData.shouldGeneratePreview && isConfirmationMessage) {
                                 console.log('⚠️ [Botão] Mensagem de confirmação detectada - não adicionando, iniciando geração');
-                                // Remover mensagens de confirmação antes de gerar
+                                // Remover APENAS mensagens que REALMENTE são de confirmação (usar padrões específicos)
                                 setMessages(prev => {
-                                  const confirmationKeywords = ['vou criar', 'gerando', 'confirmado', 'perfeito', 'em instantes', 'aguarde', 'iniciando', 'criando', 'processando'];
+                                  const confirmationPatterns = [
+                                    /vou criar/i,
+                                    /estou criando/i,
+                                    /gerando (seu|o) (site|código)/i,
+                                    /confirmado/i,
+                                    /iniciando (a )?gera(ção|r)/i,
+                                    /criando (seu|o) (site|código)/i,
+                                    /processando (seu|o) (site|código)/i,
+                                    /em instantes (você|o) (verá|ver)/i,
+                                    /aguarde (enquanto|que)/i,
+                                    /perfeito!?\s*(vou|estou|vamos)/i,
+                                    /perfeito!?\s*🎉/i,
+                                  ];
+                                  
                                   return prev.filter((m) => {
                                     const isRecent = prev.indexOf(m) >= prev.length - 5;
                                     if (isRecent && m.sender === 'ai' && m.type === 'text') {
-                                      const content = m.content?.toLowerCase() || '';
-                                      const isConfirmation = confirmationKeywords.some(keyword => content.includes(keyword));
+                                      const content = m.content || '';
+                                      const isConfirmation = confirmationPatterns.some(pattern => pattern.test(content));
                                       if (isConfirmation) {
                                         console.log('🗑️ [Botão] Removendo mensagem de confirmação:', m.content?.substring(0, 50));
                                         return false;

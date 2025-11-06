@@ -891,6 +891,49 @@ export default function StaticAIGeneratedHome() {
         // Injetar script antes do fechamento do body
         processedHTML = processedHTML.replace('</body>', scriptToInject + '</body>');
         
+        // ✅ REORDENAR SEÇÕES: Banner -> Campo de Prompt -> Nossos Serviços -> Resto
+        // Extrair seções
+        const homeSectionMatch = processedHTML.match(/<section[^>]*id=["']home["'][^>]*>[\s\S]*?<\/section>/i);
+        const iaSiteSectionMatch = processedHTML.match(/<section[^>]*id=["']ia-site["'][^>]*>[\s\S]*?<\/section>/i);
+        const servicosSectionMatch = processedHTML.match(/<section[^>]*id=["']servicos["'][^>]*>[\s\S]*?<\/section>/i);
+        
+        if (homeSectionMatch && iaSiteSectionMatch && servicosSectionMatch) {
+          const homeSection = homeSectionMatch[0];
+          const iaSiteSection = iaSiteSectionMatch[0];
+          const servicosSection = servicosSectionMatch[0];
+          
+          // Remover as seções do HTML original
+          let reorderedHTML = processedHTML
+            .replace(/<section[^>]*id=["']home["'][^>]*>[\s\S]*?<\/section>/i, '')
+            .replace(/<section[^>]*id=["']ia-site["'][^>]*>[\s\S]*?<\/section>/i, '')
+            .replace(/<section[^>]*id=["']servicos["'][^>]*>[\s\S]*?<\/section>/i, '');
+          
+          // Encontrar onde inserir (após o header, antes do resto)
+          // Procurar por </header> ou primeira seção após header
+          const headerEndMatch = reorderedHTML.match(/<\/header>/i);
+          if (headerEndMatch) {
+            const insertPosition = headerEndMatch.index! + headerEndMatch[0].length;
+            // Inserir na ordem: home -> ia-site -> servicos
+            reorderedHTML = 
+              reorderedHTML.slice(0, insertPosition) + 
+              '\n' + homeSection + '\n' + 
+              iaSiteSection + '\n' + 
+              servicosSection + '\n' + 
+              reorderedHTML.slice(insertPosition);
+            
+            console.log('✅ [REORDER] Seções reordenadas: Banner -> Campo Prompt -> Nossos Serviços');
+            processedHTML = reorderedHTML;
+          } else {
+            console.warn('⚠️ [REORDER] Header não encontrado, mantendo ordem original');
+          }
+        } else {
+          console.warn('⚠️ [REORDER] Algumas seções não foram encontradas:', {
+            home: !!homeSectionMatch,
+            iaSite: !!iaSiteSectionMatch,
+            servicos: !!servicosSectionMatch
+          });
+        }
+        
         console.log('✅ [LOAD] HTML processado, tamanho final:', processedHTML.length);
         console.log('✅ [LOAD] Definindo HTML no estado...');
         setHtml(processedHTML);
