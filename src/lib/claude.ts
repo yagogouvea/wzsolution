@@ -210,22 +210,52 @@ ${prompt}
       let chunkCount = 0;
       let stopReason = null;
       
-      for await (const chunk of response) {
-        chunkCount++;
-        
-        // Capturar stop_reason quando aparecer
-        if (chunk.type === 'message_stop') {
-          stopReason = (chunk as any).stop_reason;
-          console.log('🛑 [Claude] Stop reason:', stopReason);
-        }
-        
-        // Capturar conteúdo de texto
-        if (chunk.type === 'content_block_delta') {
-          const delta = (chunk as any).delta;
-          if (delta && delta.text) {
-            result += delta.text;
+      try {
+        for await (const chunk of response) {
+          chunkCount++;
+          
+          // Capturar stop_reason quando aparecer
+          if (chunk.type === 'message_stop') {
+            stopReason = (chunk as any).stop_reason;
+            console.log('🛑 [Claude] Stop reason:', stopReason);
+          }
+          
+          // Capturar conteúdo de texto
+          if (chunk.type === 'content_block_delta') {
+            const delta = (chunk as any).delta;
+            if (delta && delta.text) {
+              result += delta.text;
+            }
           }
         }
+      } catch (streamError: any) {
+        // ✅ Tratar erros durante streaming (conexão fechada, socket error, etc.)
+        const streamErrorMessage = streamError?.message || String(streamError);
+        const isConnectionError = 
+          streamErrorMessage.includes('terminated') ||
+          streamErrorMessage.includes('SocketError') ||
+          streamErrorMessage.includes('UND_ERR_SOCKET') ||
+          streamErrorMessage.includes('other side closed') ||
+          streamErrorMessage.includes('ECONNRESET') ||
+          streamErrorMessage.includes('socket hang up');
+        
+        if (isConnectionError) {
+          console.error(`⚠️ [Claude] Conexão fechada durante streaming (chunks recebidos: ${chunkCount})`);
+          console.error(`⚠️ [Claude] Erro:`, streamErrorMessage);
+          
+          // Se recebeu algum conteúdo antes do erro, tentar usar
+          if (result.length > 100) {
+            console.log(`⚠️ [Claude] Usando conteúdo parcial recebido (${result.length} chars) e fazendo retry...`);
+            // Lançar erro especial para retry
+            throw new Error('STREAMING_CONNECTION_CLOSED');
+          } else {
+            // Se não recebeu conteúdo suficiente, fazer retry completo
+            throw new Error('STREAMING_CONNECTION_CLOSED_NO_DATA');
+          }
+        }
+        
+        // Se não for erro de conexão, relançar
+        throw streamError;
       }
       
       console.log('📄 [Claude] Total chars recebidos via streaming:', result.length);
@@ -362,6 +392,29 @@ ${prompt}
         
         // ✅ NÃO fazer retry quando rate limit - retornar erro imediatamente
         throw new Error(`❌ Rate limit do Claude AI atingido. Por favor, aguarde ${waitMinutes} minutos antes de tentar novamente.`);
+      }
+      
+      // ✅ Tratamento de erros de conexão durante streaming
+      const isConnectionError = 
+        errorMessage.includes('terminated') ||
+        errorMessage.includes('SocketError') ||
+        errorMessage.includes('UND_ERR_SOCKET') ||
+        errorMessage.includes('other side closed') ||
+        errorMessage.includes('ECONNRESET') ||
+        errorMessage.includes('socket hang up') ||
+        errorMessage === 'STREAMING_CONNECTION_CLOSED' ||
+        errorMessage === 'STREAMING_CONNECTION_CLOSED_NO_DATA';
+      
+      if (isConnectionError) {
+        if (attempt < maxRetries) {
+          // ✅ Aumentar tempo de espera para erros de conexão (conexão pode estar instável)
+          const waitTime = Math.pow(2, attempt) * 2000; // 2s, 4s (mais tempo para conexão se estabilizar)
+          console.log(`⏳ [Claude] Erro de conexão detectado. Aguardando ${waitTime}ms antes de retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        } else {
+          throw new Error('❌ Erro de conexão com a API da Claude após múltiplas tentativas. Por favor, tente novamente em alguns instantes.');
+        }
       }
       
       // Se for erro de overload ou timeout, tentar novamente

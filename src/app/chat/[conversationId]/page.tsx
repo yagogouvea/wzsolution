@@ -231,12 +231,14 @@ function ChatPageContent() {
   }, [generationStartTime]);
 
   // ✅ Calcular se deve mostrar o timer de geração
-  const shouldShowGenerationTimer = isLoading && isGenerating && generationStartTime && !currentSiteCode && (() => {
+  // ✅ Timer só desaparece quando generationStartTime for null (limpo explicitamente)
+  // NÃO desaparece quando currentSiteCode é definido - isso acontece antes do preview ser renderizado
+  const shouldShowGenerationTimer = isLoading && isGenerating && generationStartTime !== null && (() => {
     const previewMessage = messages.find(m => m.type === 'site_preview');
     if (!previewMessage) return true; // Sem preview, mostrar timer
-    // Se tem preview, verificar se foi adicionado há menos de 7 segundos (tempo para renderizar)
+    // Se tem preview, verificar se foi adicionado há menos de 10 segundos (tempo para renderizar completamente)
     const previewAge = Date.now() - previewMessage.timestamp.getTime();
-    return previewAge < 7000; // Mostrar timer por mais 7 segundos após preview aparecer
+    return previewAge < 10000; // Mostrar timer por mais 10 segundos após preview aparecer
   })();
 
   // ✅ Carregar mensagens existentes do banco de dados
@@ -1188,21 +1190,25 @@ Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis.
           // ✅ NÃO definir currentSiteCode ainda - aguardar preview ser renderizado
           // O timer continuará até que o preview esteja realmente visível
           
+          // ✅ IMPORTANTE: NÃO definir currentSiteCode aqui - isso faz o timer desaparecer antes do preview
+          // O timer só deve desaparecer quando generationStartTime for null (limpo explicitamente)
+          
           // ✅ Limpar timer APENAS após preview estar realmente pronto e renderizado na tela
           // Usar um delay maior para garantir que o preview foi renderizado completamente
-          // O timer será limpo após 5 segundos para garantir que o usuário veja o preview
+          // O timer será limpo após 10 segundos para garantir que o usuário veja o preview
           setTimeout(() => {
-            console.log('✅ [generateSitePreview] Preview adicionado, aguardando renderização...');
-            // ✅ Definir currentSiteCode apenas após preview ser renderizado
+            console.log('✅ [generateSitePreview] Preview adicionado, aguardando renderização completa...');
+            // ✅ Definir currentSiteCode após preview ser renderizado (mas timer continua)
             setCurrentSiteCode(previewId);
-            // ✅ Limpar timer após mais um delay para garantir que preview está visível
-            setTimeout(() => {
-              console.log('✅ [generateSitePreview] Limpando timer - preview está pronto e renderizado');
-              setGenerationStartTime(null);
-              setElapsedTime(0);
-              setIsGenerating(false); // ✅ Só definir isGenerating como false quando timer for limpo
-            }, 2000); // ✅ Delay adicional de 2 segundos após definir currentSiteCode
-          }, 5000); // ✅ Aumentar delay para 5 segundos para garantir renderização completa do preview
+          }, 3000); // ✅ Definir currentSiteCode após 3 segundos (mas timer continua)
+          
+          // ✅ Limpar timer APENAS após preview estar completamente renderizado e visível
+          setTimeout(() => {
+            console.log('✅ [generateSitePreview] Limpando timer - preview está pronto e renderizado');
+            setGenerationStartTime(null);
+            setElapsedTime(0);
+            setIsGenerating(false); // ✅ Só definir isGenerating como false quando timer for limpo
+          }, 10000); // ✅ Limpar timer após 10 segundos para garantir que preview está visível
           
           return newMessages;
         });
@@ -2334,7 +2340,11 @@ ${getRedirectMessage(messageToSend)}`,
             chatData.response.includes('criando um site') ||
             chatData.response.includes('preparo seu site') ||
             chatData.response.includes('vou gerar') ||
+            chatData.response.includes('Vou gerar') ||
+            chatData.response.includes('Vou criar') ||
+            chatData.response.includes('vou criar') ||
             chatData.response.includes('gerando agora') ||
+            chatData.response.includes('Gerando agora') ||
             chatData.response.includes('INICIANDO A GERAÇÃO') ||
             chatData.response.includes('iniciando agora') ||
             chatData.response.includes('Iniciando agora') ||
@@ -2345,7 +2355,17 @@ ${getRedirectMessage(messageToSend)}`,
             chatData.response.includes('INICIANDO') ||
             chatData.response.includes('iniciando') ||
             chatData.response.includes('preview') ||
-            chatData.response.includes('visualização')
+            chatData.response.includes('visualização') ||
+            chatData.response.includes('Gerando preview') ||
+            chatData.response.includes('gerando preview') ||
+            chatData.response.includes('preparando a visualização') ||
+            chatData.response.includes('Preparando a visualização') ||
+            chatData.response.includes('Excelente! Vou gerar') ||
+            chatData.response.includes('excelente! vou gerar') ||
+            chatData.response.includes('Aguarde alguns instantes') ||
+            chatData.response.includes('aguarde alguns instantes') ||
+            chatData.response.includes('enquanto crio seu site') ||
+            chatData.response.includes('Enquanto crio seu site')
           );
           
           // ✅ FALLBACK MELHORADO: Condições mais flexíveis para gerar
@@ -2374,9 +2394,22 @@ ${getRedirectMessage(messageToSend)}`,
           // 2. Tem dados completos E resposta indica geração AGORA (não depois) E usuário confirmou implícita OU explicitamente
           // 3. Usuário confirmou páginas especificamente E IA não está perguntando nada
           // 4. Resposta indica geração AGORA + mensagem curta (confirmação implícita) E IA não está perguntando nada
+          // 5. NOVO: IA diz explicitamente que vai gerar AGORA (mesmo sem dados completos) + usuário confirmou
           
           // ✅ PROTEÇÃO: NÃO gerar se a IA está fazendo pergunta ou vai gerar DEPOIS
-          const shouldBlockGeneration = aiCurrentResponseHasQuestion || aiWillGenerateLater;
+          // MAS: Se a IA diz explicitamente "Vou gerar agora" ou "Gerando preview", permitir mesmo com pergunta
+          const explicitGenerationNow = chatData.response && (
+            chatData.response.includes('Vou gerar seu site agora') ||
+            chatData.response.includes('vou gerar seu site agora') ||
+            chatData.response.includes('Gerando preview') ||
+            chatData.response.includes('gerando preview') ||
+            chatData.response.includes('Gerando seu site agora') ||
+            chatData.response.includes('gerando seu site agora') ||
+            chatData.response.includes('*Gerando preview do site*') ||
+            chatData.response.includes('*gerando preview do site*')
+          );
+          
+          const shouldBlockGeneration = (aiCurrentResponseHasQuestion || aiWillGenerateLater) && !explicitGenerationNow;
           
           const shouldGenerateFallback = !shouldBlockGeneration && (
             // Condição 1: Confirmação explícita do usuário + IA vai gerar AGORA (não depois)
@@ -2388,7 +2421,11 @@ ${getRedirectMessage(messageToSend)}`,
             // Condição 4: Dados completos + resposta indica geração AGORA + usuário confirmou implícita OU explicitamente + IA não está perguntando
             (hasCompleteData && responseIndicatesGeneration && (userMessageIsConfirmation || implicitConfirmationPattern) && !aiCurrentResponseHasQuestion) ||
             // Condição 5: Resposta indica geração AGORA + mensagem curta (confirmação implícita) + IA não está perguntando
-            (responseIndicatesGeneration && trimmedMessage.length < 50 && !/(não|nao|nada|cancelar|desistir|parar|mudar|alterar)/i.test(trimmedMessage) && !aiCurrentResponseHasQuestion)
+            (responseIndicatesGeneration && trimmedMessage.length < 50 && !/(não|nao|nada|cancelar|desistir|parar|mudar|alterar)/i.test(trimmedMessage) && !aiCurrentResponseHasQuestion) ||
+            // ✅ NOVA Condição 6: IA diz explicitamente que vai gerar AGORA + usuário confirmou (mesmo sem dados completos)
+            (explicitGenerationNow && userMessageIsConfirmation && !aiCurrentResponseHasQuestion) ||
+            // ✅ NOVA Condição 7: IA diz explicitamente que vai gerar AGORA + mensagem curta do usuário (confirmação implícita)
+            (explicitGenerationNow && trimmedMessage.length < 50 && !/(não|nao|nada|cancelar|desistir|parar|mudar|alterar)/i.test(trimmedMessage))
           );
           
           if (shouldGenerateFallback && !shouldGenerate) {
@@ -2397,6 +2434,7 @@ ${getRedirectMessage(messageToSend)}`,
             console.log('⚠️ [sendMessage] ============================================');
             console.log('📊 [sendMessage] Razão do FALLBACK:', {
               shouldBlockGeneration,
+              explicitGenerationNow,
               aiCurrentResponseHasQuestion,
               aiWillGenerateLater,
               condition1: userMessageIsConfirmation && responseIndicatesGeneration && !aiCurrentResponseHasQuestion,
@@ -2404,6 +2442,8 @@ ${getRedirectMessage(messageToSend)}`,
               condition3: pagesConfirmationPattern && aiWasAskingForPages && !aiCurrentResponseHasQuestion,
               condition4: hasCompleteData && responseIndicatesGeneration && (userMessageIsConfirmation || implicitConfirmationPattern) && !aiCurrentResponseHasQuestion,
               condition5: responseIndicatesGeneration && trimmedMessage.length < 50 && !aiCurrentResponseHasQuestion,
+              condition6: explicitGenerationNow && userMessageIsConfirmation && !aiCurrentResponseHasQuestion,
+              condition7: explicitGenerationNow && trimmedMessage.length < 50 && !/(não|nao|nada|cancelar|desistir|parar|mudar|alterar)/i.test(trimmedMessage),
               confirmedPages: pagesConfirmationPattern && aiWasAskingForPages,
               confirmedGeneral: userMessageIsConfirmation,
               implicitConfirmation: implicitConfirmationPattern,
