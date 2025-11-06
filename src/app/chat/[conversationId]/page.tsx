@@ -230,12 +230,154 @@ function ChatPageContent() {
     return () => clearInterval(interval);
   }, [generationStartTime]);
 
+  // ✅ Ref para armazenar o intervalo de retry
+  const previewCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // ✅ Monitorar quando preview é adicionado e limpar timer quando visível
+  useEffect(() => {
+    // ✅ Procurar por mensagem do tipo site_preview nas mensagens
+    const previewMessage = messages.find(msg => msg.type === 'site_preview' && msg.siteCodeId);
+    
+    if (previewMessage && isGenerating && generationStartTime !== null) {
+      console.log('🔍 [useEffect] Preview encontrado no estado, verificando visibilidade no DOM...', {
+        messageId: previewMessage.id,
+        siteCodeId: previewMessage.siteCodeId
+      });
+      
+      // ✅ Limpar intervalo anterior se existir
+      if (previewCheckIntervalRef.current) {
+        clearInterval(previewCheckIntervalRef.current);
+        previewCheckIntervalRef.current = null;
+      }
+      
+      // ✅ Função para verificar preview - PROCURAR ESPECIFICAMENTE PELO BOTÃO DO PREVIEW
+      const checkPreview = () => {
+        // ✅ Procurar pelo elemento da mensagem
+        const previewElement = document.querySelector(`[data-message-id="${previewMessage.id}"]`) as HTMLElement | null;
+        
+        if (!previewElement) {
+          console.log('⏳ [useEffect] Elemento da mensagem ainda não encontrado no DOM');
+          return false;
+        }
+        
+        // ✅ Verificar se o elemento está visível
+        const rect = previewElement.getBoundingClientRect();
+        const isElementVisible = rect.width > 0 && rect.height > 0 && 
+                                rect.top < window.innerHeight && 
+                                rect.bottom > 0;
+        
+        if (!isElementVisible) {
+          console.log('⏳ [useEffect] Elemento da mensagem encontrado mas não está visível');
+          return false;
+        }
+        
+        // ✅ PROCURAR ESPECIFICAMENTE PELO BOTÃO "Ver Preview do Site"
+        // Este botão é o indicador mais confiável de que o preview está completamente renderizado
+        const previewButton = Array.from(previewElement.querySelectorAll('button')).find(btn => {
+          const buttonText = btn.textContent || btn.innerText || '';
+          return buttonText.includes('Ver Preview') || buttonText.includes('Preview do Site');
+        });
+        
+        if (previewButton) {
+          // ✅ Verificar se o botão está visível e tem dimensões válidas
+          const buttonRect = previewButton.getBoundingClientRect();
+          const isButtonVisible = buttonRect.width > 0 && buttonRect.height > 0 &&
+                                 buttonRect.top < window.innerHeight &&
+                                 buttonRect.bottom > 0;
+          
+          if (isButtonVisible) {
+            console.log('✅ [useEffect] Botão do preview encontrado e visível - LIMPANDO TIMER AGORA!', {
+              buttonText: previewButton.textContent?.substring(0, 50),
+              buttonRect: {
+                width: buttonRect.width,
+                height: buttonRect.height,
+                top: buttonRect.top,
+                bottom: buttonRect.bottom
+              }
+            });
+            
+            // ✅ LIMPAR TIMER IMEDIATAMENTE - preview está pronto!
+            setGenerationStartTime(null);
+            setElapsedTime(0);
+            setIsGenerating(false);
+            
+            // ✅ Limpar intervalo se existir
+            if (previewCheckIntervalRef.current) {
+              clearInterval(previewCheckIntervalRef.current);
+              previewCheckIntervalRef.current = null;
+            }
+            return true; // ✅ Preview encontrado e pronto
+          } else {
+            console.log('⏳ [useEffect] Botão encontrado mas ainda não está visível');
+          }
+        } else {
+          console.log('⏳ [useEffect] Botão do preview ainda não encontrado no DOM');
+        }
+        
+        return false; // ✅ Preview não encontrado ainda
+      };
+      
+      // ✅ Aguardar um pouco para o React renderizar e verificar imediatamente
+      // Usar requestAnimationFrame para garantir que o DOM foi atualizado
+      let animationFrameId: number | null = null;
+      let secondFrameId: number | null = null;
+      
+      animationFrameId = requestAnimationFrame(() => {
+        // ✅ Aguardar mais um frame para garantir renderização completa
+        secondFrameId = requestAnimationFrame(() => {
+          if (checkPreview()) {
+            return; // ✅ Preview já encontrado, não precisa de retry
+          }
+          
+          // ✅ Se não encontrou, verificar novamente a cada 200ms (mais rápido)
+          // Mas limitar a 25 tentativas (5 segundos máximo)
+          let retryCount = 0;
+          const maxRetries = 25;
+          
+          previewCheckIntervalRef.current = setInterval(() => {
+            retryCount++;
+            
+            if (checkPreview()) {
+              return; // ✅ Preview encontrado
+            }
+            
+            if (retryCount >= maxRetries) {
+              console.log('⚠️ [useEffect] Timeout após 5 segundos - limpando timer de segurança');
+              setGenerationStartTime(null);
+              setElapsedTime(0);
+              setIsGenerating(false);
+              
+              if (previewCheckIntervalRef.current) {
+                clearInterval(previewCheckIntervalRef.current);
+                previewCheckIntervalRef.current = null;
+              }
+            }
+          }, 200); // ✅ Verificar a cada 200ms (mais responsivo)
+        });
+      });
+      
+      // ✅ Cleanup: limpar tanto o requestAnimationFrame quanto o setInterval se existir
+      return () => {
+        if (animationFrameId !== null) {
+          cancelAnimationFrame(animationFrameId);
+        }
+        if (secondFrameId !== null) {
+          cancelAnimationFrame(secondFrameId);
+        }
+        if (previewCheckIntervalRef.current) {
+          clearInterval(previewCheckIntervalRef.current);
+          previewCheckIntervalRef.current = null;
+        }
+      };
+    }
+  }, [messages, isGenerating, generationStartTime]);
+
   // ✅ Calcular se deve mostrar o timer de geração
   // ✅ Timer só desaparece quando generationStartTime for null (limpo explicitamente)
   // NÃO depende de isLoading - isso é setado como false no finally antes do preview aparecer
   // NÃO desaparece quando currentSiteCode é definido - isso acontece antes do preview ser renderizado
   // ✅ REGRA SIMPLES: Se generationStartTime não é null E isGenerating é true, mostrar timer
-  // A verificação de visibilidade do preview acontece em checkPreviewInDOM, que limpa o timer quando apropriado
+  // A verificação de visibilidade do preview acontece no useEffect acima
   const shouldShowGenerationTimer = isGenerating && generationStartTime !== null;
 
   // ✅ Carregar mensagens existentes do banco de dados
@@ -1199,103 +1341,14 @@ Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis.
           // ✅ IMPORTANTE: NÃO definir currentSiteCode aqui - isso faz o timer desaparecer antes do preview
           // O timer só deve desaparecer quando generationStartTime for null (limpo explicitamente)
           
-          // ✅ Retornar mensagens PRIMEIRO para que o preview seja adicionado ao estado
-          // DEPOIS, verificar quando o preview está realmente visível no DOM
-          setTimeout(() => {
-            console.log('✅ [generateSitePreview] Preview adicionado ao estado, aguardando renderização no DOM...');
-            // ✅ Definir currentSiteCode após preview ser adicionado ao estado (mas timer continua)
-            setCurrentSiteCode(previewId);
-            
-            // ✅ Verificar periodicamente se o preview está visível no DOM
-            // ✅ IMPORTANTE: A geração pode levar 170-180 segundos, então vamos verificar por até 200 segundos
-            let checkCount = 0;
-            const maxChecks = 400; // ✅ Verificar por até 200 segundos (400 * 500ms = 200s)
-            let timerCleared = false; // ✅ Flag para evitar limpar múltiplas vezes
-            
-            const checkPreviewInDOM = () => {
-              // ✅ Se o timer já foi limpo, não continuar verificando
-              if (timerCleared || !generationStartTime) {
-                return;
-              }
-              
-              checkCount++;
-              
-              // Procurar pela mensagem de preview no DOM usando data-message-type
-              const previewMessageElement = document.querySelector('[data-message-type="site_preview"]') as HTMLElement | null;
-              
-              // Verificar se o elemento está visível (não apenas no DOM, mas também visível na tela)
-              if (previewMessageElement) {
-                const rect = previewMessageElement.getBoundingClientRect();
-                const isVisible = rect.width > 0 && rect.height > 0 && 
-                                 rect.top < window.innerHeight && 
-                                 rect.bottom > 0;
-                
-                if (isVisible) {
-                  console.log('✅ [generateSitePreview] Preview detectado e visível no DOM! Aguardando mais 2 segundos para garantir renderização completa...');
-                  timerCleared = true; // ✅ Marcar como limpo para evitar múltiplas limpezas
-                  
-                  // ✅ Preview encontrado e visível! Aguardar mais 2 segundos para garantir que está completamente renderizado
-                  setTimeout(() => {
-                    // ✅ Verificar novamente se ainda está visível antes de limpar
-                    const stillVisible = document.querySelector('[data-message-type="site_preview"]') as HTMLElement | null;
-                    if (stillVisible) {
-                      const stillRect = stillVisible.getBoundingClientRect();
-                      const stillIsVisible = stillRect.width > 0 && stillRect.height > 0 && 
-                                           stillRect.top < window.innerHeight && 
-                                           stillRect.bottom > 0;
-                      
-                      if (stillIsVisible) {
-                        console.log('✅ [generateSitePreview] Preview está visível e confirmado - limpando timer');
-                        setGenerationStartTime(null);
-                        setElapsedTime(0);
-                        setIsGenerating(false);
-                      } else {
-                        console.log('⚠️ [generateSitePreview] Preview não está mais visível, continuando verificação...');
-                        timerCleared = false; // ✅ Resetar flag se não está mais visível
-                        setTimeout(checkPreviewInDOM, 500);
-                      }
-                    } else {
-                      console.log('⚠️ [generateSitePreview] Preview não encontrado no DOM, continuando verificação...');
-                      timerCleared = false; // ✅ Resetar flag se não encontrou
-                      setTimeout(checkPreviewInDOM, 500);
-                    }
-                  }, 2000); // ✅ 2 segundos após detectar preview visível no DOM
-                  return;
-                } else {
-                  if (checkCount % 10 === 0) { // ✅ Log a cada 5 segundos (10 * 500ms)
-                    console.log(`⏳ [generateSitePreview] Preview no DOM mas ainda não visível (verificação ${checkCount}/${maxChecks})...`);
-                  }
-                }
-              } else {
-                if (checkCount % 10 === 0) { // ✅ Log a cada 5 segundos
-                  console.log(`⏳ [generateSitePreview] Preview ainda não encontrado no DOM (verificação ${checkCount}/${maxChecks})...`);
-                }
-              }
-              
-              // ✅ Se não encontrou e ainda não excedeu o limite, continuar verificando
-              if (checkCount < maxChecks) {
-                setTimeout(checkPreviewInDOM, 500); // ✅ Verificar a cada 500ms
-              } else {
-                // ✅ Timeout de segurança: se não encontrou após 200 segundos, limpar mesmo assim
-                // Mas só se realmente não há preview (pode ter falhado)
-                const finalCheck = document.querySelector('[data-message-type="site_preview"]') as HTMLElement | null;
-                if (!finalCheck) {
-                  console.log('⚠️ [generateSitePreview] Timeout: Preview não detectado visível no DOM após 200s - limpando timer de segurança');
-                  timerCleared = true;
-                  setGenerationStartTime(null);
-                  setElapsedTime(0);
-                  setIsGenerating(false);
-                } else {
-                  console.log('⚠️ [generateSitePreview] Timeout mas preview existe no DOM - continuando verificação...');
-                  // ✅ Continuar verificando mesmo após timeout se preview existe
-                  setTimeout(checkPreviewInDOM, 500);
-                }
-              }
-            };
-            
-            // ✅ Iniciar verificação após um pequeno delay para dar tempo do React renderizar
-            setTimeout(checkPreviewInDOM, 1000); // ✅ Aumentar para 1 segundo para dar mais tempo ao React
-          }, 100); // ✅ Pequeno delay para garantir que o preview foi adicionado ao estado
+          // ✅ IMPORTANTE: NÃO limpar o timer aqui!
+          // O timer será limpo pelo useEffect que monitora quando preview é adicionado ao estado
+          // O useEffect verifica quando uma mensagem do tipo 'site_preview' aparece em messages
+          
+          // ✅ Definir currentSiteCode após preview ser adicionado ao estado (mas timer continua)
+          setCurrentSiteCode(previewId);
+          
+          console.log('✅ [generateSitePreview] Preview adicionado ao estado - useEffect irá verificar visibilidade');
           
           return newMessages;
         });
@@ -1469,9 +1522,11 @@ Digite seu prompt primeiro para gerar o site.`,
         });
         
         // Buscar versões diretamente para debug
+        let versions: any[] = [];
+        let dbCount = 0;
         try {
           const { DatabaseService } = await import('@/lib/supabase');
-          const versions = await DatabaseService.getSiteVersions(conversationId);
+          versions = await DatabaseService.getSiteVersions(conversationId);
           console.log('📊 [modifySite] Versões no banco (primeira verificação):', {
             total: versions?.length || 0,
             versions: versions?.map(v => ({ version: v.version_number, id: v.id?.substring(0, 8) }))
@@ -1482,7 +1537,7 @@ Digite seu prompt primeiro para gerar o site.`,
           // Versão 2 = 1ª modificação (1 modificação)
           // Versão 3 = 2ª modificação (2 modificações)
           // Modificações = total de versões - 1 (subtrair a versão inicial)
-          const dbCount = versions && versions.length > 0 ? Math.max(0, versions.length - 1) : 0;
+          dbCount = versions && versions.length > 0 ? Math.max(0, versions.length - 1) : 0;
           
           console.log('🔍 [modifySite] Contagem detalhada:', {
             totalVersions: versions?.length || 0,
@@ -1490,10 +1545,22 @@ Digite seu prompt primeiro para gerar o site.`,
             expectedModifications,
             versionNumbers: versions?.map(v => v.version_number)
           });
-          
-          // ✅ Usar contagem do banco se for maior ou igual à esperada (pode ter havido atualização)
-          // Mas garantir que não seja maior que o esperado + 1 (evitar contagem duplicada)
-          if (dbCount >= expectedModifications && dbCount <= expectedModifications + 1) {
+        } catch (versionError: any) {
+          // ✅ Tratar erro de Supabase não configurado no cliente
+          const errorMessage = versionError?.message || String(versionError);
+          if (errorMessage.includes('supabaseUrl is required') || errorMessage.includes('supabaseAnonKey is required')) {
+            console.warn('⚠️ [modifySite] Supabase não configurado no cliente - ignorando busca de versões para debug');
+          } else {
+            console.warn('⚠️ [modifySite] Erro ao buscar versões para debug:', versionError);
+          }
+          // ✅ Se deu erro, usar versões vazias e contagem 0 para continuar
+          versions = [];
+          dbCount = 0;
+        }
+        
+        // ✅ Usar contagem do banco se for maior ou igual à esperada (pode ter havido atualização)
+        // Mas garantir que não seja maior que o esperado + 1 (evitar contagem duplicada)
+        if (dbCount >= expectedModifications && dbCount <= expectedModifications + 1) {
             updatedLimits.modificationsUsed = dbCount;
             updatedLimits.modificationsRemaining = Math.max(0, PROJECT_LIMITS.MODIFICATIONS - dbCount);
             updatedLimits.allowed = dbCount < PROJECT_LIMITS.MODIFICATIONS;

@@ -86,16 +86,152 @@ export default function FullscreenChat({
     return () => clearInterval(interval);
   }, [generationStartTime]);
 
+  // ✅ Ref para armazenar o intervalo de verificação do preview
+  const previewCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // ✅ Monitorar quando preview é adicionado e limpar timer quando visível
+  useEffect(() => {
+    // ✅ Procurar por mensagem do tipo site_preview nas mensagens
+    const previewMessage = messages.find(msg => msg.type === 'site_preview' && msg.siteCodeId);
+    
+    if (previewMessage && isGenerating && generationStartTime !== null) {
+      console.log('🔍 [FullscreenChat] Preview encontrado no estado, verificando visibilidade no DOM...', {
+        messageId: previewMessage.id,
+        siteCodeId: previewMessage.siteCodeId
+      });
+      
+      // ✅ Limpar intervalo anterior se existir
+      if (previewCheckIntervalRef.current) {
+        clearInterval(previewCheckIntervalRef.current);
+        previewCheckIntervalRef.current = null;
+      }
+      
+      // ✅ Função para verificar preview - PROCURAR ESPECIFICAMENTE PELO BOTÃO DO PREVIEW
+      const checkPreview = () => {
+        // ✅ Procurar pelo elemento da mensagem
+        const previewElement = document.querySelector(`[data-message-id="${previewMessage.id}"]`) as HTMLElement | null;
+        
+        if (!previewElement) {
+          console.log('⏳ [FullscreenChat] Elemento da mensagem ainda não encontrado no DOM');
+          return false;
+        }
+        
+        // ✅ Verificar se o elemento está visível
+        const rect = previewElement.getBoundingClientRect();
+        const isElementVisible = rect.width > 0 && rect.height > 0 && 
+                                rect.top < window.innerHeight && 
+                                rect.bottom > 0;
+        
+        if (!isElementVisible) {
+          console.log('⏳ [FullscreenChat] Elemento da mensagem encontrado mas não está visível');
+          return false;
+        }
+        
+        // ✅ PROCURAR ESPECIFICAMENTE PELO BOTÃO "Ver Preview do Site"
+        // Este botão é o indicador mais confiável de que o preview está completamente renderizado
+        const previewButton = Array.from(previewElement.querySelectorAll('button')).find(btn => {
+          const buttonText = btn.textContent || btn.innerText || '';
+          return buttonText.includes('Ver Preview') || buttonText.includes('Preview do Site');
+        });
+        
+        if (previewButton) {
+          // ✅ Verificar se o botão está visível e tem dimensões válidas
+          const buttonRect = previewButton.getBoundingClientRect();
+          const isButtonVisible = buttonRect.width > 0 && buttonRect.height > 0 &&
+                                 buttonRect.top < window.innerHeight &&
+                                 buttonRect.bottom > 0;
+          
+          if (isButtonVisible) {
+            console.log('✅ [FullscreenChat] Botão do preview encontrado e visível - LIMPANDO TIMER AGORA!', {
+              buttonText: previewButton.textContent?.substring(0, 50),
+              buttonRect: {
+                width: buttonRect.width,
+                height: buttonRect.height,
+                top: buttonRect.top,
+                bottom: buttonRect.bottom
+              }
+            });
+            
+            // ✅ LIMPAR TIMER IMEDIATAMENTE - preview está pronto!
+            setGenerationStartTime(null);
+            setElapsedTime(0);
+            setIsGenerating(false);
+            
+            // ✅ Limpar intervalo se existir
+            if (previewCheckIntervalRef.current) {
+              clearInterval(previewCheckIntervalRef.current);
+              previewCheckIntervalRef.current = null;
+            }
+            return true; // ✅ Preview encontrado e pronto
+          } else {
+            console.log('⏳ [FullscreenChat] Botão encontrado mas ainda não está visível');
+          }
+        } else {
+          console.log('⏳ [FullscreenChat] Botão do preview ainda não encontrado no DOM');
+        }
+        
+        return false; // ✅ Preview não encontrado ainda
+      };
+      
+      // ✅ Aguardar um pouco para o React renderizar e verificar imediatamente
+      // Usar requestAnimationFrame para garantir que o DOM foi atualizado
+      let animationFrameId: number | null = null;
+      let secondFrameId: number | null = null;
+      
+      animationFrameId = requestAnimationFrame(() => {
+        // ✅ Aguardar mais um frame para garantir renderização completa
+        secondFrameId = requestAnimationFrame(() => {
+          if (checkPreview()) {
+            return; // ✅ Preview já encontrado, não precisa de retry
+          }
+          
+          // ✅ Se não encontrou, verificar novamente a cada 200ms (mais rápido)
+          // Mas limitar a 25 tentativas (5 segundos máximo)
+          let retryCount = 0;
+          const maxRetries = 25;
+          
+          previewCheckIntervalRef.current = setInterval(() => {
+            retryCount++;
+            
+            if (checkPreview()) {
+              return; // ✅ Preview encontrado
+            }
+            
+            if (retryCount >= maxRetries) {
+              console.log('⚠️ [FullscreenChat] Timeout após 5 segundos - limpando timer de segurança');
+              setGenerationStartTime(null);
+              setElapsedTime(0);
+              setIsGenerating(false);
+              
+              if (previewCheckIntervalRef.current) {
+                clearInterval(previewCheckIntervalRef.current);
+                previewCheckIntervalRef.current = null;
+              }
+            }
+          }, 200); // ✅ Verificar a cada 200ms (mais responsivo)
+        });
+      });
+      
+      // ✅ Cleanup: limpar tanto o requestAnimationFrame quanto o setInterval se existir
+      return () => {
+        if (animationFrameId !== null) {
+          cancelAnimationFrame(animationFrameId);
+        }
+        if (secondFrameId !== null) {
+          cancelAnimationFrame(secondFrameId);
+        }
+        if (previewCheckIntervalRef.current) {
+          clearInterval(previewCheckIntervalRef.current);
+          previewCheckIntervalRef.current = null;
+        }
+      };
+    }
+  }, [messages, isGenerating, generationStartTime]);
+
   // ✅ Calcular se deve mostrar o timer de geração
   // ✅ Timer só desaparece quando generationStartTime for null (limpo explicitamente)
   // NÃO depende de isLoading - isso é setado como false no finally antes do preview aparecer
-  const shouldShowGenerationTimer = isGenerating && generationStartTime !== null && (() => {
-    const previewMessage = messages.find(m => m.type === 'site_preview');
-    if (!previewMessage) return true; // Sem preview, mostrar timer
-    // Se tem preview, verificar se foi adicionado há menos de 10 segundos (tempo para renderizar completamente)
-    const previewAge = Date.now() - previewMessage.timestamp.getTime();
-    return previewAge < 10000; // Mostrar timer por mais 10 segundos após preview aparecer
-  })();
+  const shouldShowGenerationTimer = isGenerating && generationStartTime !== null;
 
   useEffect(() => {
     if (isOpen && !isMinimized) {
@@ -457,22 +593,15 @@ Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis.
           // ✅ IMPORTANTE: NÃO definir currentSiteCode aqui - isso faz o timer desaparecer antes do preview
           // O timer só deve desaparecer quando generationStartTime for null (limpo explicitamente)
           
-          // ✅ Limpar timer APENAS após preview estar realmente pronto e renderizado na tela
-          // Usar um delay maior para garantir que o preview foi renderizado completamente
-          // O timer será limpo após 10 segundos para garantir que o usuário veja o preview
-          setTimeout(() => {
-            console.log('✅ [FullscreenChat] Preview adicionado, aguardando renderização completa...');
-            // ✅ Definir currentSiteCode após preview ser renderizado (mas timer continua)
-            setCurrentSiteCode(previewId);
-          }, 3000); // ✅ Definir currentSiteCode após 3 segundos (mas timer continua)
+          // ✅ IMPORTANTE: NÃO limpar o timer aqui!
+          // O timer será limpo pelo useEffect que monitora quando preview é adicionado ao estado
+          // O useEffect verifica quando uma mensagem do tipo 'site_preview' aparece em messages
+          // e verifica se o botão do preview está visível no DOM
           
-          // ✅ Limpar timer APENAS após preview estar completamente renderizado e visível
-          setTimeout(() => {
-            console.log('✅ [FullscreenChat] Limpando timer - preview está pronto e renderizado');
-            setGenerationStartTime(null);
-            setElapsedTime(0);
-            setIsGenerating(false); // ✅ Só definir isGenerating como false quando timer for limpo
-          }, 10000); // ✅ Limpar timer após 10 segundos para garantir que preview está visível
+          // ✅ Definir currentSiteCode após preview ser adicionado ao estado (mas timer continua)
+          setCurrentSiteCode(previewId);
+          
+          console.log('✅ [FullscreenChat] Preview adicionado ao estado - useEffect irá verificar visibilidade');
           
           return [...filteredPrev, previewMessage];
         });
@@ -1368,6 +1497,8 @@ ${getRedirectMessage(messageToSend)}`,
               {messages.map((message) => (
                 <motion.div
                   key={message.id}
+                  data-message-id={message.id}
+                  data-message-type={message.type}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   className={`flex gap-4 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}

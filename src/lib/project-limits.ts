@@ -80,7 +80,16 @@ export async function countModifications(conversationId: string): Promise<number
     });
     
     return modifications;
-  } catch (error) {
+  } catch (error: any) {
+    // ✅ Tratar erro de Supabase não configurado no cliente (variáveis de ambiente não disponíveis)
+    const errorMessage = error?.message || String(error);
+    if (errorMessage.includes('supabaseUrl is required') || errorMessage.includes('supabaseAnonKey is required')) {
+      // ✅ Não logar erro quando Supabase não está configurado no cliente (é esperado em produção)
+      console.warn('⚠️ [countModifications] Supabase não configurado no cliente - retornando 0 modificações');
+      return 0;
+    }
+    
+    // ✅ Para outros erros, logar normalmente
     console.error('❌ Erro ao contar modificações:', error);
     console.error('❌ Stack:', error instanceof Error ? error.stack : 'N/A');
     return 0;
