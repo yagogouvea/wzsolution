@@ -8,7 +8,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Send, User, Bot, Image as ImageIcon, Monitor, Eye, X, XCircle, Copy, Check } from 'lucide-react';
 import PreviewIframe from '@/components/PreviewIframe';
-import ConsoleBlocker from '@/components/ConsoleBlocker';
 import AIThinkingIndicator from '@/components/AIThinkingIndicator';
 import { moderateMessage, getRedirectMessage } from '@/lib/message-moderation';
 import { canMakeModification, getWhatsAppUrl, generateProjectId, PROJECT_LIMITS } from '@/lib/project-limits';
@@ -1952,14 +1951,32 @@ ${getRedirectMessage(messageToSend)}`,
           
           // ✅ VERIFICAÇÃO ALTERNATIVA (fallback) - apenas se shouldGenerate não for true
           const trimmedMessage = messageToSend.trim().toLowerCase();
+          
+          // ✅ Padrões de confirmação básicos
           const exactConfirmationPattern = /^(gerar|sim|ok|pode gerar|pronto|pode|vamos|está bom|está ok|vai|confirmo|confirmado|pode criar|pode fazer|pode começar|okay|okay okay)$/i;
           const repeatedConfirmation = /^(ok|sim|gerar|pronto|pode)\s+(ok|sim|gerar|pronto|pode)$/i.test(trimmedMessage);
           const isOkOk = /^ok\s+ok$/i.test(trimmedMessage) || trimmedMessage === 'ok ok' || trimmedMessage === 'ok  ok' || trimmedMessage === 'ok   ok';
           
+          // ✅ Padrões de confirmação de páginas
+          const pagesConfirmationPattern = /(todas as páginas|aceito a sugestão|aceitar|confirmar páginas|está bom|quero todas|todas|pode gerar|pode criar|está ok)/i.test(trimmedMessage);
+          
+          // ✅ Verificar se a resposta anterior da IA estava pedindo confirmação
+          const lastAIMessage = messages.filter(m => m.sender === 'ai').slice(-1)[0];
+          const aiWasAskingForPages = lastAIMessage?.content && (
+            lastAIMessage.content.includes('confirme as páginas') ||
+            lastAIMessage.content.includes('Quais páginas') ||
+            lastAIMessage.content.includes('confirmar as páginas') ||
+            lastAIMessage.content.includes('Opção 1') ||
+            lastAIMessage.content.includes('Opção 2') ||
+            lastAIMessage.content.includes('Todas as páginas') ||
+            lastAIMessage.content.includes('Aceitar minha sugestão')
+          );
+          
           const userMessageIsConfirmation = exactConfirmationPattern.test(trimmedMessage) || 
                                              repeatedConfirmation ||
                                              isOkOk ||
-                                             (trimmedMessage.length < 50 && /(sim|ok|gerar|pronto|pode|confirmo|tudo certo)/i.test(trimmedMessage) && !/(não|nao|nada|cancelar|desistir|parar)/i.test(trimmedMessage));
+                                             pagesConfirmationPattern ||
+                                             (trimmedMessage.length < 100 && /(sim|ok|gerar|pronto|pode|confirmo|tudo certo|todas|aceito)/i.test(trimmedMessage) && !/(não|nao|nada|cancelar|desistir|parar)/i.test(trimmedMessage));
           
           const responseIndicatesGeneration = chatData.response && (
             chatData.response.includes('Gerando seu site') ||
@@ -1976,18 +1993,61 @@ ${getRedirectMessage(messageToSend)}`,
             chatData.response.includes('iniciando a criação') ||
             chatData.response.includes('Iniciando a criação') ||
             chatData.response.includes('INICIANDO') ||
-            chatData.response.includes('iniciando')
+            chatData.response.includes('iniciando') ||
+            chatData.response.includes('preview') ||
+            chatData.response.includes('visualização')
           );
           
-          // ✅ FALLBACK: Se o usuário confirmou E a resposta indica geração, gerar mesmo sem flag
-          if (userMessageIsConfirmation && responseIndicatesGeneration && !shouldGenerate) {
-            console.log('⚠️ [sendMessage] FALLBACK: Gerando mesmo sem flag shouldGeneratePreview');
+          // ✅ FALLBACK MELHORADO: Se o usuário confirmou páginas OU outras confirmações E há dados completos, gerar
+          const hasCompleteData = chatData.hasCompleteData !== false; // Assumir true se não especificado
+          
+          console.log('🔍 [sendMessage] Verificação FALLBACK:', {
+            userMessageIsConfirmation,
+            pagesConfirmationPattern,
+            aiWasAskingForPages,
+            responseIndicatesGeneration,
+            hasCompleteData,
+            messagePreview: trimmedMessage.substring(0, 50)
+          });
+          
+          // ✅ Se usuário confirmou páginas OU confirmação geral + resposta indica geração OU tem dados completos
+          if ((userMessageIsConfirmation && (responseIndicatesGeneration || hasCompleteData || aiWasAskingForPages)) && !shouldGenerate) {
+            console.log('⚠️ [sendMessage] FALLBACK ATIVADO: Gerando mesmo sem flag shouldGeneratePreview');
+            console.log('📊 [sendMessage] Razão:', {
+              confirmedPages: pagesConfirmationPattern && aiWasAskingForPages,
+              confirmedGeneral: userMessageIsConfirmation,
+              responseIndicatesGeneration,
+              hasCompleteData
+            });
+            
             const promptToUse = messageToSend;
+            
+            // ✅ Adicionar mensagem da IA primeiro
+            if (chatData.response) {
+              const aiMessage: Message = {
+                id: crypto.randomUUID(),
+                sender: 'ai',
+                content: chatData.response,
+                timestamp: new Date(),
+                type: 'text'
+              };
+              setMessages(prev => [...prev, aiMessage]);
+            }
+            
             setTimeout(() => {
+              console.log('🚀 [sendMessage] Iniciando geração via FALLBACK...');
               generateSitePreview(promptToUse)
-                .then(() => console.log('✅ [sendMessage] Geração (fallback) concluída'))
-                .catch((error) => console.error('❌ [sendMessage] Erro (fallback):', error));
-            }, 300);
+                .then(() => {
+                  console.log('✅ [sendMessage] Geração (fallback) concluída');
+                  setIsLoading(false);
+                })
+                .catch((error) => {
+                  console.error('❌ [sendMessage] Erro (fallback):', error);
+                  setIsLoading(false);
+                });
+            }, 500);
+            
+            return; // ✅ Não continuar com código abaixo
           }
           
           setIsLoading(false);
@@ -2253,7 +2313,6 @@ ${getRedirectMessage(messageToSend)}`,
         touchAction: 'pan-y', // ✅ Permitir scroll vertical, bloquear zoom/pan horizontal
       }}
     >
-      <ConsoleBlocker />
       
       {/* Header Ultra Minimalista - Botão voltar, ID da conversa e cancelar requisições */}
       <div className="h-12 sm:h-14 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700 flex items-center justify-between px-3 sm:px-4 flex-shrink-0 shadow-lg" style={{ paddingTop: 'env(safe-area-inset-top)' }}>

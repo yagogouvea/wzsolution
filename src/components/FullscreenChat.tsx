@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, Minimize2, Maximize2, User, Bot, Image as ImageIcon, Monitor, Eye, Copy, Check, XCircle } from 'lucide-react';
 import PreviewIframe from './PreviewIframe';
-import ConsoleBlocker from './ConsoleBlocker';
 import { moderateMessage, getRedirectMessage } from '@/lib/message-moderation';
 import { canMakeModification, getWhatsAppUrl, generateProjectId, PROJECT_LIMITS } from '@/lib/project-limits';
 
@@ -1130,9 +1129,6 @@ ${getRedirectMessage(messageToSend)}`,
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
-      {/* 🔒 Bloquear console na área de conversa */}
-      <ConsoleBlocker />
-      
       {/* Header */}
       <div className="h-16 bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-between px-6 text-white">
         <div className="flex items-center gap-4">
