@@ -948,9 +948,16 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
       try {
         const { DatabaseService } = await import('@/lib/supabase');
         conversationHistory = await DatabaseService.getMessages(conversationId);
-        console.log('📚 [generateSitePreview] Histórico completo carregado:', conversationHistory.length, 'mensagens');
+        console.log('📚 [generateSitePreview] Histórico completo carregado do banco:', conversationHistory.length, 'mensagens');
       } catch (historyError) {
-        console.warn('⚠️ [generateSitePreview] Erro ao buscar histórico (continuando):', historyError);
+        console.warn('⚠️ [generateSitePreview] Erro ao buscar histórico do banco (usando mensagens locais):', historyError);
+        // ✅ FALLBACK: Usar mensagens já carregadas no componente
+        conversationHistory = messages.map(msg => ({
+          sender_type: msg.sender,
+          content: msg.content,
+          timestamp: msg.timestamp?.toISOString() || new Date().toISOString()
+        }));
+        console.log('📚 [generateSitePreview] Usando mensagens locais como histórico:', conversationHistory.length, 'mensagens');
       }
 
       // ✅ Construir prompt completo com TODOS os dados disponíveis + histórico da conversa
@@ -2193,53 +2200,61 @@ ${getRedirectMessage(messageToSend)}`,
       }
     }
 
-    // Dados da empresa
+    // ✅ Dados da empresa - COM VERIFICAÇÃO DE SEGURANÇA
+    // Usar dados do banco OU dados iniciais como fallback
+    const companyName = projectData?.company_name || initialData?.companyName || 'Empresa';
+    const businessType = projectData?.business_type || projectData?.business_sector || initialData?.businessSector || 'Negócios';
+    
     sections.push(`\n🏢 **DADOS DA EMPRESA:**`);
-    if (projectData.company_name) sections.push(`- Nome: ${projectData.company_name}`);
-    if (projectData.business_type) sections.push(`- Setor/Negócio: ${projectData.business_type}`);
-    if (projectData.business_sector && projectData.business_sector !== projectData.business_type) {
-      sections.push(`- Setor: ${projectData.business_sector}`);
-    }
-    if (projectData.slogan) sections.push(`- Slogan: "${projectData.slogan}"`);
-    if (projectData.business_objective) sections.push(`- Objetivo: ${projectData.business_objective}`);
-    if (projectData.target_audience) sections.push(`- Público-alvo: ${projectData.target_audience}`);
-    if (projectData.short_description) sections.push(`- Descrição: ${projectData.short_description}`);
-
-    // Identidade visual
-    if (projectData.design_style || projectData.design_colors) {
-      sections.push(`\n🎨 **IDENTIDADE VISUAL:**`);
-      if (projectData.design_style) sections.push(`- Tema/Estilo: ${projectData.design_style}`);
-      if (projectData.design_colors && Array.isArray(projectData.design_colors) && projectData.design_colors.length > 0) {
-        sections.push(`- Cores: ${projectData.design_colors.join(', ')}`);
+    if (companyName && companyName !== 'Empresa') sections.push(`- Nome: ${companyName}`);
+    if (businessType && businessType !== 'Negócios') sections.push(`- Setor/Negócio: ${businessType}`);
+    
+    // ✅ Apenas adicionar dados extras se projectData não for null
+    if (projectData) {
+      if (projectData.business_sector && projectData.business_sector !== businessType) {
+        sections.push(`- Setor: ${projectData.business_sector}`);
       }
-    }
+      if (projectData.slogan) sections.push(`- Slogan: "${projectData.slogan}"`);
+      if (projectData.business_objective) sections.push(`- Objetivo: ${projectData.business_objective}`);
+      if (projectData.target_audience) sections.push(`- Público-alvo: ${projectData.target_audience}`);
+      if (projectData.short_description) sections.push(`- Descrição: ${projectData.short_description}`);
 
-    // Estrutura do site
-    if (projectData.pages_needed && Array.isArray(projectData.pages_needed) && projectData.pages_needed.length > 0) {
-      sections.push(`\n🏗️ **ESTRUTURA DO SITE:**`);
-      sections.push(`- Páginas/Seções: ${projectData.pages_needed.join(', ')}`);
-      if (projectData.site_structure) sections.push(`- Tipo: ${projectData.site_structure}`);
-    }
+      // Identidade visual
+      if (projectData.design_style || projectData.design_colors) {
+        sections.push(`\n🎨 **IDENTIDADE VISUAL:**`);
+        if (projectData.design_style) sections.push(`- Tema/Estilo: ${projectData.design_style}`);
+        if (projectData.design_colors && Array.isArray(projectData.design_colors) && projectData.design_colors.length > 0) {
+          sections.push(`- Cores: ${projectData.design_colors.join(', ')}`);
+        }
+      }
 
-    // Funcionalidades
-    if (projectData.functionalities && Array.isArray(projectData.functionalities) && projectData.functionalities.length > 0) {
-      sections.push(`\n⚙️ **FUNCIONALIDADES:**`);
-      sections.push(`- ${projectData.functionalities.join(', ')}`);
-    }
+      // Estrutura do site
+      if (projectData.pages_needed && Array.isArray(projectData.pages_needed) && projectData.pages_needed.length > 0) {
+        sections.push(`\n🏗️ **ESTRUTURA DO SITE:**`);
+        sections.push(`- Páginas/Seções: ${projectData.pages_needed.join(', ')}`);
+        if (projectData.site_structure) sections.push(`- Tipo: ${projectData.site_structure}`);
+      }
 
-    // Conteúdo
-    if (projectData.cta_text || projectData.tone) {
-      sections.push(`\n✍️ **CONTEÚDO:**`);
-      if (projectData.cta_text) sections.push(`- CTA: "${projectData.cta_text}"`);
-      // tone pode estar em content_needs
-      if (projectData.content_needs) {
-        try {
-          const contentNeeds = typeof projectData.content_needs === 'string' 
-            ? JSON.parse(projectData.content_needs) 
-            : projectData.content_needs;
-          if (contentNeeds.tone) sections.push(`- Tom de voz: ${contentNeeds.tone}`);
-        } catch (e) {
-          // Ignorar erro de parse
+      // Funcionalidades
+      if (projectData.functionalities && Array.isArray(projectData.functionalities) && projectData.functionalities.length > 0) {
+        sections.push(`\n⚙️ **FUNCIONALIDADES:**`);
+        sections.push(`- ${projectData.functionalities.join(', ')}`);
+      }
+
+      // Conteúdo
+      if (projectData.cta_text || projectData.tone) {
+        sections.push(`\n✍️ **CONTEÚDO:**`);
+        if (projectData.cta_text) sections.push(`- CTA: "${projectData.cta_text}"`);
+        // tone pode estar em content_needs
+        if (projectData.content_needs) {
+          try {
+            const contentNeeds = typeof projectData.content_needs === 'string' 
+              ? JSON.parse(projectData.content_needs) 
+              : projectData.content_needs;
+            if (contentNeeds.tone) sections.push(`- Tom de voz: ${contentNeeds.tone}`);
+          } catch (e) {
+            // Ignorar erro de parse
+          }
         }
       }
     }
