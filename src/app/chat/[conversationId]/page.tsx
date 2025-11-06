@@ -1561,19 +1561,16 @@ Digite seu prompt primeiro para gerar o site.`,
         // ✅ Usar contagem do banco se for maior ou igual à esperada (pode ter havido atualização)
         // Mas garantir que não seja maior que o esperado + 1 (evitar contagem duplicada)
         if (dbCount >= expectedModifications && dbCount <= expectedModifications + 1) {
-            updatedLimits.modificationsUsed = dbCount;
-            updatedLimits.modificationsRemaining = Math.max(0, PROJECT_LIMITS.MODIFICATIONS - dbCount);
-            updatedLimits.allowed = dbCount < PROJECT_LIMITS.MODIFICATIONS;
-            console.log('✅ [modifySite] Usando contagem do banco (mais atualizada):', dbCount);
-          } else if (dbCount > expectedModifications + 1) {
-            console.warn('⚠️ [modifySite] Contagem do banco muito maior que esperada, usando esperada:', {
-              dbCount,
-              expectedModifications
-            });
-            // Manter expectedModifications se dbCount for muito maior (pode ser erro de contagem)
-          }
-        } catch (err) {
-          console.error('❌ [modifySite] Erro ao buscar versões:', err);
+          updatedLimits.modificationsUsed = dbCount;
+          updatedLimits.modificationsRemaining = Math.max(0, PROJECT_LIMITS.MODIFICATIONS - dbCount);
+          updatedLimits.allowed = dbCount < PROJECT_LIMITS.MODIFICATIONS;
+          console.log('✅ [modifySite] Usando contagem do banco (mais atualizada):', dbCount);
+        } else if (dbCount > expectedModifications + 1) {
+          console.warn('⚠️ [modifySite] Contagem do banco muito maior que esperada, usando esperada:', {
+            dbCount,
+            expectedModifications
+          });
+          // Manter expectedModifications se dbCount for muito maior (pode ser erro de contagem)
         }
         
         // ✅ Retry apenas se a contagem ainda não bateu (problema de replicação)
