@@ -559,6 +559,19 @@ export async function GET(request: NextRequest) {
     // Buscar mensagens
     const messages = await DatabaseService.getMessages(conversationId);
     
+    // ✅ Log detalhado das mensagens para debug
+    if (messages && messages.length > 0) {
+      const aiMessages = messages.filter(m => m.sender_type === 'ai');
+      console.log('📤 [chat-GET] Mensagens da IA encontradas:', aiMessages.map(m => ({
+        id: m.id,
+        hasMetadata: !!m.metadata,
+        metadataType: typeof m.metadata,
+        metadata: m.metadata,
+        showCreateButton: m.metadata?.showCreateButton,
+        hasCompleteProjectData: m.metadata?.hasCompleteProjectData
+      })));
+    }
+    
     // Buscar dados do projeto
     const projectData = await DatabaseService.getProjectData(conversationId);
 

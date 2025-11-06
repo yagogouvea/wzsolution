@@ -277,10 +277,25 @@ function ChatPageContent() {
           hasPreview: !!m.siteCodeId,
           previewContent: m.content.includes('gerado com sucesso'),
           hasMetadata: !!m.metadata,
+          metadataType: typeof m.metadata,
+          metadataRaw: m.metadata,
           showCreateButton: m.metadata?.showCreateButton,
           hasCompleteProjectData: m.metadata?.hasCompleteProjectData,
           userConfirmed: m.metadata?.userConfirmed
         })));
+        
+        // ✅ Log detalhado da primeira mensagem da IA para debug
+        const firstAIMessage = formattedMessages.find(m => m.sender === 'ai');
+        if (firstAIMessage) {
+          console.log('🔍 [loadExistingMessages] Primeira mensagem da IA (detalhada):', {
+            id: firstAIMessage.id,
+            content: firstAIMessage.content.substring(0, 100),
+            metadata: firstAIMessage.metadata,
+            metadataKeys: firstAIMessage.metadata ? Object.keys(firstAIMessage.metadata) : [],
+            showCreateButton: firstAIMessage.metadata?.showCreateButton,
+            showCreateButtonType: typeof firstAIMessage.metadata?.showCreateButton
+          });
+        }
         
         setMessages(formattedMessages);
         
@@ -1090,19 +1105,30 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
             return prev;
           }
           
-          // ✅ Remover TODAS as mensagens de confirmação recentes (últimas 5 mensagens)
-          // Verificar mensagens que contêm palavras-chave de confirmação
-          let filteredPrev = prev;
-          const recentMessages = prev.slice(-5);
-          const confirmationKeywords = ['vou criar', 'gerando', 'confirmado', 'perfeito', 'em instantes', 'aguarde', 'iniciando'];
+          // ✅ Remover APENAS mensagens que REALMENTE são de confirmação (mais específico)
+          // Padrões mais específicos para evitar remover mensagens normais
+          const confirmationPatterns = [
+            /vou criar/i,
+            /estou criando/i,
+            /gerando (seu|o) (site|código)/i,
+            /confirmado/i,
+            /iniciando (a )?gera(ção|r)/i,
+            /criando (seu|o) (site|código)/i,
+            /processando (seu|o) (site|código)/i,
+            /em instantes (você|o) (verá|ver)/i,
+            /aguarde (enquanto|que)/i,
+            /perfeito!?\s*(vou|estou|vamos)/i, // Só "perfeito" seguido de ação
+            /perfeito!?\s*🎉/i, // "perfeito" com emoji de celebração
+          ];
           
-          // ✅ Remover TODAS as mensagens de confirmação recentes antes de adicionar preview
-          filteredPrev = prev.filter((m) => {
+          // ✅ Remover APENAS mensagens de confirmação recentes antes de adicionar preview
+          let filteredPrev = prev.filter((m) => {
             // Verificar se é mensagem de confirmação duplicada (últimas 5 mensagens)
             const isRecent = prev.indexOf(m) >= prev.length - 5;
             if (isRecent && m.sender === 'ai' && m.type === 'text') {
-              const content = m.content.toLowerCase();
-              const isConfirmation = confirmationKeywords.some(keyword => content.includes(keyword));
+              const content = m.content || '';
+              // ✅ Verificar se a mensagem corresponde a um padrão de confirmação específico
+              const isConfirmation = confirmationPatterns.some(pattern => pattern.test(content));
               if (isConfirmation) {
                 console.log('🗑️ [generateSitePreview] Removendo mensagem de confirmação duplicada:', m.content.substring(0, 50));
                 return false; // Remover mensagem de confirmação
@@ -2063,13 +2089,28 @@ ${getRedirectMessage(messageToSend)}`,
             
             // ✅ REMOVER mensagens de confirmação ANTES de iniciar geração
             setMessages(prev => {
-              // ✅ Remover TODAS as mensagens de confirmação recentes (últimas 5 mensagens)
-              const confirmationKeywords = ['vou criar', 'gerando', 'confirmado', 'perfeito', 'em instantes', 'aguarde', 'iniciando', 'criando', 'processando'];
+              // ✅ Remover APENAS mensagens que REALMENTE são de confirmação (mais específico)
+              // Padrões mais específicos para evitar remover mensagens normais
+              const confirmationPatterns = [
+                /vou criar/i,
+                /estou criando/i,
+                /gerando (seu|o) (site|código)/i,
+                /confirmado/i,
+                /iniciando (a )?gera(ção|r)/i,
+                /criando (seu|o) (site|código)/i,
+                /processando (seu|o) (site|código)/i,
+                /em instantes (você|o) (verá|ver)/i,
+                /aguarde (enquanto|que)/i,
+                /perfeito!?\s*(vou|estou|vamos)/i, // Só "perfeito" seguido de ação
+                /perfeito!?\s*🎉/i, // "perfeito" com emoji de celebração
+              ];
+              
               const filteredPrev = prev.filter((m) => {
                 const isRecent = prev.indexOf(m) >= prev.length - 5;
                 if (isRecent && m.sender === 'ai' && m.type === 'text') {
-                  const content = m.content?.toLowerCase() || '';
-                  const isConfirmation = confirmationKeywords.some(keyword => content.includes(keyword));
+                  const content = m.content || '';
+                  // ✅ Verificar se a mensagem corresponde a um padrão de confirmação específico
+                  const isConfirmation = confirmationPatterns.some(pattern => pattern.test(content));
                   if (isConfirmation) {
                     console.log('🗑️ [sendMessage] Removendo mensagem de confirmação antes de gerar:', m.content?.substring(0, 50));
                     return false;
@@ -2358,13 +2399,28 @@ ${getRedirectMessage(messageToSend)}`,
             
             // ✅ REMOVER mensagens de confirmação ANTES de iniciar geração (mesma lógica do código principal)
             setMessages(prev => {
-              // ✅ Remover TODAS as mensagens de confirmação recentes (últimas 5 mensagens)
-              const confirmationKeywords = ['vou criar', 'gerando', 'confirmado', 'perfeito', 'em instantes', 'aguarde', 'iniciando', 'criando', 'processando'];
+              // ✅ Remover APENAS mensagens que REALMENTE são de confirmação (mais específico)
+              // Padrões mais específicos para evitar remover mensagens normais
+              const confirmationPatterns = [
+                /vou criar/i,
+                /estou criando/i,
+                /gerando (seu|o) (site|código)/i,
+                /confirmado/i,
+                /iniciando (a )?gera(ção|r)/i,
+                /criando (seu|o) (site|código)/i,
+                /processando (seu|o) (site|código)/i,
+                /em instantes (você|o) (verá|ver)/i,
+                /aguarde (enquanto|que)/i,
+                /perfeito!?\s*(vou|estou|vamos)/i, // Só "perfeito" seguido de ação
+                /perfeito!?\s*🎉/i, // "perfeito" com emoji de celebração
+              ];
+              
               const filteredPrev = prev.filter((m) => {
                 const isRecent = prev.indexOf(m) >= prev.length - 5;
                 if (isRecent && m.sender === 'ai' && m.type === 'text') {
-                  const content = m.content?.toLowerCase() || '';
-                  const isConfirmation = confirmationKeywords.some(keyword => content.includes(keyword));
+                  const content = m.content || '';
+                  // ✅ Verificar se a mensagem corresponde a um padrão de confirmação específico
+                  const isConfirmation = confirmationPatterns.some(pattern => pattern.test(content));
                   if (isConfirmation) {
                     console.log('🗑️ [sendMessage-FALLBACK] Removendo mensagem de confirmação antes de gerar:', m.content?.substring(0, 50));
                     return false;
