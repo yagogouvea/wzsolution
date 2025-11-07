@@ -39,3 +39,4 @@ COMMENT ON COLUMN conversations.project_name IS 'Nome personalizado do projeto, 
 
 
 
+

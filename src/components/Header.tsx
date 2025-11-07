@@ -5,8 +5,11 @@ import { motion } from 'framer-motion';
 import { Menu, X, LogIn, User } from 'lucide-react';
 import Link from 'next/link';
 import { getCurrentUser, signOut, supabaseAuth } from '@/lib/auth';
+import { usePathname } from 'next/navigation';
 
 export default function Header() {
+  const pathname = usePathname();
+  const isClientArea = pathname ? pathname.startsWith('/cliente') : false;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('');
   const [mounted, setMounted] = useState(false);
@@ -14,6 +17,11 @@ export default function Header() {
   const [isLoadingUser, setIsLoadingUser] = useState(false); // ✅ Começar como false para mostrar botão imediatamente
 
   useEffect(() => {
+    if (isClientArea) {
+      setMounted(true);
+      return;
+    }
+
     setMounted(true);
     setActiveSection('home');
     
@@ -76,7 +84,7 @@ export default function Header() {
         subscription.unsubscribe();
       }
     };
-  }, []);
+  }, [isClientArea]);
 
   const scrollToSection = (sectionId: string) => {
     // Redirecionar "Contato" para área de orçamento
@@ -116,12 +124,18 @@ export default function Header() {
     setIsMenuOpen(false);
   };
 
-  const menuItems = [
-    { id: 'home', label: 'Início' },
-    { id: 'about', label: 'Serviços' },
-    { id: 'ia-site', label: 'IA Site', isLink: true, href: '/ia-criador-site-v3' },
-    { id: 'budget', label: 'Orçamento' },
-  ];
+  const menuItems = isClientArea
+    ? []
+    : [
+        { id: 'home', label: 'Início' },
+        { id: 'about', label: 'Serviços' },
+        { id: 'ia-site', label: 'IA Site', isLink: true, href: '/ia-criador-site-v3' },
+        { id: 'budget', label: 'Orçamento' },
+      ];
+
+  if (isClientArea) {
+    return null;
+  }
 
   if (!mounted) {
     return (
