@@ -1564,113 +1564,80 @@ export default function StaticAIGeneratedHome() {
   const handleLoginSuccess = async () => {
     console.log('✅ [REACT] Login bem-sucedido, processando criação pendente...');
     
-    // ✅ Fechar modal primeiro
+    // Capturar snapshot dos dados pendentes antes de qualquer alteração de estado
+    const promptData = pendingPromptData && pendingPromptData.idea && pendingPromptData.idea.trim().length > 0
+      ? { ...pendingPromptData }
+      : null;
+
+    // Fechar modal imediatamente
     setIsLoginModalOpen(false);
-    
-    // ✅ Mostrar animação AGORA que o usuário está logado e vamos enviar o prompt
-    setIsAnimating(true);
-    if ((window as any).showLoadingAnimation) {
-      (window as any).showLoadingAnimation();
+
+    // Apenas mostrar animação se realmente houver prompt pendente para processar
+    if (promptData) {
+      setIsAnimating(true);
+      if ((window as any).showLoadingAnimation) {
+        (window as any).showLoadingAnimation();
+      }
+    } else {
+      setIsAnimating(false);
     }
-    
-    // Atualizar botão do header após login bem-sucedido
-    console.log('✅ [REACT] Atualizando header...');
-    
-    // Disparar evento customizado para atualizar header
+
+    // Atualizar header após login
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('auth-state-changed'));
     }
     
-    // Também chamar diretamente a atualização após um delay
     setTimeout(async () => {
       try {
-        // Chamar função de atualização do header
         const loginButton = document.getElementById('header-login-button');
         if (loginButton) {
-          // Importar função de atualização dinamicamente
           const { getCurrentUser } = await import('@/lib/auth');
           const user = await getCurrentUser();
-          
           if (user) {
-            // Usuário logado - atualizar botão
             const container = loginButton.parentElement;
             if (container) {
-              // Remover botão de login
               loginButton.remove();
-              
-              // Remover botões existentes se houver
               const existingLogout = document.getElementById('header-logout-button');
               const existingLogoutInjected = document.getElementById('header-logout-button-injected');
               if (existingLogout) existingLogout.remove();
               if (existingLogoutInjected) existingLogoutInjected.remove();
-              
-              // Verificar se já não existe botão de painel
+
               const existingPanelLink = container.querySelector('a[href="/cliente"]');
-              if (existingPanelLink) {
-                // Se já existe, apenas garantir que o logout está configurado
-                const logoutBtn = container.querySelector('#header-logout-button') as HTMLButtonElement;
-                if (!logoutBtn) {
-                  // Criar botão de logout se não existir
-                  const sairBtn = document.createElement('button');
-                  sairBtn.id = 'header-logout-button';
-                  sairBtn.textContent = 'Sair';
-                  sairBtn.onclick = async (e: Event) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    try {
-                      if (typeof window !== 'undefined') {
-                        try {
-                          localStorage.clear();
-                          sessionStorage.clear();
-                        } catch (storageErr) {
-                          console.warn('Erro ao limpar storage:', storageErr);
-                        }
-                      }
-                      const { signOut } = await import('@/lib/auth');
-                      await signOut();
-                    } catch (err) {
-                      console.error('Erro ao fazer logout:', err);
-                    }
-                    window.location.href = '/';
-                  };
-                  sairBtn.style.cssText = 'padding: 0.5rem 1rem; background: transparent; color: rgba(196, 181, 253, 0.8); border: none; border-radius: 0.5rem; font-size: 0.875rem; cursor: pointer; transition: all 0.3s;';
-                  container.appendChild(sairBtn);
-                }
-                return; // Já está configurado
+              if (!existingPanelLink) {
+                const areaClienteBtn = document.createElement('a');
+                areaClienteBtn.href = '/cliente';
+                areaClienteBtn.style.cssText = 'display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: rgba(147, 51, 234, 0.2); color: rgba(196, 181, 253, 1); border-radius: 0.5rem; text-decoration: none; font-weight: 600; font-size: 0.875rem; transition: all 0.3s; white-space: nowrap; border: 1px solid rgba(147, 51, 234, 0.3);';
+                areaClienteBtn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg><span>Painel do Cliente</span>';
+                container.appendChild(areaClienteBtn);
               }
-              
-              // Criar botão de Painel do Cliente
-              const areaClienteBtn = document.createElement('a');
-              areaClienteBtn.href = '/cliente';
-              areaClienteBtn.style.cssText = 'display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: rgba(147, 51, 234, 0.2); color: rgba(196, 181, 253, 1); border-radius: 0.5rem; text-decoration: none; font-weight: 600; font-size: 0.875rem; transition: all 0.3s; white-space: nowrap; border: 1px solid rgba(147, 51, 234, 0.3);';
-              areaClienteBtn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg><span>Painel do Cliente</span>';
-              container.appendChild(areaClienteBtn);
-              
-              // Criar botão de logout
-              const sairBtn = document.createElement('button');
-              sairBtn.id = 'header-logout-button';
-              sairBtn.textContent = 'Sair';
-              sairBtn.onclick = async (e: Event) => {
-                e.preventDefault();
-                e.stopPropagation();
-                try {
-                  if (typeof window !== 'undefined') {
-                    try {
-                      localStorage.clear();
-                      sessionStorage.clear();
-                    } catch (storageErr) {
-                      console.warn('Erro ao limpar storage:', storageErr);
+
+              const existingLogoutBtn = container.querySelector('#header-logout-button') as HTMLButtonElement;
+              if (!existingLogoutBtn) {
+                const sairBtn = document.createElement('button');
+                sairBtn.id = 'header-logout-button';
+                sairBtn.textContent = 'Sair';
+                sairBtn.onclick = async (e: Event) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  try {
+                    if (typeof window !== 'undefined') {
+                      try {
+                        localStorage.clear();
+                        sessionStorage.clear();
+                      } catch (storageErr) {
+                        console.warn('Erro ao limpar storage:', storageErr);
+                      }
                     }
+                    const { signOut } = await import('@/lib/auth');
+                    await signOut();
+                  } catch (err) {
+                    console.error('Erro ao fazer logout:', err);
                   }
-                  const { signOut } = await import('@/lib/auth');
-                  await signOut();
-                } catch (err) {
-                  console.error('Erro ao fazer logout:', err);
-                }
-                window.location.href = '/';
-              };
-              sairBtn.style.cssText = 'padding: 0.5rem 1rem; background: transparent; color: rgba(196, 181, 253, 0.8); border: none; border-radius: 0.5rem; font-size: 0.875rem; cursor: pointer; transition: all 0.3s;';
-              container.appendChild(sairBtn);
+                  window.location.href = '/';
+                };
+                sairBtn.style.cssText = 'padding: 0.5rem 1rem; background: transparent; color: rgba(196, 181, 253, 0.8); border: none; border-radius: 0.5rem; font-size: 0.875rem; cursor: pointer; transition: all 0.3s;';
+                container.appendChild(sairBtn);
+              }
             }
           }
         }
@@ -1678,44 +1645,64 @@ export default function StaticAIGeneratedHome() {
         console.error('❌ [REACT] Erro ao atualizar header após login:', error);
       }
     }, 500);
-    if (pendingPromptData && typeof window !== 'undefined') {
-      try {
-        const { getCurrentUser } = await import('@/lib/auth');
-        const user = await getCurrentUser();
-        
-        if (user && pendingPromptData.idea) {
-          // Criar conversa via API
-          const response = await fetch('/api/start-conversation', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              initialPrompt: pendingPromptData.idea,
-              projectType: 'site',
-              clientName: 'Cliente',
-              userId: user.id
-            })
-          });
-          
-          const data = await response.json();
-          
-          if (data.success && data.conversationId) {
-            const chatUrl = `/chat/${data.conversationId}?prompt=${encodeURIComponent(pendingPromptData.idea)}&companyName=${encodeURIComponent(pendingPromptData.companyName || 'Meu Negócio')}&businessSector=${encodeURIComponent(pendingPromptData.businessSector || 'Negócios')}`;
-            
-            // ✅ Garantir que animação está visível (já deve estar desde o clique inicial)
-            setIsAnimating(true);
-            if ((window as any).showLoadingAnimation) {
-              (window as any).showLoadingAnimation();
-            }
-            
-            // ✅ Redirecionar IMEDIATAMENTE (animação já está visível desde o início)
-            setTimeout(() => {
-              window.location.href = chatUrl;
-            }, 300); // ✅ Delay mínimo apenas para garantir renderização
-          }
+
+    // Se não há prompt pendente, apenas limpar estado e encerrar
+    if (!promptData) {
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.removeItem('pending_site_creation');
+        } catch (storageErr) {
+          console.warn('⚠️ Erro ao limpar pending_site_creation:', storageErr);
         }
-      } catch (error) {
-        console.error('Erro ao processar criação pendente:', error);
       }
+      setPendingPromptData(null);
+      console.log('ℹ️ [REACT] Nenhum prompt pendente – login concluído sem iniciar geração automática.');
+      return;
+    }
+
+    try {
+      const { getCurrentUser } = await import('@/lib/auth');
+      const user = await getCurrentUser();
+
+      if (user) {
+        const response = await fetch('/api/start-conversation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            initialPrompt: promptData.idea,
+            projectType: 'site',
+            clientName: 'Cliente',
+            userId: user.id
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.conversationId) {
+          const chatUrl = `/chat/${data.conversationId}?prompt=${encodeURIComponent(promptData.idea)}&companyName=${encodeURIComponent(promptData.companyName || 'Meu Negócio')}&businessSector=${encodeURIComponent(promptData.businessSector || 'Negócios')}`;
+          if (typeof window !== 'undefined') {
+            try {
+              sessionStorage.removeItem('pending_site_creation');
+            } catch (storageErr) {
+              console.warn('⚠️ Erro ao limpar pending_site_creation:', storageErr);
+            }
+          }
+          setPendingPromptData(null);
+
+          setTimeout(() => {
+            window.location.href = chatUrl;
+          }, 300);
+        } else {
+          console.warn('⚠️ [REACT] Não foi possível iniciar conversa após login.');
+          setIsAnimating(false);
+        }
+      } else {
+        console.warn('⚠️ [REACT] Usuário não encontrado após login.');
+        setIsAnimating(false);
+      }
+    } catch (error) {
+      console.error('Erro ao processar criação pendente:', error);
+      setIsAnimating(false);
     }
   };
 

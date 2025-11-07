@@ -37,3 +37,5 @@ WHERE project_name IS NULL;
 COMMENT ON COLUMN conversations.project_name IS 'Nome personalizado do projeto, permitindo ao usuário renomear seus projetos';
 
 
+
+
