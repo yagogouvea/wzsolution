@@ -1,4 +1,10 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import {
+  fetchSupabaseConfig,
+  getSupabaseAnonKey,
+  getSupabaseUrl,
+  isFetchingSupabaseConfig,
+} from './supabase-config';
 
 // ✅ Não inicializar no nível do módulo - apenas quando necessário
 let _supabaseInstance: SupabaseClient | null = null;
@@ -8,21 +14,34 @@ function getSupabaseClient(): SupabaseClient {
     return _supabaseInstance;
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = getSupabaseUrl() || process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL;
+  let supabaseKey = getSupabaseAnonKey();
 
-  if (!supabaseUrl) {
-    throw new Error('supabaseUrl is required.');
+  // No servidor podemos recorrer à service role key caso anon não esteja disponível
+  if (!supabaseKey && typeof window === 'undefined') {
+    supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   }
 
-  if (!supabaseAnonKey) {
-    throw new Error('supabaseAnonKey is required.');
+  if (!supabaseUrl) {
+    const context = typeof window === 'undefined' ? 'server' : 'client';
+    if (context === 'client' && !isFetchingSupabaseConfig()) {
+      fetchSupabaseConfig().catch(() => {});
+    }
+    throw new Error('[Supabase] URL não configurada.');
+  }
+
+  if (!supabaseKey) {
+    const context = typeof window === 'undefined' ? 'server' : 'client';
+    if (context === 'client' && !isFetchingSupabaseConfig()) {
+      fetchSupabaseConfig().catch(() => {});
+    }
+    throw new Error('[Supabase] Chave de acesso não configurada.');
   }
 
   // Usar storage key diferente para evitar conflitos com auth
   const storageKey = 'wz-solution-db';
   
-  _supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+  _supabaseInstance = createClient(supabaseUrl, supabaseKey, {
     auth: {
       storageKey: storageKey, // ✅ Chave diferente da auth para evitar conflitos
       autoRefreshToken: false, // ✅ Não precisa de refresh automático para DB

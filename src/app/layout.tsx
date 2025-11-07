@@ -105,6 +105,17 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    || process.env.SUPABASE_URL
+    || process.env.PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    || process.env.SUPABASE_ANON_KEY
+    || '';
+
+  const supabaseConfigScript = supabaseUrl && supabaseAnonKey
+    ? `window.__NEXT_PUBLIC_SUPABASE_URL=${JSON.stringify(supabaseUrl)};window.__NEXT_PUBLIC_SUPABASE_ANON_KEY=${JSON.stringify(supabaseAnonKey)};`
+    : '';
+
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
@@ -112,6 +123,12 @@ export default function RootLayout({
         <GoogleAnalytics measurementId="G-T34W2161VL" />
         {/* Schema Markup para SEO */}
         <SchemaMarkup />
+        {supabaseConfigScript && (
+          <script
+            id="supabase-runtime-config"
+            dangerouslySetInnerHTML={{ __html: supabaseConfigScript }}
+          />
+        )}
       </head>
       <body className={`${inter.className} antialiased`} suppressHydrationWarning>
         <NoSSR>

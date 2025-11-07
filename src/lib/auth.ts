@@ -4,80 +4,20 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-
-// ✅ Cache para configurações obtidas via API (fallback)
-let cachedConfig: { url?: string; key?: string } | null = null;
-let configFetchPromise: Promise<{ url?: string; key?: string }> | null = null;
-
-// ✅ Ler variáveis em runtime para garantir que sejam atualizadas
-// Isso permite que as variáveis sejam lidas mesmo se não estiverem disponíveis no build
-function getSupabaseUrl(): string | undefined {
-  if (typeof window !== 'undefined') {
-    // No cliente, tentar ler do window se disponível (fallback)
-    const fromWindow = (window as any).__NEXT_PUBLIC_SUPABASE_URL;
-    const fromEnv = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const fromCache = cachedConfig?.url;
-    
-    return fromWindow || fromEnv || fromCache;
-  }
-  return process.env.NEXT_PUBLIC_SUPABASE_URL;
-}
-
-function getSupabaseAnonKey(): string | undefined {
-  if (typeof window !== 'undefined') {
-    // No cliente, tentar ler do window se disponível (fallback)
-    const fromWindow = (window as any).__NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const fromEnv = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const fromCache = cachedConfig?.key;
-    
-    return fromWindow || fromEnv || fromCache;
-  }
-  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-}
-
-// ✅ Função para buscar configuração via API se não estiver disponível
-async function fetchSupabaseConfig(): Promise<{ url?: string; key?: string }> {
-  if (configFetchPromise) {
-    return configFetchPromise;
-  }
-
-  configFetchPromise = (async () => {
-    try {
-      const response = await fetch('/api/supabase-config');
-      const data = await response.json();
-      
-      if (data.success && data.config) {
-        cachedConfig = {
-          url: data.config.url,
-          key: data.config.anonKey
-        };
-        
-        // Armazenar no window para acesso futuro
-        if (typeof window !== 'undefined') {
-          (window as any).__NEXT_PUBLIC_SUPABASE_URL = data.config.url;
-          (window as any).__NEXT_PUBLIC_SUPABASE_ANON_KEY = data.config.anonKey;
-        }
-        
-        return cachedConfig;
-      }
-      
-      return {};
-    } catch (error) {
-      console.error('❌ [Auth] Erro ao buscar configuração Supabase via API:', error);
-      return {};
-    } finally {
-      configFetchPromise = null;
-    }
-  })();
-
-  return configFetchPromise;
-}
+import {
+  fetchSupabaseConfig,
+  getCachedSupabaseConfig,
+  getSupabaseAnonKey,
+  getSupabaseUrl,
+  isFetchingSupabaseConfig,
+} from './supabase-config';
 
 // ✅ Verificar se as variáveis estão configuradas (em runtime)
 function checkSupabaseConfigured(): boolean {
   const url = getSupabaseUrl();
   const key = getSupabaseAnonKey();
   const isConfigured = !!(url && key);
+  const cached = getCachedSupabaseConfig();
   
   // Log detalhado para diagnóstico (apenas quando não está configurado)
   if (!isConfigured) {
@@ -95,7 +35,7 @@ function checkSupabaseConfigured(): boolean {
     console.log('Key Length:', key?.length || 0);
     console.log('Env Keys Found:', envKeys);
     console.log('Is Client:', typeof window !== 'undefined');
-    console.log('Cached Config:', cachedConfig ? '✅ Disponível' : '❌ Não disponível');
+    console.log('Cached Config:', cached ? '✅ Disponível' : '❌ Não disponível');
     
     // Tentar ler diretamente do process.env
     if (typeof process !== 'undefined' && process.env) {
@@ -113,9 +53,9 @@ function checkSupabaseConfigured(): boolean {
     console.groupEnd();
     
     // ✅ Tentar buscar via API se estiver no cliente e não tiver cache
-    if (typeof window !== 'undefined' && !cachedConfig && !configFetchPromise) {
+    if (typeof window !== 'undefined' && !cached && !isFetchingSupabaseConfig()) {
       fetchSupabaseConfig().then(config => {
-        if (config.url && config.key) {
+        if (config.url && config.anonKey) {
           console.log('✅ [Auth] Configuração Supabase obtida via API fallback');
         } else {
           console.error('❌ [Auth] Não foi possível obter configuração Supabase via API');
