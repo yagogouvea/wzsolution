@@ -22,11 +22,12 @@ import {
   Code,
   Shield,
   FileText,
-  BarChart3
+  BarChart3,
+  Phone
 } from 'lucide-react';
 import { getCurrentUser, signOut, supabaseAuth } from '@/lib/auth';
 import { DatabaseService } from '@/lib/supabase';
-import { generateProjectId } from '@/lib/project-limits';
+import { generateProjectId, getWhatsAppUrl } from '@/lib/project-limits';
 import Link from 'next/link';
 
 interface SiteProject {
@@ -435,22 +436,24 @@ export default function ClientePage() {
                         )}
                       </div>
 
-                      <div className="flex gap-2 mb-3">
+                      <div className="flex flex-col gap-2 mb-3">
                         <Link
                           href={`/preview/${project.conversationId}`}
                           target="_blank"
-                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-lg transition-colors"
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-lg transition-colors"
                         >
                           <Eye className="w-4 h-4" />
-                          Ver Site
+                          Visualizar Preview
                         </Link>
-                        <Link
-                          href={`/chat/${project.conversationId}`}
-                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 rounded-lg transition-colors"
+                        <a
+                          href={getWhatsAppUrl(project.projectId)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600/20 hover:bg-green-600/30 text-green-300 rounded-lg transition-colors"
                         >
-                          <MessageSquare className="w-4 h-4" />
-                          Editar
-                        </Link>
+                          <Phone className="w-4 h-4" />
+                          Entrar em Contato
+                        </a>
                       </div>
 
                       <div className="pt-3 border-t border-slate-700">
