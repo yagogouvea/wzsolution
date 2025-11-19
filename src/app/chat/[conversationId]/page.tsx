@@ -651,6 +651,9 @@ function ChatPageContent() {
               generationLockRef.current = false;
               generationStateRef.current = null;
 
+              // ✅ Verificar se é o primeiro preview
+              const hasExistingPreview = messages.some(m => m.type === 'site_preview');
+              
               // Adicionar mensagem de sucesso
               const successMessage: Message = {
                 id: crypto.randomUUID(),
@@ -665,9 +668,7 @@ Criei um site profissional e responsivo baseado nas suas especificações.
   ? `${initialData.additionalPrompt.substring(0, 500)}...` 
   : initialData.additionalPrompt}
 
-**👆 Veja o preview abaixo!** 
-
-Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis. Quer fazer alguma modificação? É só me dizer! 🚀`,
+**👆 Veja o preview abaixo!**`,
                 timestamp: new Date(),
                 type: 'site_preview',
                 siteCodeId: conversationId,
@@ -680,7 +681,36 @@ Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis.
                   m.type === 'site_preview' && m.siteCodeId === conversationId
                 );
                 if (alreadyExists) return prev;
-                return [...prev, successMessage];
+                
+                let newMessages = [...prev, successMessage];
+                
+                // ✅ NOVA LÓGICA: Se é o primeiro preview, bloquear chat e mostrar mensagem de contato
+                if (!hasExistingPreview) {
+                  console.log('🔒 [PageVisibility] Primeiro preview recuperado - bloqueando chat e mostrando mensagem de contato');
+                  
+                  // ✅ Bloquear chat imediatamente após primeiro preview
+                  setIsBlocked(true);
+                  setHasEndedManually(true);
+                  
+                  // ✅ Obter projectId para mensagem de contato
+                  const projectIdForMessage = generateProjectId(conversationId);
+                  setProjectId(projectIdForMessage);
+                  
+                  // ✅ Adicionar mensagem de contato com equipe WZ via WhatsApp
+                  const contactMessage: Message = {
+                    id: crypto.randomUUID(),
+                    sender: 'ai',
+                    content: getBlockedMessage(projectIdForMessage, 0, true),
+                    timestamp: new Date(),
+                    type: 'text'
+                  };
+                  
+                  newMessages = [...newMessages, contactMessage];
+                  
+                  console.log('✅ [PageVisibility] Chat bloqueado e mensagem de contato adicionada');
+                }
+                
+                return newMessages;
               });
 
               console.log('✅ [PageVisibility] Geração recuperada com sucesso!');
@@ -1375,6 +1405,9 @@ Você pode iniciar uma nova geração ou modificação quando quiser.`,
             console.log(`⚠️ [generateSitePreview] Removidas ${prev.length - filteredPrev.length} mensagem(ns) de confirmação duplicada(s)`);
           }
           
+          // ✅ Verificar se é o primeiro preview (não há outros previews nas mensagens anteriores)
+          const hasExistingPreview = filteredPrev.some(m => m.type === 'site_preview');
+          
           const previewMessage: Message = {
             id: crypto.randomUUID(),
             sender: 'ai',
@@ -1386,9 +1419,7 @@ Criei um site profissional e responsivo baseado nas suas especificações.
 ✅ **Setor:** ${initialData.businessSector}
 📝 **Seu prompt:** ${promptDisplay}
 
-**👆 Veja o preview abaixo!** 
-
-Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis. Quer fazer alguma modificação? É só me dizer! 🚀`,
+**👆 Veja o preview abaixo!**`,
             timestamp: new Date(),
             type: 'site_preview',
             siteCodeId: data.versionId || previewId,
@@ -1396,7 +1427,7 @@ Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis.
           };
           
           // ✅ ADICIONAR preview ao estado PRIMEIRO
-          const newMessages = [...filteredPrev, previewMessage];
+          let newMessages = [...filteredPrev, previewMessage];
           
           // ✅ IMPORTANTE: Capturar timestamp do preview ANTES de adicionar ao estado
           const previewTimestamp = previewMessage.timestamp.getTime();
@@ -1413,6 +1444,32 @@ Você tem ${PROJECT_LIMITS.MODIFICATIONS} modificações gratuitas disponíveis.
           
           // ✅ Definir currentSiteCode após preview ser adicionado ao estado (mas timer continua)
           setCurrentSiteCode(previewId);
+          
+          // ✅ NOVA LÓGICA: Se é o primeiro preview, bloquear chat e mostrar mensagem de contato
+          if (!hasExistingPreview) {
+            console.log('🔒 [generateSitePreview] Primeiro preview gerado - bloqueando chat e mostrando mensagem de contato');
+            
+            // ✅ Bloquear chat imediatamente após primeiro preview
+            setIsBlocked(true);
+            setHasEndedManually(true);
+            
+            // ✅ Obter projectId para mensagem de contato
+            const projectIdForMessage = generateProjectId(conversationId);
+            setProjectId(projectIdForMessage);
+            
+            // ✅ Adicionar mensagem de contato com equipe WZ via WhatsApp
+            const contactMessage: Message = {
+              id: crypto.randomUUID(),
+              sender: 'ai',
+              content: getBlockedMessage(projectIdForMessage, 0, true),
+              timestamp: new Date(),
+              type: 'text'
+            };
+            
+            newMessages = [...newMessages, contactMessage];
+            
+            console.log('✅ [generateSitePreview] Chat bloqueado e mensagem de contato adicionada');
+          }
           
           console.log('✅ [generateSitePreview] Preview adicionado ao estado - useEffect irá verificar visibilidade');
           
@@ -1480,6 +1537,20 @@ O serviço de IA está processando muitas solicitações no momento. Por favor, 
       previewUrl: `/preview/${conversationId}`,
       chatUrl: `/chat/${conversationId}`
     });
+    
+    // ✅ BLOQUEIO TOTAL: Não permitir modificações quando chat está desativado
+    if (isBlocked || hasEndedManually) {
+      console.log('🚫 [modifySite] Chat desativado - bloqueando modificação. isBlocked:', isBlocked, 'hasEndedManually:', hasEndedManually);
+      const blockedMsg: Message = {
+        id: crypto.randomUUID(),
+        sender: 'ai',
+        content: getBlockedMessage(projectId || generateProjectId(conversationId), modificationsUsed, hasEndedManually),
+        timestamp: new Date(),
+        type: 'text'
+      };
+      setMessages(prev => [...prev, blockedMsg]);
+      return;
+    }
     
     if (!currentSiteCode) {
       const errorMessage: Message = {

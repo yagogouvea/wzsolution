@@ -321,7 +321,7 @@ export async function POST(req: Request) {
 
     console.log("🤖 [generate-ai-site] Chamando Claude AI...");
     console.log("📝 Prompt completo:", prompt.substring(0, 500) + '...');
-    const code = await generateSiteWithClaude(prompt);
+    let code = await generateSiteWithClaude(prompt);
     console.log("✅ [generate-ai-site] Site gerado com sucesso via Claude!");
     console.log("📏 [generate-ai-site] Tamanho do código:", code.length);
     console.log("📏 [generate-ai-site] Primeiros 200 chars:", code.substring(0, 200));
